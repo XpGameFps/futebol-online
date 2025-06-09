@@ -9,6 +9,8 @@ $error_message = '';
 // Determinar ação: adicionar ou editar
 $action = $_GET['action'] ?? (isset($_GET['id']) ? 'edit' : 'add');
 $admin_id_to_edit = null;
+if (isset($_GET['id'])) $admin_id_to_edit = (int)$_GET['id'];
+elseif (isset($_POST['admin_id'])) $admin_id_to_edit = (int)$_POST['admin_id']; // Para persistir em caso de erro no POST de update
 
 // Variáveis para os campos do formulário
 $username_val = '';
@@ -16,15 +18,15 @@ $email_val = ''; // Assumindo que a coluna email será adicionada
 $is_superadmin_val = 0; // Default para novos admins
 
 if ($action === 'edit') {
-    if (!isset($_GET['id']) || !filter_var($_GET['id'], FILTER_VALIDATE_INT)) {
-        $_SESSION['admin_flash_message'] = ['type' => 'error', 'text' => 'ID de administrador inválido.'];
+    if (empty($admin_id_to_edit) || $admin_id_to_edit <= 0) { // Verificação mais robusta
+        $_SESSION['admin_flash_message'] = ['type' => 'error', 'text' => 'ID de administrador inválido para edição.'];
         header("Location: manage_admins.php");
         exit;
     }
-    $admin_id_to_edit = (int)$_GET['id'];
     $page_title = "Editar Administrador";
 
-    try {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($error_message)) { // Só busca se não for um POST com erro já definido ou um POST bem-sucedido.
+        try {
         $stmt_fetch = $pdo->prepare("SELECT username, email, is_superadmin FROM admins WHERE id = :id");
         $stmt_fetch->bindParam(':id', $admin_id_to_edit, PDO::PARAM_INT);
         $stmt_fetch->execute();
@@ -209,12 +211,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_admin'])) {
                             $stmt_update = $pdo->prepare($sql_update);
 
                             if ($stmt_update->execute($params_update)) {
-                                $_SESSION['admin_flash_message'] = ['type' => 'success', 'text' => 'Administrador atualizado com sucesso!'];
+                                $message = 'Administrador atualizado com sucesso!'; // Define $message diretamente
+                                // Se o admin atualizou o próprio nome de usuário, atualiza a sessão
                                 if (($_SESSION['admin_id'] ?? null) == $admin_id_being_edited && isset($_SESSION['admin_username']) && $_SESSION['admin_username'] != $username_val) {
                                     $_SESSION['admin_username'] = $username_val;
                                 }
-                                header("Location: manage_admins.php");
-                                exit;
+                                // // header("Location: manage_admins.php"); // Comentado
+                                // // exit; // Comentado
                             } else {
                                 $pdo_error_info = $stmt_update->errorInfo();
                                 $error_message = "Erro ao atualizar administrador no banco de dados. Detalhe: " . ($pdo_error_info[2] ?? 'Sem detalhes');
