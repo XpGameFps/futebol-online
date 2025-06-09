@@ -68,6 +68,39 @@ if ($channel_id > 0) {
         <meta name="keywords" content="<?php echo $meta_keywords_content; ?>">
     <?php endif; ?>
     <link rel="stylesheet" href="css/style.css">
+    <style>
+    .report-issue-button {
+        background-color: red;
+        color: white;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-top: 10px;
+        display: block; /* Para ocupar a largura e facilitar o posicionamento */
+        width: fit-content; /* Para ajustar ao conteúdo */
+        margin-left: auto; /* Para alinhar à direita se o container permitir */
+        margin-right: auto; /* Para centralizar se o container permitir */
+    }
+    .report-issue-button:hover {
+        background-color: darkred;
+    }
+    .report-issue-button:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+    }
+    .report-feedback {
+        margin-top: 5px;
+        font-size: 0.9em;
+    }
+    .report-feedback.success {
+        color: green;
+    }
+    .report-feedback.error {
+        color: red;
+    }
+    </style>
 </head>
 <body>
     <?php require_once 'templates/header.php'; // $header_leagues is available here ?>
@@ -94,6 +127,15 @@ if ($channel_id > 0) {
                     </div>
                     <?php // Potential future spot for chat or related channel info ?>
                 </div>
+
+                <?php if ($channel && isset($channel['id'])): ?>
+                <div class="report-button-container" style="text-align: center; margin-bottom: 15px;"> <!-- Container para centralizar -->
+                    <button id="reportProblemBtn" class="report-issue-button" data-channel-id="<?php echo htmlspecialchars($channel['id']); ?>">
+                        Reportar Problema no Player
+                    </button>
+                    <div id="reportFeedback" class="report-feedback"></div>
+                </div>
+                <?php endif; ?>
             <?php else: ?>
                 <!-- This case should be caught by $error_message, but as a fallback -->
                 <p class="error-message">Não foi possível carregar os detalhes do canal.</p>
@@ -106,5 +148,69 @@ if ($channel_id > 0) {
     </main>
 
     <?php require_once 'templates/footer.php'; ?>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const reportButton = document.getElementById('reportProblemBtn');
+        const reportFeedback = document.getElementById('reportFeedback');
+
+        if (reportButton) {
+            reportButton.addEventListener('click', function() {
+                const channelId = this.dataset.channelId;
+                if (!channelId) {
+                    if (reportFeedback) {
+                        reportFeedback.textContent = 'Erro: ID do canal não encontrado.';
+                        reportFeedback.className = 'report-feedback error';
+                    }
+                    return;
+                }
+
+                this.disabled = true;
+                if (reportFeedback) {
+                    reportFeedback.textContent = 'Enviando reporte...';
+                    reportFeedback.className = 'report-feedback';
+                }
+
+                const formData = new FormData();
+                formData.append('channel_id', channelId);
+
+                fetch('admin/report_player_issue.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (reportFeedback) {
+                        reportFeedback.textContent = data.message || 'Reporte processado.';
+                        if (data.success) {
+                            reportFeedback.className = 'report-feedback success';
+                        } else {
+                            reportFeedback.className = 'report-feedback error';
+                        }
+                    }
+                    // Re-abilitar o botão após um tempo, mesmo se falhar, para permitir nova tentativa
+                    // Ou manter desabilitado se o sucesso for o critério.
+                    // Por agora, reabilitar após 5 segundos
+                    setTimeout(() => {
+                        reportButton.disabled = false;
+                        if (reportFeedback && data.success) { // Limpa a mensagem de sucesso após um tempo
+                             reportFeedback.textContent = '';
+                        }
+                    }, 5000);
+                })
+                .catch(error => {
+                    console.error('Erro ao reportar problema:', error);
+                    if (reportFeedback) {
+                        reportFeedback.textContent = 'Erro ao enviar o reporte. Tente novamente mais tarde.';
+                        reportFeedback.className = 'report-feedback error';
+                    }
+                    setTimeout(() => {
+                        reportButton.disabled = false;
+                    }, 5000);
+                });
+            });
+        }
+    });
+    </script>
 </body>
 </html>

@@ -48,7 +48,7 @@ if (isset($_GET['query'])) {
             $matches = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             if (empty($matches)) {
-                $search_message = "Nenhum jogo encontrado para "<strong>" . htmlspecialchars($search_query) . "</strong>".";
+                $search_message = "Nenhum jogo encontrado para <strong>" . htmlspecialchars($search_query) . "</strong>.";
             }
         } catch (PDOException $e) {
             $search_message = "Erro ao realizar a busca: " . $e->getMessage();
