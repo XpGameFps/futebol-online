@@ -1,0 +1,144 @@
+/* css/style.css */
+/* Basic Reset & Sticky Footer (Common) */
+* { box-sizing: border-box; }
+html { height: 100%; }
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #1a1a1a;
+    color: #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+}
+.main-content {
+    flex-grow: 1;
+}
+
+/* Header Styles (Common) */
+.site-header { background-color: #0d0d0d; padding: 10px 0; border-bottom: 3px solid #00ff00; color: #e0e0e0; }
+.header-container { max-width: 1200px; width: 90%; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+.logo-area .logo-text { font-size: 2.2em; font-weight: bold; color: #fff; text-decoration: none; }
+.logo-area .logo-accent { color: #00ff00; }
+.main-navigation { flex-grow: 1; }
+.main-navigation ul { list-style: none; margin: 0; padding: 0; display: flex; margin-left: 10px; }
+.main-navigation li { margin-left: 10px; }
+.main-navigation a { text-decoration: none; color: #e0e0e0; font-weight: bold; padding: 5px 10px; border-radius: 4px; transition: background-color 0.3s, color 0.3s; }
+.main-navigation a:hover, .main-navigation a.active { color: #0d0d0d; background-color: #00ff00; font-weight: bold; }
+.main-navigation .league-nav-link { /* For hiding direct league links on small screens */ }
+.header-right-controls { display: flex; align-items: center; }
+.search-area { margin-right: 15px; }
+.search-area .search-form { display: flex; align-items: center; }
+.search-area input[type="search"] { padding: 8px 12px; border: 1px solid #00ff00; background-color: #2c2c2c; color: #e0e0e0; border-radius: 4px 0 0 4px; font-size: 0.85em; min-width: 120px; }
+.search-area input[type="search"]::placeholder { color: #888; }
+.search-area button[type="submit"] { padding: 8px 10px; background-color: #00ff00; color: #0d0d0d; border: 1px solid #00ff00; border-left: none; cursor: pointer; font-weight: bold; border-radius: 0 4px 4px 0; font-size: 0.85em; transition: background-color 0.3s; }
+.search-area button[type="submit"]:hover { background-color: #00cc00; }
+.leagues-menu { position: relative; }
+.leagues-menu-button { background: none; border: none; color: #00ff00; font-size: 1.6em; cursor: pointer; padding: 5px; line-height: 1; }
+.leagues-menu-button:hover { opacity: 0.8; }
+.leagues-dropdown-content { display: none; position: absolute; top: 100%; right: 0; background-color: #1a1a1a; border: 1px solid #00ff00; border-radius: 0 0 4px 4px; min-width: 200px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.3); z-index: 100; list-style: none; padding: 0; margin: 0; }
+.leagues-dropdown-content.show { display: block; }
+.leagues-dropdown-content li a { color: #e0e0e0; padding: 10px 15px; text-decoration: none; display: block; font-size: 0.95em; white-space: nowrap; }
+.leagues-dropdown-content li a:hover { background-color: #00ff00; color: #0d0d0d; }
+.admin-panel-link { display: inline-block; margin-left: 15px; padding: 5px 8px; background-color: #00b300; color: #ffffff; text-decoration: none; font-weight: bold; border-radius: 4px; font-size: 0.8em; transition: background-color 0.3s; }
+.admin-panel-link:hover { background-color: #009900; }
+
+/* General Container & Page Title (Common) */
+.container {
+    max-width: 1200px;
+    width: 90%;
+    margin: 20px auto;
+    /* overflow: hidden; /* Removed globally, manage on specific elements if needed */
+    padding: 0 20px; /* Ensure consistent horizontal padding */
+}
+.page-title { /* Used in index.php, search.php */
+    color: #00ff00;
+    text-align: center;
+    font-size: 2.5em;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+.section-title { /* Used in index.php for TV Channels */
+    color: #00ff00;
+    text-align: center;
+    font-size: 2em;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+}
+
+/* TV Channels Slider/Grid Styles (from index.php) */
+.tv-channels-slider { background-color: #111; padding: 20px 0; margin-bottom: 30px; border-top: 2px solid #00ff00; border-bottom: 2px solid #00ff00; }
+.channels-grid { max-width: 1200px; width: 90%; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; }
+.channel-item { display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #2c2c2c; border: 1px solid #008000; border-radius: 8px; padding: 10px; text-decoration: none; color: #e0e0e0; transition: transform 0.2s ease, border-color 0.2s ease; height: 100px; overflow: hidden; }
+.channel-item:hover { transform: translateY(-3px); border-color: #00ff00; }
+.channel-logo { max-height: 50px; max-width: 100%; margin-bottom: 8px; object-fit: contain; }
+.channel-name { font-size: 0.9em; text-align: center; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+.channel-name-placeholder { font-size: 1.1em; font-weight: bold; text-align: center; margin-bottom: 8px; }
+
+/* Match Listing Grid Styles (Common for index.php, search.php) */
+.match-list { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.match-list-item { background-color: transparent; border: none; box-shadow: none; }
+.match-card-link { display: flex; flex-direction: column; background-color: #2c2c2c; border: 1px solid #008000; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 255, 0, 0.05); transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; text-decoration: none; color: inherit; overflow: hidden; height: 100%; }
+.match-card-link:hover { transform: translateY(-4px); box-shadow: 0 7px 14px rgba(0, 255, 0, 0.2); border-color: #00ff00; }
+.match-cover-image { width: 100%; height: 160px; object-fit: cover; }
+.match-cover-image-placeholder { width: 100%; height: 160px; background-color: #3a3a3a; display: flex; align-items: center; justify-content: center; color: #666; }
+.match-item-content { padding: 15px; display: flex; flex-direction: column; flex-grow: 1; justify-content: space-between; }
+.match-title { color: #00dd00; font-size: 1.2em; font-weight: bold; margin: 0 0 8px 0; }
+.match-card-link:hover .match-title { text-decoration: underline; color: #00ff00; }
+.match-time { font-size: 0.85em; color: #a0a0a0; margin-bottom: 8px; }
+.match-description { font-size: 0.9em; color: #c0c0c0; line-height: 1.4; flex-grow: 1; }
+
+/* Player Page Specific Styles (from match.php, channel_player.php) */
+.page-title-player { color: #00ff00; font-size: 2em; text-align: center; margin-bottom: 20px; }
+.player-wrapper { /* No specific styles yet, but available for structure */ }
+.player-container { width: 100%; max-width: 800px; margin: 20px auto; border: 2px solid #00ff00; border-radius: 5px; overflow: hidden; background-color: #000; }
+.player-container iframe { display: block; width: 100%; border: none; aspect-ratio: 16 / 9; }
+.stream-options { text-align: center; margin-top: 20px; padding: 10px; } /* From match.php */
+.stream-options h3 { color: #00ff00; margin-bottom: 10px; }
+.stream-options ul { list-style: none; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; }
+.stream-options li { margin: 5px; }
+.stream-button { background-color: #005c00; color: #ffffff; border: 1px solid #00ff00; padding: 10px 15px; text-decoration: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s ease, color 0.3s ease; font-weight: bold; }
+.stream-button:hover, .stream-button.active { background-color: #00ff00; color: #0d0d0d; }
+.back-link-container { text-align: center; margin-top: 20px; } /* Common for match.php, channel_player.php */
+.back-link { display: inline-block; padding: 10px 20px; background-color: #005c00; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold; border: 1px solid #00ff00; }
+.back-link:hover { background-color: #00ff00; color: #0d0d0d; }
+.error-message, .no-matches, .info-message, .search-info { text-align: center; font-size: 1.2em; color: #ffcc00; padding: 20px; background-color: #2c2c2c; border: 1px solid #ffcc00; border-radius: 5px; margin-top:20px; }
+.search-info { color: #e0e0e0; border-color: #00ff00; }
+
+/* Footer Styles (Common) */
+.site-footer-main { background-color: #0d0d0d; color: #a0a0a0; padding: 20px 0; text-align: center; border-top: 2px solid #00ff00; font-size: 0.9em; margin-top: 30px; }
+.footer-container { max-width: 1200px; width: 90%; margin: 0 auto; }
+.cookie-consent-banner { display: none; position: fixed; bottom: 0; left: 0; width: 100%; background-color: rgba(10,10,10,0.95); color: #e0e0e0; padding: 15px 20px; z-index: 1000; text-align: center; border-top: 1px solid #00ff00; box-shadow: 0 -2px 10px rgba(0,0,0,0.5); }
+.cookie-consent-banner p { margin: 0 0 10px 0; font-size: 0.9em; display: inline; }
+.cookie-consent-banner a { color: #00ff00; text-decoration: underline; }
+#acceptCookieConsent { background-color: #00ff00; color: #0d0d0d; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-left: 15px; transition: background-color 0.3s; }
+#acceptCookieConsent:hover { background-color: #00cc00; }
+
+/* Responsive Media Queries (Common) */
+@media (max-width: 992px) { /* Tablets */
+    .match-list { grid-template-columns: repeat(2, 1fr); gap: 15px; }
+    .match-title { font-size: 1.3em; }
+    .match-cover-image, .match-cover-image-placeholder { height: 140px; }
+}
+@media (max-width: 767px) { /* Header adjustments for smaller tablets/landscape phones */
+    .main-navigation .league-nav-link { display: none; }
+    .logo-area .logo-text { font-size: 1.8em; }
+    .search-area input[type="search"] { min-width: 120px; font-size: 0.85em; padding: 7px 10px; }
+    .search-area button[type="submit"] { font-size: 0.85em; padding: 7px 10px; }
+    .leagues-menu-button { font-size: 1.6em; }
+    .admin-panel-link { font-size: 0.8em; padding: 5px 8px; }
+    .header-container { width: 95%; }
+    .main-navigation ul { margin-left: 10px; }
+    .main-navigation li { margin-left: 10px; }
+}
+@media (max-width: 576px) { /* Mobile phones */
+    .match-list { grid-template-columns: 1fr; }
+    .match-title { font-size: 1.4em; }
+    .match-cover-image, .match-cover-image-placeholder { height: 180px; }
+}
+@media (max-width: 480px) { /* Even smaller screens */
+    .logo-area .logo-text { font-size: 1.6em; }
+    .search-area input[type="search"] { min-width: 80px; max-width: 120px; }
+    .main-navigation { flex-grow: 0; }
+}

@@ -55,30 +55,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <title><?php echo htmlspecialchars($page_title); ?> - Painel Admin</title>
-    <!-- Re-use admin styles (copy from admin/index.php or other admin pages) -->
-    <style>
-        * { box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; margin: 0; padding:0; background-color: #f4f7f6; color: #333; }
-        .container { width: 90%; max-width: 1000px; margin: 20px auto; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        nav { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; justify-content: space-between; }
-        nav a { margin-right: 15px; text-decoration: none; color: #007bff; font-weight: bold; }
-        nav a:hover { text-decoration: underline; color: #0056b3; }
-        .nav-user-info { font-size: 0.9em; color: #555; }
-        .logout-link { color: #dc3545; font-weight: bold; text-decoration: none; }
-        .logout-link:hover { text-decoration: underline; color: #c82333; }
-        h1, h2 { color: #333; }
-        h1 { text-align: center; margin-bottom:30px; }
-        h2 { margin-top: 30px; border-bottom: 2px solid #007bff; padding-bottom: 5px; color: #007bff;}
-        form div { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
-        textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 1em; min-height: 100px; }
-        button[type="submit"] { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; transition: background-color 0.3s ease; }
-        button[type="submit"]:hover { background-color: #0056b3; }
-        .message { margin-bottom: 20px; }
-        .message p { padding: 15px; border-radius: 5px; font-weight: bold; margin:0; }
-        .message p[style*="color:green;"] { background-color: #d4edda; color: #155724 !important; border: 1px solid #c3e6cb; }
-        .message p[style*="color:red;"] { background-color: #f8d7da; color: #721c24 !important; border: 1px solid #f5c6cb; }
-    </style>
+    <link rel="stylesheet" href="css/admin_style.css">
 </head>
 <body>
     <div class="container">

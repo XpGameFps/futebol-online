@@ -22,19 +22,9 @@ if (isset($_GET['error'])) {
 <head>
     <meta charset="UTF-8">
     <title>Login - Painel Admin</title>
-    <style>
-        body { font-family: Arial, sans-serif; background-color: #f4f7f6; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .login-container { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
-        h1 { text-align: center; color: #333; margin-bottom: 20px; }
-        form div { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
-        input[type="text"], input[type="password"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 1em; }
-        button[type="submit"] { background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; width: 100%; transition: background-color 0.3s ease; }
-        button[type="submit"]:hover { background-color: #0056b3; }
-        .error-message { text-align:center; margin-bottom:15px; }
-    </style>
+    <link rel="stylesheet" href="css/admin_style.css">
 </head>
-<body>
+<body class="login-page">
     <div class="login-container">
         <h1>Painel Administrativo</h1>
         <?php if (!empty($login_error)): ?>

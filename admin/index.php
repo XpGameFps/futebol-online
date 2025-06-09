@@ -72,45 +72,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <title>Painel Admin - Gerenciar Jogos</title>
-    <style>
-        * { box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; margin: 0; padding:0; background-color: #f4f7f6; color: #333; }
-        .container { width: 90%; max-width: 1200px; /* Increased max-width */ margin: 20px auto; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        nav { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; justify-content: space-between; }
-        nav a { margin-right: 15px; text-decoration: none; color: #007bff; font-weight: bold; }
-        nav a:hover { text-decoration: underline; color: #0056b3; }
-        .nav-user-info { font-size: 0.9em; color: #555; }
-        .logout-link { color: #dc3545; font-weight: bold; text-decoration: none; }
-        .logout-link:hover { text-decoration: underline; color: #c82333; }
-        hr { margin-top: 30px; margin-bottom: 30px; border: 0; border-top: 1px solid #eee; }
-        h1, h2, h3 { color: #333; }
-        h1 { text-align: center; margin-bottom:30px; }
-        h2 { margin-top: 30px; border-bottom: 2px solid #007bff; padding-bottom: 5px; color: #007bff;}
-        h3 { margin-top:10px; margin-bottom:5px; color: #555;}
-        form div { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
-        input[type="text"], input[type="datetime-local"], input[type="url"], textarea, select, input[type="file"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 1em; }
-        input[type="file"] { padding: 3px; }
-        button[type="submit"] { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; transition: background-color 0.3s ease; }
-        button[type="submit"]:hover { background-color: #0056b3; }
-        .match-item { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 5px; background-color: #fdfdfd; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .match-item h3 { margin-top: 0; color: #007bff; }
-        .match-item p { margin-bottom: 5px; line-height: 1.6; }
-        .add-stream-form { margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ccc; }
-        .add-stream-form button[type="submit"] { background-color: #28a745; }
-        .add-stream-form button[type="submit"]:hover { background-color: #218838; }
-        .delete-button { background-color: #dc3545; color: white; padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
-        .delete-button:hover { background-color: #c82333; }
-        .message { margin-bottom: 20px; }
-        .message p { padding: 15px; border-radius: 5px; font-weight: bold; margin:0; }
-        .message p[style*="color:green;"] { background-color: #d4edda; color: #155724 !important; border: 1px solid #c3e6cb; }
-        .message p[style*="color:red;"] { background-color: #f8d7da; color: #721c24 !important; border: 1px solid #f5c6cb; }
-        .view-switcher { margin-bottom: 20px; text-align:center; }
-        .view-switcher a { margin: 0 10px; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight:bold; }
-        .view-switcher a.active-view { background-color: #007bff; color: white; }
-        .view-switcher a:not(.active-view) { background-color: #e9ecef; color: #007bff; }
-        .match-cover-admin { max-width: 100px; max-height: 60px; object-fit: cover; border-radius: 3px; margin-bottom: 5px; display:block; }
-    </style>
+    <link rel="stylesheet" href="css/admin_style.css">
 </head>
 <body>
     <div class="container">

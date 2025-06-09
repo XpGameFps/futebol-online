@@ -15,9 +15,17 @@ if (!isset($header_leagues)) {
 // Determine a few leagues to show directly in the nav, if available
 $direct_nav_leagues = array_slice($header_leagues, 0, 3); // Get up to the first 3 leagues
 ?>
-<header class="site-header">
-    <div class="header-container">
-        <div class="logo-area">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- The dynamic title is set by the including page -->
+    <link rel="stylesheet" href="css/style.css"> {/* ADDED THIS LINE */}
+    <?php /* Removed <title> from here, should be in individual pages to use $page_specific_title or $selected_league_name */ ?>
+</head>
+<body>
+    <header class="site-header">
+        <div class="header-container">
+            <div class="logo-area">
             <a href="index.php" class="logo-text">Fut<span class="logo-accent">Online</span></a>
         </div>
         <nav class="main-navigation">
@@ -78,6 +86,7 @@ $direct_nav_leagues = array_slice($header_leagues, 0, 3); // Get up to the first
         </div>
     </div>
 </header>
+<!-- The inline <script> for dropdown can remain here or be moved to style.css's corresponding JS file if we create one -->
 <!-- Existing JavaScript for leagues dropdown -->
 <script>
 // ... (JavaScript for leagues dropdown remains the same) ...
