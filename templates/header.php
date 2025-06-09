@@ -19,7 +19,7 @@ $direct_nav_leagues = array_slice($header_leagues, 0, 3); // Get up to the first
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- The dynamic title is set by the including page -->
-    <link rel="stylesheet" href="css/style.css"> {/* ADDED THIS LINE */}
+    <link rel="stylesheet" href="css/style.css">
     <?php /* Removed <title> from here, should be in individual pages to use $page_specific_title or $selected_league_name */ ?>
 </head>
 <body>

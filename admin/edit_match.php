@@ -1,0 +1,298 @@
+<?php
+require_once 'auth_check.php';
+require_once '../config.php';
+
+define('MATCH_COVER_UPLOAD_DIR', '../uploads/covers/matches/');
+define('MAX_COVER_FILE_SIZE', 2 * 1024 * 1024); // 2MB
+$allowed_cover_mime_types = ['image/jpeg', 'image/png', 'image/gif'];
+
+$page_title = "Editar Jogo";
+$message = '';
+$match_id = null;
+
+// Form data variables
+$team_home = '';
+$team_away = '';
+$match_time_form_value = ''; // For datetime-local input
+$description = '';
+$current_league_id = null;
+$current_cover_filename = null;
+$meta_description = '';
+$meta_keywords = '';
+
+// Fetch all leagues for the dropdown
+$all_leagues = [];
+try {
+    $stmt_all_leagues = $pdo->query("SELECT id, name FROM leagues ORDER BY name ASC");
+    $all_leagues = $stmt_all_leagues->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $message = '<p style="color:red;">Erro ao carregar lista de ligas: ' . $e->getMessage() . '</p>';
+    // Continue without leagues if this fails, or handle more gracefully
+}
+
+
+if (isset($_GET['id']) && filter_var($_GET['id'], FILTER_VALIDATE_INT)) {
+    $match_id = (int)$_GET['id'];
+} else if (isset($_POST['match_id']) && filter_var($_POST['match_id'], FILTER_VALIDATE_INT)) {
+    $match_id = (int)$_POST['match_id'];
+}
+
+if ($match_id === null) {
+    header("Location: index.php?status=edit_error&reason=invalid_match_id");
+    exit;
+}
+
+// Fetch current match data
+// Fetch only if not a POST update OR if POST update is set but there was some message already (meaning an error occurred before trying to update)
+// This helps retain POSTed values on form error instead of overwriting with DB values.
+if ($_SERVER["REQUEST_METHOD"] != "POST" || !isset($_POST['update_match']) || !empty($message) ) {
+    try {
+        $stmt_fetch = $pdo->prepare("SELECT team_home, team_away, match_time, description, league_id, cover_image_filename, meta_description, meta_keywords FROM matches WHERE id = :id");
+        $stmt_fetch->bindParam(':id', $match_id, PDO::PARAM_INT); // Ensure $match_id is defined from GET/POST
+        $stmt_fetch->execute();
+        $match_data_from_db = $stmt_fetch->fetch(PDO::FETCH_ASSOC);
+
+        if (!$match_data_from_db) {
+            header("Location: index.php?status=edit_error&reason=match_not_found");
+            exit;
+        }
+        // Only populate form variables if not a POST or if POST message is empty (meaning no POST processing error yet)
+        // or if it's a POST but we are re-populating after an error (but $message would be set in that case)
+        if ($_SERVER["REQUEST_METHOD"] != "POST" || empty($message)) {
+            $team_home = $match_data_from_db['team_home'];
+            $team_away = $match_data_from_db['team_away'];
+            $match_time_form_value = (new DateTime($match_data_from_db['match_time']))->format('Y-m-d\TH:i');
+            $description = $match_data_from_db['description'];
+            $current_league_id = $match_data_from_db['league_id'];
+            $current_cover_filename = $match_data_from_db['cover_image_filename'];
+            // Assign new SEO fields
+            $meta_description = $match_data_from_db['meta_description'];
+            $meta_keywords = $match_data_from_db['meta_keywords'];
+        }
+
+    } catch (Exception $e) {
+        $message = '<p style="color:red;">Erro ao buscar dados do jogo: ' . $e->getMessage() . '</p>';
+    }
+}
+
+
+// Handle form submission
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_match'])) {
+    $team_home = trim($_POST['team_home'] ?? '');
+    $team_away = trim($_POST['team_away'] ?? '');
+    $match_time_input = trim($_POST['match_time'] ?? '');
+    $description = trim($_POST['description'] ?? null); // Keep it null if empty
+    $new_league_id_input = trim($_POST['league_id'] ?? '');
+    // Retrieve new SEO fields
+    $new_meta_description = trim($_POST['meta_description'] ?? null);
+    $new_meta_keywords = trim($_POST['meta_keywords'] ?? null);
+
+    // Re-fetch current_cover_filename if it was not set by the GET part (e.g. if form submitted with error and then fixed)
+    // This ensures that if the form is submitted multiple times due to errors,
+    // we always know the correct "current" cover image from the DB before deciding to delete it.
+    if ($current_cover_filename === null && $match_id) {
+        $stmt_refetch_cover = $pdo->prepare("SELECT cover_image_filename FROM matches WHERE id = :id");
+        $stmt_refetch_cover->bindParam(':id', $match_id, PDO::PARAM_INT);
+        $stmt_refetch_cover->execute();
+        $cover_data = $stmt_refetch_cover->fetch(PDO::FETCH_ASSOC);
+        if ($cover_data) $current_cover_filename = $cover_data['cover_image_filename'];
+    }
+    $new_cover_filename_to_save = $current_cover_filename;
+    $upload_error_message = '';
+
+    if (empty($team_home) || empty($team_away) || empty($match_time_input)) {
+        $message = '<p style="color:red;">Times e data/hora da partida são obrigatórios.</p>';
+    } else {
+        try {
+            $dt = new DateTime($match_time_input);
+            $formatted_match_time_for_db = $dt->format('Y-m-d H:i:s');
+            // $match_time_form_value is already set from POST or will be from DB on next GET
+        } catch (Exception $e) {
+            $message = '<p style="color:red;">Formato de data/hora inválido.</p>';
+        }
+
+        if (empty($message)) {
+            // Cover Image Upload Handling
+            if (isset($_FILES['cover_image_file']) && $_FILES['cover_image_file']['error'] == UPLOAD_ERR_OK) {
+                $file_tmp_path = $_FILES['cover_image_file']['tmp_name'];
+                $file_name = $_FILES['cover_image_file']['name'];
+                $file_size = $_FILES['cover_image_file']['size'];
+                $file_type = $_FILES['cover_image_file']['type'];
+                $file_ext_array = explode('.', $file_name);
+                $file_extension = strtolower(end($file_ext_array));
+
+                if ($file_size > MAX_COVER_FILE_SIZE) { $upload_error_message = 'Arquivo de capa muito grande (max 2MB).'; }
+                elseif (!in_array($file_type, $allowed_cover_mime_types)) { $upload_error_message = 'Tipo de arquivo de capa inválido (PNG, JPG, GIF).'; }
+                else {
+                    $new_uploaded_filename = uniqid('match_cover_', true) . '.' . $file_extension;
+                    $destination_path = MATCH_COVER_UPLOAD_DIR . $new_uploaded_filename;
+                    if (!is_dir(MATCH_COVER_UPLOAD_DIR)) { @mkdir(MATCH_COVER_UPLOAD_DIR, 0755, true); }
+                    if (move_uploaded_file($file_tmp_path, $destination_path)) {
+                        if ($current_cover_filename && file_exists(MATCH_COVER_UPLOAD_DIR . $current_cover_filename)) {
+                            @unlink(MATCH_COVER_UPLOAD_DIR . $current_cover_filename);
+                        }
+                        $new_cover_filename_to_save = $new_uploaded_filename;
+                    } else { $upload_error_message = 'Falha ao mover novo arquivo de capa.'; }
+                }
+                if (!empty($upload_error_message)) { $message = '<p style="color:red;">Erro no upload da capa: ' . $upload_error_message . '</p>'; }
+            } elseif (isset($_FILES['cover_image_file']) && $_FILES['cover_image_file']['error'] != UPLOAD_ERR_NO_FILE && $_FILES['cover_image_file']['error'] != UPLOAD_ERR_OK) {
+                $message = '<p style="color:red;">Erro no upload da capa. Código: ' . $_FILES['cover_image_file']['error'] . '</p>';
+            }
+
+            if (empty($message) || (!empty($message) && empty($upload_error_message) && isset($_FILES['cover_image_file']) && $_FILES['cover_image_file']['error'] == UPLOAD_ERR_NO_FILE)) {
+                $new_league_id = null;
+                if (!empty($new_league_id_input) && filter_var($new_league_id_input, FILTER_VALIDATE_INT)) {
+                    $new_league_id = (int)$new_league_id_input;
+                }
+
+                try {
+                    $sql_update = "UPDATE matches SET
+                                    team_home = :team_home,
+                                    team_away = :team_away,
+                                    match_time = :match_time,
+                                    description = :description,
+                                    league_id = :league_id,
+                                    cover_image_filename = :cover_image_filename,
+                                    meta_description = :meta_description, meta_keywords = :meta_keywords
+                                  WHERE id = :id";
+                    $stmt_update = $pdo->prepare($sql_update);
+                    $stmt_update->bindParam(':team_home', $team_home, PDO::PARAM_STR);
+                    $stmt_update->bindParam(':team_away', $team_away, PDO::PARAM_STR);
+                    $stmt_update->bindParam(':match_time', $formatted_match_time_for_db, PDO::PARAM_STR);
+                    $stmt_update->bindParam(':description', $description, PDO::PARAM_STR); // PDO handles null correctly
+                    $stmt_update->bindParam(':id', $match_id, PDO::PARAM_INT);
+
+                    if ($new_league_id === null) { $stmt_update->bindValue(':league_id', null, PDO::PARAM_NULL); }
+                    else { $stmt_update->bindParam(':league_id', $new_league_id, PDO::PARAM_INT); }
+
+                    if ($new_cover_filename_to_save === null) { $stmt_update->bindValue(':cover_image_filename', null, PDO::PARAM_NULL); }
+                    else { $stmt_update->bindParam(':cover_image_filename', $new_cover_filename_to_save, PDO::PARAM_STR); }
+
+                    $stmt_update->bindParam(':id', $match_id, PDO::PARAM_INT);
+
+                    // Bind new SEO params
+                    if ($new_meta_description === null) { $stmt_update->bindValue(":meta_description", null, PDO::PARAM_NULL); }
+                    else { $stmt_update->bindParam(":meta_description", $new_meta_description, PDO::PARAM_STR); }
+                    if ($new_meta_keywords === null) { $stmt_update->bindValue(":meta_keywords", null, PDO::PARAM_NULL); }
+                    else { $stmt_update->bindParam(":meta_keywords", $new_meta_keywords, PDO::PARAM_STR); }
+
+                    if ($stmt_update->execute()) {
+                        $current_league_id = $new_league_id;
+                        $current_cover_filename = $new_cover_filename_to_save;
+                        $meta_description = $new_meta_description; // Update for form
+                        $meta_keywords = $new_meta_keywords; // Update for form
+                        $message = '<p style="color:green;">Jogo atualizado com sucesso! <a href="index.php">Voltar para Lista de Jogos</a></p>';
+                    } else {
+                        $message = '<p style="color:red;">Erro ao atualizar jogo no banco de dados.</p>';
+                    }
+                } catch (PDOException $e) {
+                    if (strpos($e->getMessage(), "FOREIGN KEY (`league_id`)") !== false) {
+                        $message = '<p style="color:red;">Erro: ID da liga inválido.</p>';
+                    } else {
+                        $message = '<p style="color:red;">Erro de BD: ' . $e->getMessage() . '</p>';
+                    }
+                } catch (PDOException $e) {
+                    if (strpos($e->getMessage(), "FOREIGN KEY (`league_id`)") !== false) {
+                        $message = '<p style="color:red;">Erro: ID da liga inválido.</p>';
+                    } else {
+                        $message = '<p style="color:red;">Erro de BD: ' . $e->getMessage() . '</p>';
+                    }
+                }
+            }
+        }
+    }
+    // If it's a POST request and there were errors, the form values ($team_home, $team_away etc.)
+    // are already set from $_POST to repopulate the form.
+    // $match_time_form_value needs to be explicitly set from $match_time_input for repopulation.
+    if ($_SERVER["REQUEST_METHOD"] == "POST" && !empty($message) && isset($dt)) { // $dt check ensures $match_time_input was valid
+         $match_time_form_value = $dt->format('Y-m-d\TH:i');
+    } elseif ($_SERVER["REQUEST_METHOD"] == "POST" && !empty($message) && !isset($dt)) {
+         $match_time_form_value = $match_time_input; // Repopulate with potentially invalid input for user to correct
+    }
+
+
+}
+?>
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title><?php echo htmlspecialchars($page_title); ?> - Painel Admin</title>
+    <link rel="stylesheet" href="css/admin_style.css">
+</head>
+<body>
+    <div class="container" style="max-width: 800px;">
+        <nav>
+            <div>
+                <a href="index.php">Painel Principal (Jogos)</a>
+                <a href="manage_leagues.php">Gerenciar Ligas</a>
+                <a href="manage_channels.php">Gerenciar Canais TV</a>
+                <a href="manage_settings.php">Configurações</a>
+            </div>
+            <div class="nav-user-info">
+                Usuário: <?php echo htmlspecialchars($_SESSION['admin_username'] ?? 'Admin'); ?> |
+                <a href="logout.php" class="logout-link">Logout</a>
+            </div>
+        </nav>
+        <h1><?php echo htmlspecialchars($page_title); ?></h1>
+
+        <?php if(!empty($message)): ?>
+            <div class="message"><?php echo $message; ?></div>
+        <?php endif; ?>
+
+        <?php if ($match_id && (isset($match_data_from_db) && $match_data_from_db || $_SERVER["REQUEST_METHOD"] == "POST") ): // Show form if data was fetched or it's a POST (even with errors) ?>
+        <form action="edit_match.php?id=<?php echo $match_id; ?>" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="match_id" value="<?php echo $match_id; ?>">
+
+            <div><label for="team_home">Time da Casa:</label><input type="text" id="team_home" name="team_home" value="<?php echo htmlspecialchars($team_home); ?>" required></div>
+            <div><label for="team_away">Time Visitante:</label><input type="text" id="team_away" name="team_away" value="<?php echo htmlspecialchars($team_away); ?>" required></div>
+            <div><label for="match_time">Data e Hora da Partida:</label><input type="datetime-local" id="match_time" name="match_time" value="<?php echo htmlspecialchars($match_time_form_value); ?>" required></div>
+
+            <div>
+                <label for="league_id">Liga (Opcional):</label>
+                <select id="league_id" name="league_id">
+                    <option value="">-- Nenhuma Liga --</option>
+                    <?php foreach ($all_leagues as $league_opt): ?>
+                        <option value="<?php echo htmlspecialchars($league_opt['id']); ?>" <?php echo ($current_league_id == $league_opt['id']) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($league_opt['name']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div>
+                <label for="cover_image_file">Imagem de Capa (PNG, JPG, GIF, max 2MB):</label>
+                <?php if ($current_cover_filename): ?>
+                    <p>Capa Atual: <img src="<?php echo MATCH_COVER_UPLOAD_DIR . htmlspecialchars($current_cover_filename); ?>" alt="Capa Atual" style="max-height: 80px; vertical-align: middle; margin-bottom:5px; border:1px solid #eee;"></p>
+                    <p style="font-size:0.8em; color:#555;">Envie um novo arquivo para substituir. Se nenhum for enviado, a capa atual será mantida.</p>
+                <?php else: ?>
+                     <p style="font-size:0.8em; color:#555;">Nenhuma capa cadastrada. Envie um arquivo.</p>
+                <?php endif; ?>
+                <input type="file" id="cover_image_file" name="cover_image_file" accept="image/png, image/jpeg, image/gif">
+            </div>
+
+            <div><label for="description">Descrição (opcional):</label><textarea id="description" name="description" rows="3"><?php echo htmlspecialchars($description ?? ''); ?></textarea></div>
+
+            <!-- New SEO Fields -->
+            <div>
+                <label for="meta_description">Meta Descrição SEO (opcional, máx ~160 caracteres):</label>
+                <textarea id="meta_description" name="meta_description" rows="3"><?php echo htmlspecialchars($meta_description ?? ''); ?></textarea>
+            </div>
+            <div>
+                <label for="meta_keywords">Meta Keywords SEO (opcional, separadas por vírgula):</label>
+                <input type="text" id="meta_keywords" name="meta_keywords" value="<?php echo htmlspecialchars($meta_keywords ?? ''); ?>" placeholder="ex: futebol, ao vivo, time A vs time B">
+            </div>
+
+            <div><button type="submit" name="update_match">Salvar Alterações</button>
+                <a href="index.php" style="margin-left: 10px;">Cancelar</a>
+            </div>
+        </form>
+        <?php elseif(empty($message)):
+             // This condition might be hit if $match_data_from_db was false AND $message is still empty (e.g. initial fetch failed silently before message was set)
+             // Or if $match_id was somehow null but we didn't exit, though the top check should prevent this.
+             echo '<p style="color:red;">Não foi possível carregar os dados do jogo para edição. Verifique se o ID do jogo é válido.</p>';
+             echo '<p><a href="index.php">Voltar para Lista de Jogos</a></p>';
+        endif; ?>
+    </div>
+</body>
+</html>

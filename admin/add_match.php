@@ -24,10 +24,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $league_id = (int)trim($_POST["league_id"]);
     }
 
+    // New SEO fields
+    $meta_description = trim($_POST['meta_description'] ?? null);
+    $meta_keywords = trim($_POST['meta_keywords'] ?? null);
+
     $cover_image_filename_to_save = null;
     $upload_error_message = '';
-
-    // --- Cover Image Upload Handling ---
+    // --- Cover Image Upload Handling (condensed for brevity, logic is the same as before) ---
     if (isset($_FILES['cover_image_file']) && $_FILES['cover_image_file']['error'] == UPLOAD_ERR_OK) {
         $file_tmp_path = $_FILES['cover_image_file']['tmp_name'];
         $file_name = $_FILES['cover_image_file']['name'];
@@ -75,8 +78,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     try {
-        // Added cover_image_filename to SQL
-        $sql = "INSERT INTO matches (team_home, team_away, match_time, description, league_id, cover_image_filename) VALUES (:team_home, :team_away, :match_time, :description, :league_id, :cover_image_filename)";
+        // Added cover_image_filename, meta_description, meta_keywords to SQL
+        $sql = "INSERT INTO matches (team_home, team_away, match_time, description, league_id, cover_image_filename, meta_description, meta_keywords)
+                VALUES (:team_home, :team_away, :match_time, :description, :league_id, :cover_image_filename, :meta_description, :meta_keywords)";
 
         $stmt = $pdo->prepare($sql);
         $stmt->bindParam(":team_home", $team_home, PDO::PARAM_STR);
@@ -89,6 +93,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         if ($cover_image_filename_to_save === null) { $stmt->bindValue(":cover_image_filename", null, PDO::PARAM_NULL); }
         else { $stmt->bindParam(":cover_image_filename", $cover_image_filename_to_save, PDO::PARAM_STR); }
+
+        // Bind new SEO params
+        if ($meta_description === null) { $stmt->bindValue(":meta_description", null, PDO::PARAM_NULL); }
+        else { $stmt->bindParam(":meta_description", $meta_description, PDO::PARAM_STR); }
+        if ($meta_keywords === null) { $stmt->bindValue(":meta_keywords", null, PDO::PARAM_NULL); }
+        else { $stmt->bindParam(":meta_keywords", $meta_keywords, PDO::PARAM_STR); }
 
         if ($stmt->execute()) {
             header("Location: index.php?status=match_added");

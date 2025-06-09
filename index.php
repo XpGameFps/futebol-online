@@ -81,13 +81,30 @@ try {
 }
 // --- End Match Fetching Logic ---
 
+$current_page_title = "Jogos de Futebol Ao Vivo - FutOnline";
+if ($selected_league_name) { // If a league is selected, update title and metas
+    $page_main_title = "Jogos da Liga: " . htmlspecialchars($selected_league_name); // This was already being set
+    $current_page_title = htmlspecialchars($selected_league_name) . " - Jogos e Resultados - FutOnline";
+    $meta_description_content = "Veja os próximos jogos e resultados da liga " . htmlspecialchars($selected_league_name) . ". Acompanhe as transmissões ao vivo.";
+    $meta_keywords_content = htmlspecialchars($selected_league_name) . ", futebol, jogos de hoje, ao vivo, online, resultados, transmissões";
+} else { // Default for homepage
+    $meta_description_content = "Acompanhe os jogos de futebol de hoje, resultados e transmissões ao vivo online.";
+    $meta_keywords_content = "futebol, jogos de hoje, ao vivo, online, resultados, transmissões";
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title><?php echo $selected_league_name ? htmlspecialchars($selected_league_name) . " - " : ""; ?>Jogos de Futebol - FutOnline</title>
-    <?php // Style block removed, will be linked from header.php ?>
+    <title><?php echo $current_page_title; ?></title>
+    <?php if (!empty($meta_description_content)): ?>
+        <meta name="description" content="<?php echo $meta_description_content; ?>">
+    <?php endif; ?>
+    <?php if (!empty($meta_keywords_content)): ?>
+        <meta name="keywords" content="<?php echo $meta_keywords_content; ?>">
+    <?php endif; ?>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <?php require_once 'templates/header.php'; // $header_leagues is available ?>

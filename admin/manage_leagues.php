@@ -112,6 +112,7 @@ try {
                             </td>
                             <td><?php echo htmlspecialchars($league['name']); ?></td>
                             <td>
+                                <a href="edit_league.php?id=<?php echo $league['id']; ?>" class="edit-button" style="margin-right: 5px;">Editar</a>
                                 <form action="delete_league.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir esta liga? Os jogos associados terão a liga removida (definida como NULA), mas não serão excluídos.');" style="display:inline;">
                                     <input type="hidden" name="league_id" value="<?php echo $league['id']; ?>">
                                     <button type="submit" class="delete-button">Excluir</button>

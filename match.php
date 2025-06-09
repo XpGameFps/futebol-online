@@ -4,6 +4,10 @@ require_once 'config.php'; // Database connection
 
 $match_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $match = null;
+$page_specific_title = "Assistir Jogo";
+$meta_description_content = "Detalhes e opções para assistir ao jogo."; // Default
+$meta_keywords_content = "futebol, jogo, ao vivo, online"; // Default
+
 // Fetch Leagues for Header
 $header_leagues = [];
 if (isset($pdo)) { // Check if $pdo is set from config.php
@@ -19,13 +23,24 @@ $error_message = '';
 
 if ($match_id > 0) {
     try {
-        // Fetch match details
-        $stmt_match = $pdo->prepare("SELECT id, team_home, team_away, match_time, description FROM matches WHERE id = :match_id");
+        // UPDATED SQL to include SEO fields
+        $stmt_match = $pdo->prepare("SELECT id, team_home, team_away, match_time, description, league_id, cover_image_filename, meta_description, meta_keywords FROM matches WHERE id = :match_id");
         $stmt_match->bindParam(':match_id', $match_id, PDO::PARAM_INT);
         $stmt_match->execute();
         $match = $stmt_match->fetch(PDO::FETCH_ASSOC);
 
         if ($match) {
+            $page_specific_title = htmlspecialchars($match['team_home'] . " vs " . $match['team_away']);
+            if (!empty($match['meta_description'])) {
+                $meta_description_content = htmlspecialchars($match['meta_description']);
+            } else { // Fallback meta description using game details
+                $meta_description_content = "Assista ao vivo " . htmlspecialchars($match['team_home']) . " vs " . htmlspecialchars($match['team_away']) . ". Detalhes do jogo e opções de transmissão.";
+            }
+            if (!empty($match['meta_keywords'])) {
+                $meta_keywords_content = htmlspecialchars($match['meta_keywords']);
+            } else { // Fallback meta keywords
+                 $meta_keywords_content = htmlspecialchars($match['team_home'] . ", " . $match['team_away']) . ", futebol, ao vivo, online";
+            }
             // Fetch associated streams
             $stmt_streams = $pdo->prepare("SELECT id, stream_url, stream_label FROM streams WHERE match_id = :match_id ORDER BY stream_label ASC");
             $stmt_streams->bindParam(':match_id', $match_id, PDO::PARAM_INT);
@@ -47,8 +62,14 @@ if ($match_id > 0) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $match ? htmlspecialchars($match['team_home'] . " vs " . $match['team_away']) : "Assistir Jogo"; ?> - Futebol Online</title>
-    <?php // Style block removed, will be linked from header.php ?>
+    <title><?php echo $page_specific_title; ?> - FutOnline</title>
+    <?php if (!empty($meta_description_content)): ?>
+        <meta name="description" content="<?php echo $meta_description_content; ?>">
+    <?php endif; ?>
+    <?php if (!empty($meta_keywords_content)): ?>
+        <meta name="keywords" content="<?php echo $meta_keywords_content; ?>">
+    <?php endif; ?>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <?php require_once 'templates/header.php'; ?>

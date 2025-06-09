@@ -10,9 +10,13 @@ $allowed_mime_types = ['image/jpeg', 'image/png', 'image/gif'];
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $name = trim($_POST["name"] ?? '');
     $stream_url = trim($_POST["stream_url"] ?? '');
-    $sort_order = trim($_POST["sort_order"] ?? '0');
+    $sort_order_input = trim($_POST["sort_order"] ?? '0'); // Keep original name
     $logo_filename_to_save = null;
     $upload_error_message = '';
+
+    // New SEO fields
+    $meta_description = trim($_POST['meta_description'] ?? null);
+    $meta_keywords = trim($_POST['meta_keywords'] ?? null);
 
     // Basic field validation
     if (empty($name) || empty($stream_url)) {
@@ -23,15 +27,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         header("Location: manage_channels.php?status=channel_add_error&reason=invalid_stream_url");
         exit;
     }
-    if (!is_numeric($sort_order)) {
+    if (!is_numeric($sort_order_input)) {
         header("Location: manage_channels.php?status=channel_add_error&reason=invalid_sort_order");
         exit;
     }
-    $sort_order = (int)$sort_order;
+    $sort_order = (int)$sort_order_input;
 
     // --- File Upload Handling ---
+    // This logic needs to be fully present. Condensed for brevity in prompt.
     if (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] == UPLOAD_ERR_OK) {
         $file_tmp_path = $_FILES['logo_file']['tmp_name'];
+        // ... (full upload logic from previous step, including validation and setting $logo_filename_to_save or $upload_error_message)
         $file_name = $_FILES['logo_file']['name'];
         $file_size = $_FILES['logo_file']['size'];
         $file_type = $_FILES['logo_file']['type'];
@@ -69,19 +75,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     try {
-        // Save to database
-        // Assuming 'logo_filename' is the column name after update_schema_v3.sql
-        $sql = "INSERT INTO tv_channels (name, logo_filename, stream_url, sort_order) VALUES (:name, :logo_filename, :stream_url, :sort_order)";
+        $sql = "INSERT INTO tv_channels (name, logo_filename, stream_url, sort_order, meta_description, meta_keywords)
+                VALUES (:name, :logo_filename, :stream_url, :sort_order, :meta_description, :meta_keywords)";
+
         $stmt = $pdo->prepare($sql);
         $stmt->bindParam(":name", $name, PDO::PARAM_STR);
         $stmt->bindParam(":stream_url", $stream_url, PDO::PARAM_STR);
         $stmt->bindParam(":sort_order", $sort_order, PDO::PARAM_INT);
+        if ($logo_filename_to_save === null) { $stmt->bindValue(":logo_filename", null, PDO::PARAM_NULL); }
+        else { $stmt->bindParam(":logo_filename", $logo_filename_to_save, PDO::PARAM_STR); }
 
-        if ($logo_filename_to_save === null) {
-            $stmt->bindValue(":logo_filename", null, PDO::PARAM_NULL);
-        } else {
-            $stmt->bindParam(":logo_filename", $logo_filename_to_save, PDO::PARAM_STR);
-        }
+        // Bind new SEO params
+        if ($meta_description === null) { $stmt->bindValue(":meta_description", null, PDO::PARAM_NULL); }
+        else { $stmt->bindParam(":meta_description", $meta_description, PDO::PARAM_STR); }
+        if ($meta_keywords === null) { $stmt->bindValue(":meta_keywords", null, PDO::PARAM_NULL); }
+        else { $stmt->bindParam(":meta_keywords", $meta_keywords, PDO::PARAM_STR); }
 
         if ($stmt->execute()) {
             header("Location: manage_channels.php?status=channel_added");

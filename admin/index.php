@@ -101,7 +101,18 @@ try {
             <div><label for="match_time">Data e Hora da Partida:</label><input type="datetime-local" id="match_time" name="match_time" required></div>
             <div><label for="league_id">Liga (Opcional):</label><select id="league_id" name="league_id"><option value="">-- Selecionar Liga --</option><?php foreach ($leagues_for_dropdown as $league) { echo '<option value="'.htmlspecialchars($league['id']).'">'.htmlspecialchars($league['name']).'</option>'; } ?></select></div>
             <div><label for="cover_image_file">Imagem de Capa (opcional, PNG, JPG, GIF, max 2MB):</label><input type="file" id="cover_image_file" name="cover_image_file" accept="image/png, image/jpeg, image/gif"></div>
-            <div><label for="description">Descrição (opcional):</label><textarea id="description" name="description"></textarea></div>
+            <div>
+                <label for="description">Descrição (opcional):</label>
+                <textarea id="description" name="description" rows="3"></textarea> {/* Adjusted rows from default */}
+            </div>
+            <div>
+                <label for="meta_description">Meta Descrição SEO (opcional, máx ~160 caracteres):</label>
+                <textarea id="meta_description" name="meta_description" rows="3"></textarea>
+            </div>
+            <div>
+                <label for="meta_keywords">Meta Keywords SEO (opcional, separadas por vírgula):</label>
+                <input type="text" id="meta_keywords" name="meta_keywords" placeholder="ex: futebol, ao vivo, time A vs time B">
+            </div>
             <div><button type="submit">Adicionar Jogo</button></div>
         </form>
         <hr>
@@ -127,6 +138,7 @@ try {
                         <p><strong>Descrição:</strong> <?php echo nl2br(htmlspecialchars($match['description'])); ?></p>
                     <?php endif; ?>
 
+                    <a href="edit_match.php?id=<?php echo $match['id']; ?>" class="edit-button" style="margin-right: 5px; margin-bottom:5px; display:inline-block;">Editar Jogo</a>
                     <form action="delete_match.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este jogo? Esta ação não pode ser desfeita.');" style="margin-top: 10px; display:inline-block;">
                         <input type="hidden" name="match_id" value="<?php echo $match['id']; ?>">
                         <button type="submit" class="delete-button">Excluir Jogo</button>

@@ -17,17 +17,31 @@ if (isset($pdo)) {
 $channel_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $channel = null;
 $error_message = '';
-$page_specific_title = "Assistir Canal"; // Default title
+$page_specific_title = "Assistir Canal";
+$meta_description_content = "Assista canais de TV ao vivo."; // Default
+$meta_keywords_content = "tv, ao vivo, online, canal"; // Default
+
 
 if ($channel_id > 0) {
     try {
-        $stmt_channel = $pdo->prepare("SELECT id, name, stream_url, logo_filename FROM tv_channels WHERE id = :channel_id");
+        // UPDATED SQL to include SEO fields
+        $stmt_channel = $pdo->prepare("SELECT id, name, stream_url, logo_filename, meta_description, meta_keywords FROM tv_channels WHERE id = :channel_id");
         $stmt_channel->bindParam(':channel_id', $channel_id, PDO::PARAM_INT);
         $stmt_channel->execute();
         $channel = $stmt_channel->fetch(PDO::FETCH_ASSOC);
 
         if ($channel) {
             $page_specific_title = "Assistir: " . htmlspecialchars($channel['name']);
+            if (!empty($channel['meta_description'])) {
+                $meta_description_content = htmlspecialchars($channel['meta_description']);
+            } else { // Fallback meta description
+                $meta_description_content = "Assista ao canal " . htmlspecialchars($channel['name']) . " ao vivo online.";
+            }
+            if (!empty($channel['meta_keywords'])) {
+                $meta_keywords_content = htmlspecialchars($channel['meta_keywords']);
+            } else { // Fallback meta keywords
+                $meta_keywords_content = htmlspecialchars($channel['name']) . ", tv, ao vivo, online";
+            }
         } else {
             $error_message = "Canal não encontrado.";
             $page_specific_title = "Canal não encontrado";
@@ -47,7 +61,13 @@ if ($channel_id > 0) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_specific_title; ?> - FutOnline</title>
-    <?php // Style block removed, will be linked from header.php ?>
+    <?php if (!empty($meta_description_content)): ?>
+        <meta name="description" content="<?php echo $meta_description_content; ?>">
+    <?php endif; ?>
+    <?php if (!empty($meta_keywords_content)): ?>
+        <meta name="keywords" content="<?php echo $meta_keywords_content; ?>">
+    <?php endif; ?>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <?php require_once 'templates/header.php'; // $header_leagues is available here ?>

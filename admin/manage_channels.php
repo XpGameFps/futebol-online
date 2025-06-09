@@ -84,6 +84,14 @@ try {
                 <input type="number" id="sort_order" name="sort_order" value="0">
             </div>
             <div>
+                <label for="meta_description_channel">Meta Descrição SEO (opcional, máx ~160 caracteres):</label>
+                <textarea id="meta_description_channel" name="meta_description" rows="3"></textarea>
+            </div>
+            <div>
+                <label for="meta_keywords_channel">Meta Keywords SEO (opcional, separadas por vírgula):</label>
+                <input type="text" id="meta_keywords_channel" name="meta_keywords" placeholder="ex: tv ao vivo, canal X, esportes">
+            </div>
+            <div>
                 <button type="submit">Adicionar Canal</button>
             </div>
         </form>
@@ -120,6 +128,7 @@ try {
                             <td><?php echo htmlspecialchars($channel['stream_url']); ?></td>
                             <td><?php echo htmlspecialchars($channel['sort_order']); ?></td>
                             <td>
+                                <a href="edit_channel.php?id=<?php echo $channel['id']; ?>" class="edit-button" style="margin-right: 5px;">Editar</a>
                                 <form action="delete_channel.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este canal de TV?');" style="display:inline;">
                                     <input type="hidden" name="channel_id" value="<?php echo $channel['id']; ?>">
                                     <button type="submit" class="delete-button">Excluir</button>
