@@ -41,7 +41,6 @@ if (isset($_GET['query'])) {
             // Bind for new search logic targeting team names and description
             $stmt->bindParam(':query_team_home', $search_term_like, PDO::PARAM_STR);
             $stmt->bindParam(':query_team_away', $search_term_like, PDO::PARAM_STR);
-            $stmt->bindParam(':query', $search_term_like, PDO::PARAM_STR);
             $stmt->bindParam(':query_desc', $search_term_like, PDO::PARAM_STR);
 
             $stmt->execute();

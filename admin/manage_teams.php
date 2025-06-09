@@ -149,8 +149,9 @@ try {
             <a href="index.php">Painel Principal (Jogos)</a>
             <a href="manage_leagues.php">Gerenciar Ligas</a>
             <a href="manage_channels.php">Gerenciar Canais TV</a>
-            <a href="manage_saved_streams.php">Biblioteca de Streams</a>
             <a href="manage_teams.php">Gerenciar Times</a>
+            <a href="manage_saved_streams.php">Biblioteca de Streams</a>
+            <a href="manage_item_reports.php">Reportes de Itens</a>
             <a href="manage_settings.php">Configurações</a>
         </div>
         <div class="nav-user-info">
@@ -177,10 +178,10 @@ try {
         <thead><tr><th>ID</th><th>Logo</th><th>Nome</th><th>Cor Primária</th><th>Adicionado</th><th>Ações</th></tr></thead>
         <tbody><?php foreach ($teams as $team_item): ?><tr>
             <td><?php echo htmlspecialchars($team_item['id']); ?></td>
-            <td><?php if(!empty($team_item['logo_filename'])): ?><img src="<?php echo TEAM_LOGO_UPLOAD_DIR . htmlspecialchars($team_item['logo_filename']); ?>" alt="Logo" class="logo"><?php else: ?>N/A<?php endif; ?></td>
+            <td><?php if(!empty($team_item['logo_filename'])): ?><img src="<?php echo TEAM_LOGO_UPLOAD_DIR . htmlspecialchars($team_item['logo_filename']); ?>" alt="Logo" class="team-logo-list-item"><?php else: ?>N/A<?php endif; ?></td>
             <td><?php echo htmlspecialchars($team_item['name']); ?></td>
             <td><?php echo htmlspecialchars($team_item['primary_color_hex'] ?? 'N/A'); ?> <?php if(!empty($team_item['primary_color_hex'])): ?><span class="color-preview" style="background-color:<?php echo htmlspecialchars($team_item['primary_color_hex']); ?>"></span><?php endif; ?></td>
-            <td><?php echo htmlspecialchars(date('d/m/Y H:i', strtotime($team_item['created_at']))); ?></td>
+            <td><?php echo htmlspecialchars(date('d/m/Y', strtotime($team_item['created_at']))); ?></td>
             <td>
                 <a href="edit_team.php?id=<?php echo $team_item['id']; ?>" class="edit-button" style="margin-right:5px;">Editar</a>
                 <form action="delete_team.php" method="POST" onsubmit="return confirm('Tem certeza? Isso pode afetar jogos existentes se não forem atualizados para remover este time.');" style="display:inline;"><input type="hidden" name="team_id" value="<?php echo $team_item['id']; ?>"><button type="submit" class="delete-button">Excluir</button></form>

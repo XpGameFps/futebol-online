@@ -130,7 +130,7 @@ if ($channel_id > 0) {
 
                 <?php if ($channel && isset($channel['id'])): ?>
                 <div class="report-button-container" style="text-align: center; margin-bottom: 15px;"> <!-- Container para centralizar -->
-                    <button id="reportProblemBtn" class="report-issue-button" data-channel-id="<?php echo htmlspecialchars($channel['id']); ?>">
+                    <button id="reportProblemBtn" class="report-issue-button" data-item-id="<?php echo htmlspecialchars($channel['id']); ?>" data-item-type="channel">
                         Reportar Problema no Player
                     </button>
                     <div id="reportFeedback" class="report-feedback"></div>
@@ -156,10 +156,12 @@ if ($channel_id > 0) {
 
         if (reportButton) {
             reportButton.addEventListener('click', function() {
-                const channelId = this.dataset.channelId;
-                if (!channelId) {
+                const itemId = this.dataset.itemId;
+                const itemType = this.dataset.itemType;
+
+                if (!itemId || !itemType) {
                     if (reportFeedback) {
-                        reportFeedback.textContent = 'Erro: ID do canal não encontrado.';
+                        reportFeedback.textContent = 'Erro: ID ou Tipo do item não encontrado.';
                         reportFeedback.className = 'report-feedback error';
                     }
                     return;
@@ -172,9 +174,10 @@ if ($channel_id > 0) {
                 }
 
                 const formData = new FormData();
-                formData.append('channel_id', channelId);
+                formData.append('item_id', itemId);
+                formData.append('item_type', itemType);
 
-                fetch('admin/report_player_issue.php', {
+                fetch('admin/report_item_issue.php', { // Endpoint atualizado
                     method: 'POST',
                     body: formData
                 })
