@@ -91,6 +91,10 @@ try {
         .message p { padding: 15px; border-radius: 5px; font-weight: bold; margin:0; }
         .message p[style*="color:green;"] { background-color: #d4edda; color: #155724 !important; border: 1px solid #c3e6cb; }
         .message p[style*="color:red;"] { background-color: #f8d7da; color: #721c24 !important; border: 1px solid #f5c6cb; }
+        .table-responsive-wrapper {
+            overflow-x: auto; /* Enables horizontal scrolling for the table on small screens */
+            margin-top: 20px; /* Keep existing margin-top for table */
+        }
     </style>
 </head>
 <body>
@@ -141,10 +145,11 @@ try {
         <?php if (empty($channels)): ?>
             <p>Nenhum canal de TV cadastrado ainda.</p>
         <?php else: ?>
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
+            <div class="table-responsive-wrapper"> {/* ADDED WRAPPER */}
+              <table>
+                  <thead>
+                      <tr>
+                          <th>ID</th>
                         <th>Logo</th>
                         <th>Nome</th>
                         <th>URL do Stream</th>

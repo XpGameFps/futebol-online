@@ -58,6 +58,19 @@ if (isset($_GET['query'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resultados da Busca por "<?php echo htmlspecialchars($search_query); ?>" - FutOnline</title>
     <style>
+        /* Sticky Footer Styles */
+        html {
+            height: 100%;
+        }
+        body {
+            min-height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .main-content {
+            flex-grow: 1; /* Allows this element to take up available space */
+        }
+
         /* Copied ALL styles from index.php's <style> tag here */
         * { box-sizing: border-box; }
         body {
@@ -246,11 +259,66 @@ if (isset($_GET['query'])) {
         .admin-panel-link:hover {
             background-color: #009900; /* Darker shade on hover */
         }
+
+        /* Header Responsiveness Adjustments */
+        @media (max-width: 767px) {
+            .main-navigation .league-nav-link { /* Hide direct league links */
+                display: none;
+            }
+
+            .logo-area .logo-text {
+                font-size: 1.8em; /* Slightly smaller logo text */
+            }
+
+            .search-area input[type="search"] {
+                min-width: 120px; /* Allow search bar to shrink more */
+                font-size: 0.85em;
+                padding: 7px 10px;
+            }
+            .search-area button[type="submit"] {
+                font-size: 0.85em;
+                padding: 7px 10px;
+            }
+
+            .leagues-menu-button {
+                font-size: 1.6em; /* Slightly smaller dropdown icon */
+            }
+
+            .admin-panel-link { /* If admin link is present */
+                font-size: 0.8em;
+                padding: 5px 8px;
+            }
+
+            .header-container {
+                 width: 95%; /* More width for content on small screens */
+            }
+            .main-navigation ul {
+                 margin-left: 10px; /* Reduce space from logo */
+            }
+             .main-navigation li { /* Reduce space between "Início" and next element if any */
+                margin-left: 10px;
+            }
+        }
+
+        @media (max-width: 480px) { /* Even smaller screens */
+            .logo-area .logo-text {
+                font-size: 1.6em;
+            }
+            /* Potentially hide search bar or make it an icon toggle on very small screens */
+            /* For now, let it shrink */
+            .search-area input[type="search"] {
+                min-width: 80px;
+                max-width: 120px; /* Prevent it from taking too much space if other items need it */
+            }
+             .main-navigation {
+                flex-grow: 0; /* Allow it to not push other elements too much if space is tight */
+            }
+        }
     </style>
 </head>
 <body>
     <?php require_once 'templates/header.php'; // Pass $header_leagues to it ?>
-
+<main class="main-content">
     <div class="container">
         <h1 class="page-title">Resultados da Busca</h1>
 
@@ -289,7 +357,7 @@ if (isset($_GET['query'])) {
             </ul>
         <?php endif; ?>
     </div>
-
+</main>
 <?php require_once 'templates/footer.php'; ?>
 </body>
 </html>
