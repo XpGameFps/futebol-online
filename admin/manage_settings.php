@@ -2,10 +2,23 @@
 require_once 'auth_check.php'; // Ensures admin is logged in
 require_once '../config.php'; // Database connection
 
+define('SITE_LOGO_UPLOAD_DIR', '../uploads/site/');
+define('MAX_LOGO_FILE_SIZE', 1024 * 512); // 512KB
+$allowed_logo_mime_types = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml'];
+
+$site_name_key = 'site_name';
+$site_logo_key = 'site_logo_filename';
+$site_display_format_key = 'site_display_format';
+
 $page_title = "Configurações do Site";
 $message = '';
 $cookie_banner_text_key = 'cookie_banner_text';
+
+// Initialize variables for all settings
 $current_cookie_banner_text = '';
+$current_site_name = '';
+$current_site_logo_filename = null;
+$current_site_display_format = 'text'; // Default
 
 // Handle form submission to update settings
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -27,23 +40,105 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         } catch (PDOException $e) {
             $message = '<p style="color:red;">Erro de banco de dados: ' . $e->getMessage() . '</p>';
         }
+    } elseif (isset($_POST['save_site_identity'])) {
+        $new_site_name = trim($_POST['site_name'] ?? 'FutOnline');
+        $new_site_display_format = $_POST['site_display_format'] ?? 'text';
+        $new_logo_filename_to_save = $current_site_logo_filename; // Assume current logo initially
+
+        // Fetch current logo filename before attempting to save new one, for deletion logic
+        $stmt_get_current_logo = $pdo->prepare("SELECT setting_value FROM site_settings WHERE setting_key = :key");
+        $stmt_get_current_logo->bindParam(':key', $site_logo_key, PDO::PARAM_STR);
+        $stmt_get_current_logo->execute();
+        $logo_result = $stmt_get_current_logo->fetch(PDO::FETCH_ASSOC);
+        if ($logo_result) {
+            $current_site_logo_filename_db = $logo_result['setting_value'];
+        } else {
+            $current_site_logo_filename_db = null;
+        }
+
+        // File Upload Handling for Site Logo
+        if (isset($_FILES['site_logo_file']) && $_FILES['site_logo_file']['error'] == UPLOAD_ERR_OK) {
+            $file_tmp_path = $_FILES['site_logo_file']['tmp_name'];
+            $file_name = $_FILES['site_logo_file']['name'];
+            $file_size = $_FILES['site_logo_file']['size'];
+            $file_type = $_FILES['site_logo_file']['type'];
+            $file_ext_array = explode('.', $file_name);
+            $file_extension = strtolower(end($file_ext_array));
+
+            if ($file_size > MAX_LOGO_FILE_SIZE) {
+                $message .= '<p style="color:red;">Logo muito grande (max 512KB).</p>';
+            } elseif (!in_array($file_type, $allowed_logo_mime_types)) {
+                $message .= '<p style="color:red;">Tipo de arquivo inválido para logo (aceito: JPG, PNG, GIF, SVG).</p>';
+            } else {
+                $new_uploaded_filename = uniqid('site_logo_', true) . '.' . $file_extension;
+                $destination_path = SITE_LOGO_UPLOAD_DIR . $new_uploaded_filename;
+                if (!is_dir(SITE_LOGO_UPLOAD_DIR)) {
+                    if (!@mkdir(SITE_LOGO_UPLOAD_DIR, 0755, true)) {
+                        $message .= '<p style="color:red;">Falha ao criar diretório de logo do site.</p>';
+                    }
+                }
+                if (empty($message) && move_uploaded_file($file_tmp_path, $destination_path)) {
+                    // Delete old logo if a new one is successfully uploaded AND old logo existed
+                    if ($current_site_logo_filename_db && file_exists(SITE_LOGO_UPLOAD_DIR . $current_site_logo_filename_db)) {
+                        @unlink(SITE_LOGO_UPLOAD_DIR . $current_site_logo_filename_db);
+                    }
+                    $new_logo_filename_to_save = $new_uploaded_filename;
+                } elseif(empty($message)) {
+                    $message .= '<p style="color:red;">Falha ao mover arquivo de logo do site.</p>';
+                }
+            }
+        } elseif (isset($_FILES['site_logo_file']) && $_FILES['site_logo_file']['error'] != UPLOAD_ERR_NO_FILE && $_FILES['site_logo_file']['error'] != UPLOAD_ERR_OK) {
+            $message .= '<p style="color:red;">Erro no upload do logo. Código: ' . $_FILES['site_logo_file']['error'] . '</p>';
+        }
+
+        if (empty($message)) { // Proceed only if no upload errors or other critical errors
+            try {
+                $settings_to_save = [
+                    $site_name_key => $new_site_name,
+                    $site_display_format_key => $new_site_display_format,
+                    // Only update logo filename if a new one was uploaded or if it was explicitly changed
+                    // If format is 'text', we might want to clear the logo filename or keep it. We'll keep it for now.
+                    $site_logo_key => $new_logo_filename_to_save
+                ];
+
+                $sql_insert_settings = "INSERT INTO site_settings (setting_key, setting_value) VALUES (:key, :value)
+                                        ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)";
+                $stmt_insert_settings = $pdo->prepare($sql_insert_settings);
+
+                foreach ($settings_to_save as $key => $value) {
+                    $stmt_insert_settings->bindParam(':key', $key, PDO::PARAM_STR);
+                    if ($value === null) {
+                        $stmt_insert_settings->bindValue(':value', null, PDO::PARAM_NULL);
+                    } else {
+                        $stmt_insert_settings->bindParam(':value', $value, PDO::PARAM_STR);
+                    }
+                    $stmt_insert_settings->execute();
+                }
+                $message = '<p style="color:green;">Configurações de identidade do site atualizadas com sucesso!</p>';
+            } catch (PDOException $e) {
+                $message = '<p style="color:red;">Erro de banco de dados ao salvar identidade do site: ' . $e->getMessage() . '</p>';
+            }
+        }
     }
 }
 
-// Fetch current cookie banner text from database
+// Fetch all current settings from database
 try {
-    $stmt_get = $pdo->prepare("SELECT setting_value FROM site_settings WHERE setting_key = :key");
-    $stmt_get->bindParam(':key', $cookie_banner_text_key, PDO::PARAM_STR);
-    $stmt_get->execute();
-    $result = $stmt_get->fetch(PDO::FETCH_ASSOC);
-    if ($result) {
-        $current_cookie_banner_text = $result['setting_value'];
-    } else {
-        $current_cookie_banner_text = 'Este site utiliza cookies para melhorar a sua experiência. Ao continuar navegando, você concorda com o nosso uso de cookies.';
-    }
+    $stmt_get_all = $pdo->query("SELECT setting_key, setting_value FROM site_settings");
+    $all_settings = $stmt_get_all->fetchAll(PDO::FETCH_KEY_PAIR);
+
+    $current_cookie_banner_text = $all_settings[$cookie_banner_text_key] ?? 'Este site utiliza cookies para melhorar a sua experiência. Ao continuar navegando, você concorda com o nosso uso de cookies.';
+    $current_site_name = $all_settings[$site_name_key] ?? 'FutOnline';
+    $current_site_logo_filename = $all_settings[$site_logo_key] ?? null;
+    $current_site_display_format = $all_settings[$site_display_format_key] ?? 'text';
+
 } catch (PDOException $e) {
-    $message .= '<p style="color:red;">Erro ao buscar configuração do banner de cookies: ' . $e->getMessage() . '</p>';
-    $current_cookie_banner_text = 'Este site utiliza cookies para melhorar a sua experiência. Ao continuar navegando, você concorda com o nosso uso de cookies.';
+    $message .= '<p style="color:red;">Erro ao buscar configurações do site: ' . $e->getMessage() . '</p>';
+    // Set defaults if DB fetch fails for all
+    $current_cookie_banner_text = $current_cookie_banner_text ?: 'Este site utiliza cookies para melhorar a sua experiência. Ao continuar navegando, você concorda com o nosso uso de cookies.';
+    $current_site_name = $current_site_name ?: 'FutOnline';
+    $current_site_logo_filename = $current_site_logo_filename ?: null;
+    $current_site_display_format = $current_site_display_format ?: 'text';
 }
 
 ?>
@@ -90,6 +185,42 @@ try {
                 </div>
                 <div>
                     <button type="submit" name="save_cookie_banner">Salvar Texto do Banner</button>
+                </div>
+            </form>
+        </section>
+
+        <hr style="margin-top: 30px; margin-bottom: 30px;">
+
+        <section id="site-identity-settings">
+            <h2>Identidade do Site</h2>
+            <form action="manage_settings.php" method="POST" enctype="multipart/form-data">
+                <div>
+                    <label for="site_name">Nome do Site:</label>
+                    <input type="text" id="site_name" name="site_name" value="<?php echo htmlspecialchars($current_site_name); ?>">
+                </div>
+                <div>
+                    <label for="site_logo_file">Logo do Site (PNG, JPG, GIF, SVG, max 512KB):</label>
+                    <?php if ($current_site_logo_filename && file_exists(SITE_LOGO_UPLOAD_DIR . $current_site_logo_filename)): ?>
+                        <p style="margin-bottom: 10px;">Logo Atual: <img src="<?php echo SITE_LOGO_UPLOAD_DIR . htmlspecialchars($current_site_logo_filename); ?>" alt="Logo Atual" style="max-height: 60px; width:auto; vertical-align: middle; background-color: #f0f0f0; padding: 5px; border-radius:3px;"></p>
+                        <p style="font-size:0.8em; color:#555;">Envie um novo arquivo para substituir o logo atual. Se nenhum arquivo for enviado, o logo atual (se houver) será mantido.</p>
+                    <?php else: ?>
+                        <p style="font-size:0.8em; color:#555;">Nenhum logo cadastrado. Envie um arquivo.</p>
+                    <?php endif; ?>
+                    <input type="file" id="site_logo_file" name="site_logo_file" accept="<?php echo implode(',', $allowed_logo_mime_types); ?>">
+                </div>
+                <div>
+                    <label>Formato de Exibição no Cabeçalho:</label>
+                    <div>
+                        <input type="radio" id="display_text" name="site_display_format" value="text" <?php echo ($current_site_display_format === 'text') ? 'checked' : ''; ?>>
+                        <label for="display_text" style="display:inline; font-weight:normal;">Exibir Nome do Site</label>
+                    </div>
+                    <div>
+                        <input type="radio" id="display_logo" name="site_display_format" value="logo" <?php echo ($current_site_display_format === 'logo') ? 'checked' : ''; ?>>
+                        <label for="display_logo" style="display:inline; font-weight:normal;">Exibir Logo (se existir)</label>
+                    </div>
+                </div>
+                <div>
+                    <button type="submit" name="save_site_identity">Salvar Identidade do Site</button>
                 </div>
             </form>
         </section>

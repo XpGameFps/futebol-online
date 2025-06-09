@@ -140,6 +140,7 @@ if (isset($pdo)) {
                 <a href="manage_teams.php">Gerenciar Times</a>
                 <a href="manage_saved_streams.php">Biblioteca de Streams</a>
                 <a href="manage_item_reports.php">Reportes de Itens</a>
+                <a href="manage_admins.php">Gerenciar Admins</a>
                 <a href="manage_settings.php">Configurações</a>
             </div>
             <div class="nav-user-info">
