@@ -10,10 +10,9 @@ $current_cookie_banner_text = '';
 // Handle form submission to update settings
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (isset($_POST['save_cookie_banner'])) {
-        $new_text = $_POST['cookie_banner_text'] ?? ''; // Default to empty if not set
+        $new_text = $_POST['cookie_banner_text'] ?? '';
 
         try {
-            // Use INSERT ... ON DUPLICATE KEY UPDATE to insert if not exists, or update if exists
             $sql = "INSERT INTO site_settings (setting_key, setting_value) VALUES (:key, :value)
                     ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)";
             $stmt = $pdo->prepare($sql);
@@ -40,12 +39,10 @@ try {
     if ($result) {
         $current_cookie_banner_text = $result['setting_value'];
     } else {
-        // If not found, use a default text (could also be inserted as default in DB)
         $current_cookie_banner_text = 'Este site utiliza cookies para melhorar a sua experiência. Ao continuar navegando, você concorda com o nosso uso de cookies.';
     }
 } catch (PDOException $e) {
     $message .= '<p style="color:red;">Erro ao buscar configuração do banner de cookies: ' . $e->getMessage() . '</p>';
-    // Fallback to default text in case of DB error during fetch
     $current_cookie_banner_text = 'Este site utiliza cookies para melhorar a sua experiência. Ao continuar navegando, você concorda com o nosso uso de cookies.';
 }
 
@@ -68,6 +65,9 @@ try {
                 <a href="manage_settings.php">Configurações</a>
             </div>
             <div class="nav-user-info">
+                <span id="online-users-indicator" style="margin-right: 15px; color: #007bff; font-weight:bold;">
+                    Online: <span id="online-users-count">--</span>
+                </span>
                 Usuário: <?php echo htmlspecialchars($_SESSION['admin_username'] ?? 'Admin'); ?> |
                 <a href="logout.php" class="logout-link">Logout</a>
             </div>
@@ -95,5 +95,35 @@ try {
         <?php // Add other settings sections here in the future if needed ?>
 
     </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const onlineUsersCountElement = document.getElementById('online-users-count');
+
+    function fetchOnlineUsers() {
+        if (!onlineUsersCountElement) return;
+
+        fetch('get_online_users.php')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok: ' . response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data && data.status === 'success') {
+                    onlineUsersCountElement.textContent = data.online_count;
+                } else {
+                    onlineUsersCountElement.textContent = '--';
+                }
+            })
+            .catch(error => {
+                onlineUsersCountElement.textContent = 'Err';
+                console.error('Fetch error for online users:', error);
+            });
+    }
+    fetchOnlineUsers();
+    setInterval(fetchOnlineUsers, 30000);
+});
+</script>
 </body>
 </html>

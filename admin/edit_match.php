@@ -10,26 +10,22 @@ $page_title = "Editar Jogo";
 $message = '';
 $match_id = null;
 
-// Form data variables
 $team_home = '';
 $team_away = '';
-$match_time_form_value = ''; // For datetime-local input
+$match_time_form_value = '';
 $description = '';
 $current_league_id = null;
 $current_cover_filename = null;
 $meta_description = '';
 $meta_keywords = '';
 
-// Fetch all leagues for the dropdown
 $all_leagues = [];
 try {
     $stmt_all_leagues = $pdo->query("SELECT id, name FROM leagues ORDER BY name ASC");
     $all_leagues = $stmt_all_leagues->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $message = '<p style="color:red;">Erro ao carregar lista de ligas: ' . $e->getMessage() . '</p>';
-    // Continue without leagues if this fails, or handle more gracefully
 }
-
 
 if (isset($_GET['id']) && filter_var($_GET['id'], FILTER_VALIDATE_INT)) {
     $match_id = (int)$_GET['id'];
@@ -38,64 +34,63 @@ if (isset($_GET['id']) && filter_var($_GET['id'], FILTER_VALIDATE_INT)) {
 }
 
 if ($match_id === null) {
+    if ($_SERVER["REQUEST_METHOD"] == "POST") {
+        $_SESSION['general_message']['admin_index'] = '<p style="color:red;">ID do jogo inválido ou ausente.</p>';
+    }
     header("Location: index.php?status=edit_error&reason=invalid_match_id");
     exit;
 }
 
-// Fetch current match data
-// Fetch only if not a POST update OR if POST update is set but there was some message already (meaning an error occurred before trying to update)
-// This helps retain POSTed values on form error instead of overwriting with DB values.
-if ($_SERVER["REQUEST_METHOD"] != "POST" || !isset($_POST['update_match']) || !empty($message) ) {
+if ($_SERVER["REQUEST_METHOD"] != "POST" || !empty($message)) {
     try {
         $stmt_fetch = $pdo->prepare("SELECT team_home, team_away, match_time, description, league_id, cover_image_filename, meta_description, meta_keywords FROM matches WHERE id = :id");
-        $stmt_fetch->bindParam(':id', $match_id, PDO::PARAM_INT); // Ensure $match_id is defined from GET/POST
+        $stmt_fetch->bindParam(':id', $match_id, PDO::PARAM_INT);
         $stmt_fetch->execute();
-        $match_data_from_db = $stmt_fetch->fetch(PDO::FETCH_ASSOC);
-
-        if (!$match_data_from_db) {
+        $match = $stmt_fetch->fetch(PDO::FETCH_ASSOC);
+        if (!$match) {
+            if ($_SERVER["REQUEST_METHOD"] == "POST") {
+                 $_SESSION['general_message']['admin_index'] = '<p style="color:red;">Jogo não encontrado para edição.</p>';
+            }
             header("Location: index.php?status=edit_error&reason=match_not_found");
             exit;
         }
-        // Only populate form variables if not a POST or if POST message is empty (meaning no POST processing error yet)
-        // or if it's a POST but we are re-populating after an error (but $message would be set in that case)
-        if ($_SERVER["REQUEST_METHOD"] != "POST" || empty($message)) {
-            $team_home = $match_data_from_db['team_home'];
-            $team_away = $match_data_from_db['team_away'];
-            $match_time_form_value = (new DateTime($match_data_from_db['match_time']))->format('Y-m-d\TH:i');
-            $description = $match_data_from_db['description'];
-            $current_league_id = $match_data_from_db['league_id'];
-            $current_cover_filename = $match_data_from_db['cover_image_filename'];
-            // Assign new SEO fields
-            $meta_description = $match_data_from_db['meta_description'];
-            $meta_keywords = $match_data_from_db['meta_keywords'];
-        }
-
+        $team_home = $match['team_home'];
+        $team_away = $match['team_away'];
+        $match_time_form_value = (new DateTime($match['match_time']))->format('Y-m-d\TH:i');
+        $description = $match['description'];
+        $current_league_id = $match['league_id'];
+        $current_cover_filename = $match['cover_image_filename'];
+        $meta_description = $match['meta_description'];
+        $meta_keywords = $match['meta_keywords'];
     } catch (Exception $e) {
         $message = '<p style="color:red;">Erro ao buscar dados do jogo: ' . $e->getMessage() . '</p>';
     }
 }
 
-
-// Handle form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_match'])) {
     $team_home = trim($_POST['team_home'] ?? '');
     $team_away = trim($_POST['team_away'] ?? '');
     $match_time_input = trim($_POST['match_time'] ?? '');
-    $description = trim($_POST['description'] ?? null); // Keep it null if empty
+    $description = trim($_POST['description'] ?? null);
     $new_league_id_input = trim($_POST['league_id'] ?? '');
-    // Retrieve new SEO fields
     $new_meta_description = trim($_POST['meta_description'] ?? null);
     $new_meta_keywords = trim($_POST['meta_keywords'] ?? null);
 
-    // Re-fetch current_cover_filename if it was not set by the GET part (e.g. if form submitted with error and then fixed)
-    // This ensures that if the form is submitted multiple times due to errors,
-    // we always know the correct "current" cover image from the DB before deciding to delete it.
+    // For form repopulation
+    $match_time_form_value = $match_time_input;
+    // current_league_id, current_cover_filename are updated on success or kept from GET load
+    // meta_description and meta_keywords are repopulated with new values
+    $meta_description = $new_meta_description;
+    $meta_keywords = $new_meta_keywords;
+
+
+    // Re-fetch current_cover_filename if it wasn't set (e.g. direct POST or error on previous GET)
     if ($current_cover_filename === null && $match_id) {
-        $stmt_refetch_cover = $pdo->prepare("SELECT cover_image_filename FROM matches WHERE id = :id");
-        $stmt_refetch_cover->bindParam(':id', $match_id, PDO::PARAM_INT);
-        $stmt_refetch_cover->execute();
-        $cover_data = $stmt_refetch_cover->fetch(PDO::FETCH_ASSOC);
-        if ($cover_data) $current_cover_filename = $cover_data['cover_image_filename'];
+        $stmt_refetch_cover_edit = $pdo->prepare("SELECT cover_image_filename FROM matches WHERE id = :id");
+        $stmt_refetch_cover_edit->bindParam(':id', $match_id, PDO::PARAM_INT);
+        $stmt_refetch_cover_edit->execute();
+        $cover_data_edit = $stmt_refetch_cover_edit->fetch(PDO::FETCH_ASSOC);
+        if ($cover_data_edit) $current_cover_filename = $cover_data_edit['cover_image_filename'];
     }
     $new_cover_filename_to_save = $current_cover_filename;
     $upload_error_message = '';
@@ -106,13 +101,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_match'])) {
         try {
             $dt = new DateTime($match_time_input);
             $formatted_match_time_for_db = $dt->format('Y-m-d H:i:s');
-            // $match_time_form_value is already set from POST or will be from DB on next GET
-        } catch (Exception $e) {
-            $message = '<p style="color:red;">Formato de data/hora inválido.</p>';
-        }
+        } catch (Exception $e) { $message = '<p style="color:red;">Formato de data/hora inválido.</p>'; }
 
         if (empty($message)) {
-            // Cover Image Upload Handling
             if (isset($_FILES['cover_image_file']) && $_FILES['cover_image_file']['error'] == UPLOAD_ERR_OK) {
                 $file_tmp_path = $_FILES['cover_image_file']['tmp_name'];
                 $file_name = $_FILES['cover_image_file']['name'];
@@ -144,14 +135,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_match'])) {
                 if (!empty($new_league_id_input) && filter_var($new_league_id_input, FILTER_VALIDATE_INT)) {
                     $new_league_id = (int)$new_league_id_input;
                 }
-
                 try {
                     $sql_update = "UPDATE matches SET
-                                    team_home = :team_home,
-                                    team_away = :team_away,
-                                    match_time = :match_time,
-                                    description = :description,
-                                    league_id = :league_id,
+                                    team_home = :team_home, team_away = :team_away, match_time = :match_time,
+                                    description = :description, league_id = :league_id,
                                     cover_image_filename = :cover_image_filename,
                                     meta_description = :meta_description, meta_keywords = :meta_keywords
                                   WHERE id = :id";
@@ -159,58 +146,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_match'])) {
                     $stmt_update->bindParam(':team_home', $team_home, PDO::PARAM_STR);
                     $stmt_update->bindParam(':team_away', $team_away, PDO::PARAM_STR);
                     $stmt_update->bindParam(':match_time', $formatted_match_time_for_db, PDO::PARAM_STR);
-                    $stmt_update->bindParam(':description', $description, PDO::PARAM_STR); // PDO handles null correctly
+                    if ($description === null) { $stmt_update->bindValue(':description', null, PDO::PARAM_NULL); } else { $stmt_update->bindParam(':description', $description, PDO::PARAM_STR); }
+                    if ($new_league_id === null) { $stmt_update->bindValue(':league_id', null, PDO::PARAM_NULL); } else { $stmt_update->bindParam(':league_id', $new_league_id, PDO::PARAM_INT); }
+                    if ($new_cover_filename_to_save === null) { $stmt_update->bindValue(':cover_image_filename', null, PDO::PARAM_NULL); } else { $stmt_update->bindParam(':cover_image_filename', $new_cover_filename_to_save, PDO::PARAM_STR); }
+                    if ($new_meta_description === null) { $stmt_update->bindValue(":meta_description", null, PDO::PARAM_NULL); } else { $stmt_update->bindParam(":meta_description", $new_meta_description, PDO::PARAM_STR); }
+                    if ($new_meta_keywords === null) { $stmt_update->bindValue(":meta_keywords", null, PDO::PARAM_NULL); } else { $stmt_update->bindParam(":meta_keywords", $new_meta_keywords, PDO::PARAM_STR); }
                     $stmt_update->bindParam(':id', $match_id, PDO::PARAM_INT);
-
-                    if ($new_league_id === null) { $stmt_update->bindValue(':league_id', null, PDO::PARAM_NULL); }
-                    else { $stmt_update->bindParam(':league_id', $new_league_id, PDO::PARAM_INT); }
-
-                    if ($new_cover_filename_to_save === null) { $stmt_update->bindValue(':cover_image_filename', null, PDO::PARAM_NULL); }
-                    else { $stmt_update->bindParam(':cover_image_filename', $new_cover_filename_to_save, PDO::PARAM_STR); }
-
-                    $stmt_update->bindParam(':id', $match_id, PDO::PARAM_INT);
-
-                    // Bind new SEO params
-                    if ($new_meta_description === null) { $stmt_update->bindValue(":meta_description", null, PDO::PARAM_NULL); }
-                    else { $stmt_update->bindParam(":meta_description", $new_meta_description, PDO::PARAM_STR); }
-                    if ($new_meta_keywords === null) { $stmt_update->bindValue(":meta_keywords", null, PDO::PARAM_NULL); }
-                    else { $stmt_update->bindParam(":meta_keywords", $new_meta_keywords, PDO::PARAM_STR); }
 
                     if ($stmt_update->execute()) {
                         $current_league_id = $new_league_id;
                         $current_cover_filename = $new_cover_filename_to_save;
-                        $meta_description = $new_meta_description; // Update for form
-                        $meta_keywords = $new_meta_keywords; // Update for form
-                        $message = '<p style="color:green;">Jogo atualizado com sucesso! <a href="index.php">Voltar para Lista de Jogos</a></p>';
-                    } else {
-                        $message = '<p style="color:red;">Erro ao atualizar jogo no banco de dados.</p>';
-                    }
+                        $_SESSION['general_message']['admin_index'] = '<p style="color:green;">Jogo atualizado com sucesso!</p>';
+                        header("Location: index.php?status=match_updated#match-" . $match_id);
+                        exit;
+                    } else { $message = '<p style="color:red;">Erro ao atualizar jogo no banco de dados.</p>'; }
                 } catch (PDOException $e) {
                     if (strpos($e->getMessage(), "FOREIGN KEY (`league_id`)") !== false) {
                         $message = '<p style="color:red;">Erro: ID da liga inválido.</p>';
-                    } else {
-                        $message = '<p style="color:red;">Erro de BD: ' . $e->getMessage() . '</p>';
-                    }
-                } catch (PDOException $e) {
-                    if (strpos($e->getMessage(), "FOREIGN KEY (`league_id`)") !== false) {
-                        $message = '<p style="color:red;">Erro: ID da liga inválido.</p>';
-                    } else {
-                        $message = '<p style="color:red;">Erro de BD: ' . $e->getMessage() . '</p>';
-                    }
+                    } else { $message = '<p style="color:red;">Erro de BD: ' . $e->getMessage() . '</p>'; }
                 }
             }
         }
     }
-    // If it's a POST request and there were errors, the form values ($team_home, $team_away etc.)
-    // are already set from $_POST to repopulate the form.
-    // $match_time_form_value needs to be explicitly set from $match_time_input for repopulation.
-    if ($_SERVER["REQUEST_METHOD"] == "POST" && !empty($message) && isset($dt)) { // $dt check ensures $match_time_input was valid
-         $match_time_form_value = $dt->format('Y-m-d\TH:i');
-    } elseif ($_SERVER["REQUEST_METHOD"] == "POST" && !empty($message) && !isset($dt)) {
-         $match_time_form_value = $match_time_input; // Repopulate with potentially invalid input for user to correct
-    }
+}
 
-
+if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_SESSION['general_message']['admin_index'])) {
+    if(empty($message)) { $message = $_SESSION['general_message']['admin_index']; }
+    unset($_SESSION['general_message']['admin_index']);
 }
 ?>
 <!DOCTYPE html>
@@ -227,27 +189,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_match'])) {
                 <a href="index.php">Painel Principal (Jogos)</a>
                 <a href="manage_leagues.php">Gerenciar Ligas</a>
                 <a href="manage_channels.php">Gerenciar Canais TV</a>
+                <a href="manage_saved_streams.php">Biblioteca de Streams</a>
                 <a href="manage_settings.php">Configurações</a>
             </div>
             <div class="nav-user-info">
-                Usuário: <?php echo htmlspecialchars($_SESSION['admin_username'] ?? 'Admin'); ?> |
+                <span id="online-users-indicator" style="margin-right: 15px; color: #007bff; font-weight:bold;">
+                    Online: <span id="online-users-count">--</span>
+                </span>
+                 Usuário: <?php echo htmlspecialchars($_SESSION['admin_username'] ?? 'Admin'); ?> |
                 <a href="logout.php" class="logout-link">Logout</a>
             </div>
         </nav>
         <h1><?php echo htmlspecialchars($page_title); ?></h1>
+        <?php if(!empty($message)) echo "<div class='message'>{$message}</div>"; ?>
 
-        <?php if(!empty($message)): ?>
-            <div class="message"><?php echo $message; ?></div>
-        <?php endif; ?>
-
-        <?php if ($match_id && (isset($match_data_from_db) && $match_data_from_db || $_SERVER["REQUEST_METHOD"] == "POST") ): // Show form if data was fetched or it's a POST (even with errors) ?>
+        <?php if ($match_id && (isset($match) && $match || $_SERVER["REQUEST_METHOD"] == "POST")): ?>
         <form action="edit_match.php?id=<?php echo $match_id; ?>" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="match_id" value="<?php echo $match_id; ?>">
-
             <div><label for="team_home">Time da Casa:</label><input type="text" id="team_home" name="team_home" value="<?php echo htmlspecialchars($team_home); ?>" required></div>
             <div><label for="team_away">Time Visitante:</label><input type="text" id="team_away" name="team_away" value="<?php echo htmlspecialchars($team_away); ?>" required></div>
             <div><label for="match_time">Data e Hora da Partida:</label><input type="datetime-local" id="match_time" name="match_time" value="<?php echo htmlspecialchars($match_time_form_value); ?>" required></div>
-
             <div>
                 <label for="league_id">Liga (Opcional):</label>
                 <select id="league_id" name="league_id">
@@ -259,7 +220,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_match'])) {
                     <?php endforeach; ?>
                 </select>
             </div>
-
             <div>
                 <label for="cover_image_file">Imagem de Capa (PNG, JPG, GIF, max 2MB):</label>
                 <?php if ($current_cover_filename): ?>
@@ -270,29 +230,38 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_match'])) {
                 <?php endif; ?>
                 <input type="file" id="cover_image_file" name="cover_image_file" accept="image/png, image/jpeg, image/gif">
             </div>
-
             <div><label for="description">Descrição (opcional):</label><textarea id="description" name="description" rows="3"><?php echo htmlspecialchars($description ?? ''); ?></textarea></div>
-
-            <!-- New SEO Fields -->
-            <div>
-                <label for="meta_description">Meta Descrição SEO (opcional, máx ~160 caracteres):</label>
-                <textarea id="meta_description" name="meta_description" rows="3"><?php echo htmlspecialchars($meta_description ?? ''); ?></textarea>
-            </div>
-            <div>
-                <label for="meta_keywords">Meta Keywords SEO (opcional, separadas por vírgula):</label>
-                <input type="text" id="meta_keywords" name="meta_keywords" value="<?php echo htmlspecialchars($meta_keywords ?? ''); ?>" placeholder="ex: futebol, ao vivo, time A vs time B">
-            </div>
-
-            <div><button type="submit" name="update_match">Salvar Alterações</button>
-                <a href="index.php" style="margin-left: 10px;">Cancelar</a>
-            </div>
+            <div><label for="meta_description">Meta Descrição SEO (opcional, máx ~160 caracteres):</label><textarea id="meta_description" name="meta_description" rows="3"><?php echo htmlspecialchars($meta_description ?? ''); ?></textarea></div>
+            <div><label for="meta_keywords">Meta Keywords SEO (opcional, separadas por vírgula):</label><input type="text" id="meta_keywords" name="meta_keywords" value="<?php echo htmlspecialchars($meta_keywords ?? ''); ?>" placeholder="ex: futebol, ao vivo, time A vs time B"></div>
+            <div><button type="submit" name="update_match">Salvar Alterações</button> <a href="index.php" style="margin-left: 10px;">Cancelar</a></div>
         </form>
         <?php elseif(empty($message)):
-             // This condition might be hit if $match_data_from_db was false AND $message is still empty (e.g. initial fetch failed silently before message was set)
-             // Or if $match_id was somehow null but we didn't exit, though the top check should prevent this.
-             echo '<p style="color:red;">Não foi possível carregar os dados do jogo para edição. Verifique se o ID do jogo é válido.</p>';
-             echo '<p><a href="index.php">Voltar para Lista de Jogos</a></p>';
+            echo '<p style="color:red;">Não foi possível carregar os dados do jogo para edição.</p>';
+            echo '<p><a href="index.php">Voltar para Lista de Jogos</a></p>';
         endif; ?>
     </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const onlineUsersCountElement = document.getElementById('online-users-count');
+    function fetchOnlineUsers() {
+        if (!onlineUsersCountElement) return;
+        fetch('get_online_users.php')
+            .then(response => {
+                if (!response.ok) { throw new Error('Network response was not ok: ' . response.statusText); }
+                return response.json();
+            })
+            .then(data => {
+                if (data && data.status === 'success') { onlineUsersCountElement.textContent = data.online_count; }
+                else { onlineUsersCountElement.textContent = '--'; }
+            })
+            .catch(error => {
+                onlineUsersCountElement.textContent = 'Err';
+                console.error('Fetch error for online users:', error);
+            });
+    }
+    fetchOnlineUsers();
+    setInterval(fetchOnlineUsers, 30000);
+});
+</script>
 </body>
 </html>

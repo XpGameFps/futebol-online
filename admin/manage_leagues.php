@@ -36,11 +36,10 @@ $form_data_add_league = $_SESSION['form_data']['add_league'] ?? [];
 // Fetch existing leagues
 $leagues = [];
 try {
-    // Assuming 'logo_filename' is the new column name after update_schema_v3.sql
     $stmt = $pdo->query("SELECT id, name, logo_filename FROM leagues ORDER BY name ASC");
     $leagues = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $message .= '<p style="color:red;">Erro ao buscar ligas: ' . $e->getMessage() . '</p>';
+    $message .= '<p style="color:red;">Erro ao buscar ligas: ' . $e->getMessage() . '</p>'; // Append to general message
 }
 ?>
 <!DOCTYPE html>
@@ -60,7 +59,10 @@ try {
                 <a href="manage_saved_streams.php">Biblioteca de Streams</a>
                 <a href="manage_settings.php">Configurações</a>
             </div>
-            <div class="nav-user-info"> <!-- Group for user info and logout -->
+            <div class="nav-user-info">
+                <span id="online-users-indicator" style="margin-right: 15px; color: #007bff; font-weight:bold;">
+                    Online: <span id="online-users-count">--</span>
+                </span>
                 Usuário: <?php echo htmlspecialchars($_SESSION['admin_username'] ?? 'Admin'); ?> |
                 <a href="logout.php" class="logout-link">Logout</a>
             </div>
@@ -89,7 +91,6 @@ try {
             </div>
         </form>
         <?php
-        // Clear form data from session AFTER the form is rendered
         if (isset($_SESSION['form_data']['add_league'])) {
             unset($_SESSION['form_data']['add_league']);
         }
@@ -100,41 +101,55 @@ try {
         <?php if (empty($leagues)): ?>
             <p>Nenhuma liga cadastrada ainda.</p>
         <?php else: ?>
-          <div class="table-responsive-wrapper"> {/* ADDED WRAPPER */}
-              <table>
-                  <thead>
-                      <tr>
-                          <th>ID</th>
-                        <th>Logo</th>
-                        <th>Nome</th>
-                        <th>Ação</th>
-                    </tr>
-                </thead>
+            <div class="table-responsive-wrapper">
+            <table>
+                <thead><tr><th>ID</th><th>Logo</th><th>Nome</th><th>Ação</th></tr></thead>
                 <tbody>
-                    <?php foreach ($leagues as $league): ?>
+                    <?php foreach ($leagues as $league_item): ?>
                         <tr>
-                            <td><?php echo htmlspecialchars($league['id']); ?></td>
+                            <td><?php echo htmlspecialchars($league_item['id']); ?></td>
+                            <td><?php if (!empty($league_item['logo_filename'])): ?><img src="<?php echo LEAGUES_LOGO_BASE_PATH_RELATIVE_TO_ADMIN . htmlspecialchars($league_item['logo_filename']); ?>" alt="Logo <?php echo htmlspecialchars($league_item['name']); ?>" class="logo"><?php else: ?>N/A<?php endif; ?></td>
+                            <td><?php echo htmlspecialchars($league_item['name']); ?></td>
                             <td>
-                                <?php if (!empty($league['logo_filename'])): ?>
-                                    <img src="<?php echo LEAGUES_LOGO_BASE_PATH_RELATIVE_TO_ADMIN . htmlspecialchars($league['logo_filename']); ?>"
-                                         alt="Logo <?php echo htmlspecialchars($league['name']); ?>" class="logo">
-                                <?php else: ?>
-                                    N/A
-                                <?php endif; ?>
-                            </td>
-                            <td><?php echo htmlspecialchars($league['name']); ?></td>
-                            <td>
-                                <a href="edit_league.php?id=<?php echo $league['id']; ?>" class="edit-button" style="margin-right: 5px;">Editar</a>
-                                <form action="delete_league.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir esta liga? Os jogos associados terão a liga removida (definida como NULA), mas não serão excluídos.');" style="display:inline;">
-                                    <input type="hidden" name="league_id" value="<?php echo $league['id']; ?>">
-                                    <button type="submit" class="delete-button">Excluir</button>
-                                </form>
+                                <a href="edit_league.php?id=<?php echo $league_item['id']; ?>" class="edit-button" style="margin-right: 5px;">Editar</a>
+                                <form action="delete_league.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir esta liga? Os jogos associados terão a liga removida (definida como NULA), mas não serão excluídos.');" style="display:inline;"><input type="hidden" name="league_id" value="<?php echo $league_item['id']; ?>"><button type="submit" class="delete-button">Excluir</button></form>
                             </td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
         <?php endif; ?>
     </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const onlineUsersCountElement = document.getElementById('online-users-count');
+
+    function fetchOnlineUsers() {
+        if (!onlineUsersCountElement) return;
+
+        fetch('get_online_users.php')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok: ' . response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data && data.status === 'success') {
+                    onlineUsersCountElement.textContent = data.online_count;
+                } else {
+                    onlineUsersCountElement.textContent = '--';
+                }
+            })
+            .catch(error => {
+                onlineUsersCountElement.textContent = 'Err';
+                console.error('Fetch error for online users:', error);
+            });
+    }
+    fetchOnlineUsers();
+    setInterval(fetchOnlineUsers, 30000);
+});
+</script>
 </body>
 </html>

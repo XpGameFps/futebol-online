@@ -74,7 +74,7 @@ try {
 
 // Fetch Saved Stream URLs for dropdowns
 $saved_stream_urls_list = [];
-$saved_streams_json = '[]'; // Default to empty JSON array
+$saved_streams_json = '[]';
 if (isset($pdo)) {
     try {
         $stmt_saved_streams = $pdo->query("SELECT id, stream_name, stream_url_value FROM saved_stream_urls ORDER BY stream_name ASC");
@@ -116,6 +116,9 @@ if (isset($pdo)) {
                 <a href="manage_settings.php">Configurações</a>
             </div>
             <div class="nav-user-info">
+                <span id="online-users-indicator" style="margin-right: 15px; color: #007bff; font-weight:bold;">
+                    Online: <span id="online-users-count">--</span>
+                </span>
                 Usuário: <?php echo htmlspecialchars($_SESSION['admin_username'] ?? 'Admin'); ?> |
                 <a href="logout.php" class="logout-link">Logout</a>
             </div>
@@ -371,3 +374,5 @@ if (isset($pdo)) {
     </script>
 </body>
 </html>
+
+[end of admin/index.php]

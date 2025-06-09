@@ -16,10 +16,11 @@ if (isset($_GET['status'])) {
         $message = '<p style="color:green;">Canal de TV excluído com sucesso!</p>';
     } elseif ($status == 'channel_delete_error') {
         $message = '<p style="color:red;">Erro ao excluir canal: ' . $reason . '</p>';
-    } elseif ($status == 'edit_error') { // From edit_channel.php redirect
+    } elseif ($status == 'edit_error') {
          $message = '<p style="color:red;">Erro na edição do canal: ' . $reason . '</p>';
+    } elseif ($status == 'saved_stream_updated') { // Message from edit_saved_stream.php
+        $message = '<p style="color:green;">Stream salvo atualizado com sucesso!</p>';
     }
-    // Note: Errors from add_channel.php are now handled by session messages
 }
 
 // Display and clear form error message for Add Channel if it exists from session
@@ -31,11 +32,10 @@ if (isset($_SESSION['form_error_message']['add_channel'])) {
 
 // Retrieve form data from session for pre-filling
 $form_data_add_channel = $_SESSION['form_data']['add_channel'] ?? [];
-// Unset after using it for pre-filling, done after the form HTML.
 
 // Fetch Saved Stream URLs for dropdown
 $saved_stream_urls_list = [];
-$saved_streams_json = '[]'; // Default to empty JSON array
+$saved_streams_json = '[]';
 if (isset($pdo)) {
     try {
         $stmt_saved_streams = $pdo->query("SELECT id, stream_name, stream_url_value FROM saved_stream_urls ORDER BY stream_name ASC");
@@ -45,7 +45,6 @@ if (isset($pdo)) {
         }, $saved_stream_urls_list);
         $saved_streams_json = json_encode($js_friendly_streams);
     } catch (PDOException $e) {
-        // Append to general message if needed, or log
         $message .= '<p style="color:red;">Erro ao buscar biblioteca de streams: ' . $e->getMessage() . '</p>';
     }
 }
@@ -78,6 +77,9 @@ try {
                 <a href="manage_settings.php">Configurações</a>
             </div>
             <div class="nav-user-info">
+                <span id="online-users-indicator" style="margin-right: 15px; color: #007bff; font-weight:bold;">
+                    Online: <span id="online-users-count">--</span>
+                </span>
                 Usuário: <?php echo htmlspecialchars($_SESSION['admin_username'] ?? 'Admin'); ?> |
                 <a href="logout.php" class="logout-link">Logout</a>
             </div>
@@ -174,7 +176,6 @@ try {
     </div>
 
     <script>
-        // JavaScript for auto-fill and conditional display for Add Channel form
         const allSavedStreamsDataChannel = <?php echo $saved_streams_json ?? '[]'; ?>;
 
         document.querySelectorAll('.saved-stream-select-channel').forEach(selectElement => {
@@ -197,11 +198,12 @@ try {
                 } else {
                     saveToLibraryCheckbox.disabled = false;
                     isManualEntryInput.value = 'true';
-                    // Trigger change on checkbox to correctly set visibility
                     saveToLibraryCheckbox.dispatchEvent(new Event('change'));
                 }
             });
-            if (selectElement.value) { selectElement.dispatchEvent(new Event('change'));}
+            if (selectElement.value && (selectElement.options[selectElement.selectedIndex].dataset.url || "<?php echo htmlspecialchars($form_data_add_channel['saved_stream_id'] ?? ''); ?>" === selectElement.value) ) {
+                selectElement.dispatchEvent(new Event('change'));
+            }
         });
 
         document.querySelectorAll('.save-to-library-cb-channel').forEach(checkbox => {
@@ -222,6 +224,27 @@ try {
                 }
             });
             if (checkbox.checked) { checkbox.dispatchEvent(new Event('change')); }
+        });
+
+        // Online users counter script (copied from admin/index.php)
+        document.addEventListener('DOMContentLoaded', function() { // This might be redundant if already wrapped for other scripts
+            const onlineUsersCountElement_nav = document.getElementById('online-users-count'); // Ensure ID is unique if multiple counters on one page
+            function fetchOnlineUsers_nav() {
+                if (!onlineUsersCountElement_nav) return;
+                fetch('get_online_users.php')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data && data.status === 'success') {
+                            onlineUsersCountElement_nav.textContent = data.online_count;
+                        } else { onlineUsersCountElement_nav.textContent = '--'; }
+                    })
+                    .catch(error => {
+                        onlineUsersCountElement_nav.textContent = 'Err';
+                        console.error('Fetch error for online users (nav):', error);
+                    });
+            }
+            fetchOnlineUsers_nav();
+            setInterval(fetchOnlineUsers_nav, 30000);
         });
     </script>
 </body>

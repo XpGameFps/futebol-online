@@ -19,40 +19,42 @@ if (isset($_GET['id']) && filter_var($_GET['id'], FILTER_VALIDATE_INT)) {
 }
 
 if ($league_id === null) {
+    if ($_SERVER["REQUEST_METHOD"] == "POST") {
+        $_SESSION['general_message']['manage_leagues'] = '<p style="color:red;">ID da liga inválido ou ausente.</p>';
+    }
     header("Location: manage_leagues.php?status=edit_error&reason=invalid_id");
     exit;
 }
 
-// Fetch current league data for pre-filling the form
-try {
-    $stmt_fetch = $pdo->prepare("SELECT name, logo_filename FROM leagues WHERE id = :id");
-    $stmt_fetch->bindParam(':id', $league_id, PDO::PARAM_INT);
-    $stmt_fetch->execute();
-    $league = $stmt_fetch->fetch(PDO::FETCH_ASSOC);
-
-    if (!$league) {
-        header("Location: manage_leagues.php?status=edit_error&reason=not_found");
-        exit;
+if ($_SERVER["REQUEST_METHOD"] != "POST" || !empty($message)) {
+    try {
+        $stmt_fetch = $pdo->prepare("SELECT name, logo_filename FROM leagues WHERE id = :id");
+        $stmt_fetch->bindParam(':id', $league_id, PDO::PARAM_INT);
+        $stmt_fetch->execute();
+        $league = $stmt_fetch->fetch(PDO::FETCH_ASSOC);
+        if (!$league) {
+            if ($_SERVER["REQUEST_METHOD"] == "POST") {
+                 $_SESSION['general_message']['manage_leagues'] = '<p style="color:red;">Liga não encontrada para edição.</p>';
+            }
+            header("Location: manage_leagues.php?status=edit_error&reason=not_found");
+            exit;
+        }
+        $league_name = $league['name'];
+        $current_logo_filename = $league['logo_filename'];
+    } catch (PDOException $e) {
+        $message = '<p style="color:red;">Erro ao buscar dados da liga: ' . $e->getMessage() . '</p>';
     }
-    $league_name = $league['name'];
-    $current_logo_filename = $league['logo_filename'];
-
-} catch (PDOException $e) {
-    $message = '<p style="color:red;">Erro ao buscar dados da liga: ' . $e->getMessage() . '</p>';
-    // Prevent form display if initial fetch fails catastrophically
 }
 
-
-// Handle form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_league'])) {
     $new_league_name = trim($_POST['name'] ?? '');
-    $new_logo_filename_to_save = $current_logo_filename; // Assume current logo stays unless new one uploaded
+    $league_name = $new_league_name; // For repopulation
+    $new_logo_filename_to_save = $current_logo_filename;
     $upload_error_message = '';
 
     if (empty($new_league_name)) {
         $message = '<p style="color:red;">O nome da liga não pode ser vazio.</p>';
     } else {
-        // File Upload Handling (if a new logo is provided)
         if (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] == UPLOAD_ERR_OK) {
             $file_tmp_path = $_FILES['logo_file']['tmp_name'];
             $file_name = $_FILES['logo_file']['name'];
@@ -61,37 +63,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_league'])) {
             $file_ext_array = explode('.', $file_name);
             $file_extension = strtolower(end($file_ext_array));
 
-            if ($file_size > MAX_FILE_SIZE) {
-                $upload_error_message = 'Arquivo muito grande. Máximo 1MB.';
-            } elseif (!in_array($file_type, $allowed_mime_types)) {
-                $upload_error_message = 'Tipo de arquivo inválido. Apenas PNG, JPG, GIF.';
-            } else {
+            if ($file_size > MAX_FILE_SIZE) { $upload_error_message = 'Arquivo muito grande. Máximo 1MB.'; }
+            elseif (!in_array($file_type, $allowed_mime_types)) { $upload_error_message = 'Tipo de arquivo inválido. Apenas PNG, JPG, GIF.'; }
+            else {
                 $new_uploaded_filename = uniqid('league_', true) . '.' . $file_extension;
                 $destination_path = LEAGUE_LOGO_UPLOAD_DIR . $new_uploaded_filename;
-
                 if (!is_dir(LEAGUE_LOGO_UPLOAD_DIR)) { @mkdir(LEAGUE_LOGO_UPLOAD_DIR, 0755, true); }
-
                 if (move_uploaded_file($file_tmp_path, $destination_path)) {
-                    // New logo uploaded successfully, delete old one if it exists
                     if ($current_logo_filename && file_exists(LEAGUE_LOGO_UPLOAD_DIR . $current_logo_filename)) {
                         @unlink(LEAGUE_LOGO_UPLOAD_DIR . $current_logo_filename);
                     }
                     $new_logo_filename_to_save = $new_uploaded_filename;
-                } else {
-                    $upload_error_message = 'Falha ao mover novo arquivo de logo.';
-                }
+                } else { $upload_error_message = 'Falha ao mover novo arquivo de logo.'; }
             }
-            if (!empty($upload_error_message)) {
-                 $message = '<p style="color:red;">Erro no upload do logo: ' . $upload_error_message . '</p>';
-            }
+            if (!empty($upload_error_message)) { $message = '<p style="color:red;">Erro no upload do logo: ' . $upload_error_message . '</p>'; }
         } elseif (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] != UPLOAD_ERR_NO_FILE && $_FILES['logo_file']['error'] != UPLOAD_ERR_OK) {
              $message = '<p style="color:red;">Erro no upload do logo. Código: ' . $_FILES['logo_file']['error'] . '</p>';
         }
-        // End File Upload Handling
 
-        // Proceed with DB update only if there wasn't a critical form validation error (like empty name) or upload error
         if (empty($message) || (!empty($message) && empty($upload_error_message) && isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] == UPLOAD_ERR_NO_FILE)) {
-             // Check for duplicate league name (excluding current league being edited)
             try {
                 $stmt_check_name = $pdo->prepare("SELECT id FROM leagues WHERE name = :name AND id != :id");
                 $stmt_check_name->bindParam(':name', $new_league_name, PDO::PARAM_STR);
@@ -100,7 +90,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_league'])) {
                 if ($stmt_check_name->rowCount() > 0) {
                     $message = '<p style="color:red;">Este nome de liga já está em uso por outra liga.</p>';
                 } else {
-                    // Update database
                     $sql_update = "UPDATE leagues SET name = :name, logo_filename = :logo_filename WHERE id = :id";
                     $stmt_update = $pdo->prepare($sql_update);
                     $stmt_update->bindParam(':name', $new_league_name, PDO::PARAM_STR);
@@ -110,21 +99,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_league'])) {
                     } else {
                         $stmt_update->bindParam(':logo_filename', $new_logo_filename_to_save, PDO::PARAM_STR);
                     }
-
                     if ($stmt_update->execute()) {
-                        // Update current variables for the form if edit is successful, and show success
-                        $league_name = $new_league_name;
                         $current_logo_filename = $new_logo_filename_to_save;
-                        $message = '<p style="color:green;">Liga atualizada com sucesso! <a href="manage_leagues.php">Voltar para Ligas</a></p>';
-                    } else {
-                        $message = '<p style="color:red;">Erro ao atualizar liga no banco de dados.</p>';
-                    }
+                        $_SESSION['general_message']['manage_leagues'] = '<p style="color:green;">Liga atualizada com sucesso!</p>';
+                        header("Location: manage_leagues.php?status=saved_league_updated"); // Using a generic status for now
+                        exit;
+                    } else { $message = '<p style="color:red;">Erro ao atualizar liga no banco de dados.</p>'; }
                 }
             } catch (PDOException $e) {
-                 $message = '<p style="color:red;">Erro de banco de dados: ' . $e->getMessage() . '</p>';
+                 if ($e->getCode() == '23000' && strpos($e->getMessage(), "Duplicate entry") !== false) {
+                     $message = '<p style="color:red;">Erro: O nome da liga já existe.</p>';
+                 } else {
+                    $message = '<p style="color:red;">Erro de banco de dados: ' . $e->getMessage() . '</p>';
+                 }
             }
         }
     }
+}
+
+if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_SESSION['general_message']['manage_leagues'])) {
+    if(empty($message)) {
+        $message = $_SESSION['general_message']['manage_leagues'];
+    }
+    unset($_SESSION['general_message']['manage_leagues']);
 }
 ?>
 <!DOCTYPE html>
@@ -135,26 +132,27 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_league'])) {
     <link rel="stylesheet" href="css/admin_style.css">
 </head>
 <body>
-    <div class="container">
+    <div class="container" style="max-width:700px;">
         <nav>
             <div>
                 <a href="index.php">Painel Principal (Jogos)</a>
                 <a href="manage_leagues.php">Gerenciar Ligas</a>
                 <a href="manage_channels.php">Gerenciar Canais TV</a>
+                <a href="manage_saved_streams.php">Biblioteca de Streams</a>
                 <a href="manage_settings.php">Configurações</a>
             </div>
             <div class="nav-user-info">
-                Usuário: <?php echo htmlspecialchars($_SESSION['admin_username'] ?? 'Admin'); ?> |
+                <span id="online-users-indicator" style="margin-right: 15px; color: #007bff; font-weight:bold;">
+                    Online: <span id="online-users-count">--</span>
+                </span>
+                 Usuário: <?php echo htmlspecialchars($_SESSION['admin_username'] ?? 'Admin'); ?> |
                 <a href="logout.php" class="logout-link">Logout</a>
             </div>
         </nav>
         <h1><?php echo htmlspecialchars($page_title); ?></h1>
+        <?php if(!empty($message)) echo "<div class='message'>{$message}</div>"; ?>
 
-        <?php if(!empty($message)): ?>
-            <div class="message"><?php echo $message; ?></div>
-        <?php endif; ?>
-
-        <?php if ($league_id && $league): // Only show form if league was fetched successfully ?>
+        <?php if ($league_id && (isset($league) && $league || $_SERVER["REQUEST_METHOD"] == "POST")): ?>
         <form action="edit_league.php?id=<?php echo $league_id; ?>" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="league_id" value="<?php echo $league_id; ?>">
             <div>
@@ -164,7 +162,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_league'])) {
             <div>
                 <label for="logo_file">Logo da Liga (PNG, JPG, GIF, max 1MB):</label>
                 <?php if ($current_logo_filename): ?>
-                    <p>Logo Atual: <img src="<?php echo LEAGUE_LOGO_UPLOAD_DIR . htmlspecialchars($current_logo_filename); ?>" alt="Logo Atual" style="max-height: 50px; vertical-align: middle; margin-bottom:5px;"></p>
+                    <p>Logo Atual: <img src="<?php echo LEAGUE_LOGO_UPLOAD_DIR . htmlspecialchars($current_logo_filename); ?>" alt="Logo Atual" style="max-height: 50px; vertical-align: middle; margin-bottom:5px; border:1px solid #eee;"></p>
                     <p style="font-size:0.8em; color:#555;">Envie um novo arquivo para substituir o logo atual. Se nenhum arquivo for enviado, o logo atual será mantido.</p>
                 <?php else: ?>
                     <p style="font-size:0.8em; color:#555;">Nenhum logo cadastrado. Envie um arquivo.</p>
@@ -176,10 +174,40 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_league'])) {
                 <a href="manage_leagues.php" style="margin-left: 10px;">Cancelar</a>
             </div>
         </form>
-        <?php elseif(empty($message)): // If $league is not set and no other message is already set from initial fetch error ?>
-             <p style="color:red;">Não foi possível carregar os dados da liga para edição.</p>
-             <p><a href="manage_leagues.php">Voltar para Ligas</a></p>
-        <?php endif; ?>
+        <?php elseif(empty($message)):
+             echo '<p style="color:red;">Não foi possível carregar os dados da liga para edição.</p>';
+             echo '<p><a href="manage_leagues.php">Voltar para Ligas</a></p>';
+        endif; ?>
     </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const onlineUsersCountElement = document.getElementById('online-users-count');
+
+    function fetchOnlineUsers() {
+        if (!onlineUsersCountElement) return;
+
+        fetch('get_online_users.php')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok: ' . response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data && data.status === 'success') {
+                    onlineUsersCountElement.textContent = data.online_count;
+                } else {
+                    onlineUsersCountElement.textContent = '--';
+                }
+            })
+            .catch(error => {
+                onlineUsersCountElement.textContent = 'Err';
+                console.error('Fetch error for online users:', error);
+            });
+    }
+    fetchOnlineUsers();
+    setInterval(fetchOnlineUsers, 30000);
+});
+</script>
 </body>
 </html>
