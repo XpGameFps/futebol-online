@@ -1,8 +1,11 @@
 <?php
-require_once 'auth_check.php';
-require_once '../config.php';
+require_once 'auth_check.php'; // Auth check primeiro
+require_once '../config.php'; // Depois config
 
-$page_title = "Administrador"; // Será "Adicionar Administrador" ou "Editar Administrador"
+// error_reporting(E_ALL); // Tentar habilitar todos os erros
+// ini_set('display_errors', 1); // Tentar exibir erros
+
+$page_title = "Administrador";
 $message = '';
 $error_message = '';
 
@@ -23,33 +26,45 @@ if ($action === 'edit') {
         header("Location: manage_admins.php");
         exit;
     }
-    $page_title = "Editar Administrador";
+    $page_title = "Editar Administrador"; // Mantenha isso
 
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($error_message)) { // Só busca se não for um POST com erro já definido ou um POST bem-sucedido.
+    // --- INÍCIO DO BLOCO A COMENTAR PARA TESTE ---
+    /*
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($error_message)) {
         try {
-        $stmt_fetch = $pdo->prepare("SELECT username, email, is_superadmin FROM admins WHERE id = :id");
-        $stmt_fetch->bindParam(':id', $admin_id_to_edit, PDO::PARAM_INT);
-        $stmt_fetch->execute();
-        $admin_data = $stmt_fetch->fetch(PDO::FETCH_ASSOC);
+            $stmt_fetch = $pdo->prepare("SELECT username, email, is_superadmin FROM admins WHERE id = :id");
+            $stmt_fetch->bindParam(':id', $admin_id_to_edit, PDO::PARAM_INT);
+            $stmt_fetch->execute();
+            $admin_data = $stmt_fetch->fetch(PDO::FETCH_ASSOC);
 
-        if (!$admin_data) {
-            $_SESSION['admin_flash_message'] = ['type' => 'error', 'text' => 'Administrador não encontrado.'];
+            if (!$admin_data) {
+                $_SESSION['admin_flash_message'] = ['type' => 'error', 'text' => 'Administrador não encontrado (ID: '.$admin_id_to_edit.').'];
+                header("Location: manage_admins.php");
+                exit;
+            }
+            $username_val = $admin_data['username'];
+            $email_val = $admin_data['email'] ?? '';
+            $is_superadmin_val = $admin_data['is_superadmin'] ?? 0;
+
+        } catch (PDOException $e) {
+            $error_message = "Erro ao carregar dados do administrador (ID: {$admin_id_to_edit}): " . $e->getMessage();
+        }
+        // Permissão
+        if (!($_SESSION['admin_is_superadmin'] ?? false) && ($_SESSION['admin_id'] ?? null) != $admin_id_to_edit) {
+            $_SESSION['admin_flash_message'] = ['type' => 'error', 'text' => 'Você não tem permissão para editar este administrador (ID: '.$admin_id_to_edit.').'];
             header("Location: manage_admins.php");
             exit;
-        }
-        $username_val = $admin_data['username'];
-        $email_val = $admin_data['email'] ?? '';
-        $is_superadmin_val = $admin_data['is_superadmin'] ?? 0;
-
-    } catch (PDOException $e) {
-        $error_message = "Erro ao carregar dados do administrador: " . $e->getMessage();
-        // Considerar redirecionar ou mostrar erro mais crítico
+       }
     }
-    // Se admin logado não for superadmin E não for o próprio usuário, não permitir edição.
-    if (!($_SESSION['admin_is_superadmin'] ?? false) && ($_SESSION['admin_id'] ?? null) != $admin_id_to_edit) {
-         $_SESSION['admin_flash_message'] = ['type' => 'error', 'text' => 'Você não tem permissão para editar este administrador.'];
-         header("Location: manage_admins.php");
-         exit;
+    */
+    // --- FIM DO BLOCO A COMENTAR PARA TESTE ---
+
+    // Para o teste, defina valores mock para que o formulário não quebre:
+    $username_val = "TesteUsername (ID: {$admin_id_to_edit})";
+    $email_val = "teste@example.com";
+    $is_superadmin_val = 0;
+    if (empty($error_message)) { // Adiciona uma mensagem para sabermos que este bloco foi atingido
+         $message = "Modo de depuração: Carregamento para edição do ID {$admin_id_to_edit}. Lógica de busca comentada.";
     }
 
 } elseif ($action === 'add') {
