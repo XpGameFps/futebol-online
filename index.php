@@ -1,6 +1,8 @@
 <?php
 // Main page - List matches
 require_once 'config.php'; // Database connection
+// Define base path for channel logos for frontend display - relative to project root
+define('FRONTEND_CHANNELS_LOGO_BASE_PATH', 'uploads/logos/channels/');
 
 $matches = [];
 $error_message = '';
@@ -8,7 +10,7 @@ $error_message = '';
 // Fetch TV Channels
 $tv_channels = [];
 try {
-    $stmt_channels = $pdo->query("SELECT id, name, logo_url, stream_url FROM tv_channels ORDER BY sort_order ASC, name ASC LIMIT 16"); // Limit to 16 for a 2x8 grid initially
+    $stmt_channels = $pdo->query("SELECT id, name, logo_filename, stream_url FROM tv_channels ORDER BY sort_order ASC, name ASC LIMIT 16"); // Limit to 16 for a 2x8 grid initially
     $tv_channels = $stmt_channels->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     // Optionally display an error for channels, or just don't show the section
@@ -217,42 +219,75 @@ try {
             overflow: hidden;
             padding: 20px;
         }
+        /* Match Listing Grid Styles - Replaces previous .match-list and .match-list-item styles */
         .match-list {
             list-style: none;
             padding: 0;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); /* 3 columns */
+            gap: 15px; /* Space between items */
         }
         .match-list-item {
-            background-color: #2c2c2c; /* Slightly lighter metallic black for items */
-            border: 1px solid #00ff00; /* Green border */
-            margin-bottom: 15px;
-            padding: 20px;
+            background-color: #2c2c2c;
+            border: 1px solid #008000; /* Darker green border, brightens on hover */
+            padding: 15px; /* Slightly reduced padding for smaller items */
             border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 255, 0, 0.1); /* Subtle green glow */
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 255, 0, 0.05); /* More subtle shadow */
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+            display: flex; /* Use flex to manage content height and alignment */
+            flex-direction: column;
+            justify-content: space-between; /* Pushes description down if content varies */
+            min-height: 150px; /* Give items a minimum height, adjust as needed */
         }
         .match-list-item:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 16px rgba(0, 255, 0, 0.2); /* Enhanced green glow on hover */
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(0, 255, 0, 0.15);
+            border-color: #00ff00; /* Bright green border on hover */
         }
-        .match-list-item a {
+        .match-list-item .match-link { /* Changed from direct 'a' to a class for more specific targeting if needed */
             text-decoration: none;
-            color: #00ff00; /* Green links */
-            font-size: 1.8em;
+            color: #00dd00; /* Slightly less bright green for default state */
+            font-size: 1.3em; /* Adjusted font size for smaller cards */
             font-weight: bold;
+            display: block; /* Make it block for better layout control */
+            margin-bottom: 8px;
         }
-        .match-list-item a:hover {
+        .match-list-item .match-link:hover {
             text-decoration: underline;
+            color: #00ff00; /* Brighter green on hover */
         }
         .match-time {
-            font-size: 1em;
-            color: #a0a0a0; /* Lighter gray for time */
-            margin-top: 5px;
-            margin-bottom: 10px;
+            font-size: 0.9em; /* Adjusted font size */
+            color: #a0a0a0;
+            margin-bottom: 8px; /* Adjusted margin */
         }
         .match-description {
-            font-size: 1.1em;
-            color: #c0c0c0; /* Medium gray for description */
-            margin-top: 10px;
+            font-size: 0.95em; /* Adjusted font size */
+            color: #c0c0c0;
+            line-height: 1.4;
+            /* Optional: Limit lines for description if they become too long */
+            /* display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; */
+        }
+
+        /* Responsive adjustments for match list */
+        @media (max-width: 992px) { /* For tablets */
+            .match-list {
+                grid-template-columns: repeat(2, 1fr); /* 2 columns */
+            }
+            .match-list-item .match-link {
+                font-size: 1.4em;
+            }
+        }
+        @media (max-width: 576px) { /* For mobile phones */
+            .match-list {
+                grid-template-columns: 1fr; /* 1 column */
+            }
+            .match-list-item .match-link {
+                font-size: 1.5em;
+            }
+            .match-list-item {
+                padding: 20px; /* Restore more padding for single column items */
+            }
         }
         .no-matches, .error-message {
             text-align: center;
@@ -274,8 +309,9 @@ try {
     <div class="channels-grid">
         <?php foreach ($tv_channels as $channel): ?>
             <a href="<?php echo htmlspecialchars($channel['stream_url']); ?>" target="_blank" class="channel-item" title="Assistir <?php echo htmlspecialchars($channel['name']); ?>">
-                <?php if (!empty($channel['logo_url'])): ?>
-                    <img src="<?php echo htmlspecialchars($channel['logo_url']); ?>" alt="<?php echo htmlspecialchars($channel['name']); ?>" class="channel-logo">
+                <?php if (!empty($channel['logo_filename'])): ?>
+                    <img src="<?php echo FRONTEND_CHANNELS_LOGO_BASE_PATH . htmlspecialchars($channel['logo_filename']); ?>"
+                         alt="<?php echo htmlspecialchars($channel['name']); ?>" class="channel-logo">
                 <?php else: ?>
                     <span class="channel-name-placeholder"><?php echo htmlspecialchars($channel['name']); ?></span>
                 <?php endif; ?>
@@ -296,7 +332,7 @@ try {
             <ul class="match-list">
                 <?php foreach ($matches as $match): ?>
                     <li class="match-list-item">
-                        <a href="match.php?id=<?php echo htmlspecialchars($match['id']); ?>">
+                        <a class="match-link" href="match.php?id=<?php echo htmlspecialchars($match['id']); ?>">
                             <?php echo htmlspecialchars($match['team_home']); ?> vs <?php echo htmlspecialchars($match['team_away']); ?>
                         </a>
                         <p class="match-time">

@@ -2,7 +2,10 @@
 session_start();
 require_once '../config.php'; // Database connection
 
-// Handle messages
+// Define base path for channel logos for display - relative to this script's location
+define('CHANNELS_LOGO_BASE_PATH_RELATIVE_TO_ADMIN', '../uploads/logos/channels/');
+
+// Handle messages (existing message handling)
 $message = '';
 if (isset($_GET['status'])) {
     $status = $_GET['status'];
@@ -10,7 +13,12 @@ if (isset($_GET['status'])) {
     if ($status == 'channel_added') {
         $message = '<p style="color:green;">Canal de TV adicionado com sucesso!</p>';
     } elseif ($status == 'channel_add_error') {
-        $message = '<p style="color:red;">Erro ao adicionar canal: ' . $reason . '</p>';
+        if ($reason == 'file_upload_error') {
+            $upload_error_msg = isset($_GET['err_msg']) ? htmlspecialchars(urldecode($_GET['err_msg'])) : 'Erro desconhecido no upload.';
+            $message = '<p style="color:red;">Erro ao adicionar canal: Problema no upload do logo. ' . $upload_error_msg . '</p>';
+        } else {
+            $message = '<p style="color:red;">Erro ao adicionar canal: ' . $reason . '</p>';
+        }
     } elseif ($status == 'channel_deleted') {
         $message = '<p style="color:green;">Canal de TV excluído com sucesso!</p>';
     } elseif ($status == 'channel_delete_error') {
@@ -21,7 +29,8 @@ if (isset($_GET['status'])) {
 // Fetch existing channels
 $channels = [];
 try {
-    $stmt = $pdo->query("SELECT id, name, logo_url, stream_url, sort_order FROM tv_channels ORDER BY sort_order ASC, name ASC");
+    // Assuming 'logo_filename' is the new column name after update_schema_v3.sql
+    $stmt = $pdo->query("SELECT id, name, logo_filename, stream_url, sort_order FROM tv_channels ORDER BY sort_order ASC, name ASC");
     $channels = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $message .= '<p style="color:red;">Erro ao buscar canais: ' . $e->getMessage() . '</p>';
@@ -32,7 +41,9 @@ try {
 <head>
     <meta charset="UTF-8">
     <title>Gerenciar Canais de TV - Painel Admin</title>
+    <!-- Existing CSS from previous step, ensure it's complete -->
     <style>
+        /* Ensure all necessary CSS from previous steps is here */
         * { box-sizing: border-box; }
         body { font-family: Arial, sans-serif; margin: 0; padding:0; background-color: #f4f7f6; color: #333; }
         .container { width: 90%; max-width: 1000px; margin: 20px auto; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -45,13 +56,14 @@ try {
         h2 { margin-top: 30px; border-bottom: 2px solid #007bff; padding-bottom: 5px; color: #007bff;}
         form div { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
-        input[type="text"], input[type="url"], input[type="number"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 1em; }
+        input[type="text"], input[type="url"], input[type="number"], input[type="file"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 1em; }
+        input[type="file"] { padding: 3px; } /* Specific padding for file input */
         button[type="submit"] { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; transition: background-color 0.3s ease; }
         button[type="submit"]:hover { background-color: #0056b3; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { border: 1px solid #ddd; padding: 10px; text-align: left; vertical-align: middle; word-break: break-all; }
         th { background-color: #f0f0f0; }
-        td img.logo { max-height: 30px; max-width: 100px; vertical-align: middle; margin-right: 5px; }
+        td img.logo { max-height: 30px; max-width: 100px; vertical-align: middle; margin-right: 5px; border: 1px solid #eee; }
         .delete-button { background-color: #dc3545; color: white; padding: 5px 10px; border:none; border-radius:4px; cursor:pointer; font-size:0.9em; text-decoration:none; display:inline-block; }
         .delete-button:hover { background-color: #c82333; }
         .message { margin-bottom: 20px; }
@@ -74,14 +86,15 @@ try {
         <?php endif; ?>
 
         <h2>Adicionar Novo Canal de TV</h2>
-        <form action="add_channel.php" method="POST">
+        <!-- IMPORTANT: Added enctype for file upload -->
+        <form action="add_channel.php" method="POST" enctype="multipart/form-data">
             <div>
                 <label for="name">Nome do Canal:</label>
                 <input type="text" id="name" name="name" required>
             </div>
             <div>
-                <label for="logo_url">URL do Logo (opcional):</label>
-                <input type="url" id="logo_url" name="logo_url" placeholder="https://example.com/logo.png">
+                <label for="logo_file">Logo do Canal (opcional, PNG, JPG, GIF, max 1MB):</label>
+                <input type="file" id="logo_file" name="logo_file" accept="image/png, image/jpeg, image/gif">
             </div>
             <div>
                 <label for="stream_url">URL do Stream Principal:</label>
@@ -116,8 +129,9 @@ try {
                         <tr>
                             <td><?php echo htmlspecialchars($channel['id']); ?></td>
                             <td>
-                                <?php if (!empty($channel['logo_url'])): ?>
-                                    <img src="<?php echo htmlspecialchars($channel['logo_url']); ?>" alt="Logo <?php echo htmlspecialchars($channel['name']); ?>" class="logo">
+                                <?php if (!empty($channel['logo_filename'])): ?>
+                                    <img src="<?php echo CHANNELS_LOGO_BASE_PATH_RELATIVE_TO_ADMIN . htmlspecialchars($channel['logo_filename']); ?>"
+                                         alt="Logo <?php echo htmlspecialchars($channel['name']); ?>" class="logo">
                                 <?php else: ?>
                                     N/A
                                 <?php endif; ?>
