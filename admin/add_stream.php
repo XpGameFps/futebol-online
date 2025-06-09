@@ -4,70 +4,128 @@ require_once 'auth_check.php'; // Handles session_start()
 require_once '../config.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $match_id = trim($_POST["match_id"] ?? '');
-    $stream_url = trim($_POST["stream_url"] ?? '');
+    $match_id_str = trim($_POST["match_id"] ?? ''); // Keep as string for hidden input name construction
     $stream_label = trim($_POST["stream_label"] ?? '');
+    $stream_url_manual = trim($_POST["stream_url"] ?? '');
+    $saved_stream_id = trim($_POST["saved_stream_id"] ?? '');
 
-    // Store POST data in session, keyed by match_id for this form context
-    if (!empty($match_id) && filter_var($match_id, FILTER_VALIDATE_INT)) {
-        $_SESSION['form_data']['add_stream'][(int)$match_id] = $_POST;
-    }
+    $save_to_library = isset($_POST['save_to_library']);
+    $library_stream_name = trim($_POST['library_stream_name'] ?? '');
+    // Construct the key for is_manual_entry based on how it's named in the form
+    $is_manual_entry_key = "is_manual_entry_" . $match_id_str;
+    $is_manual_entry = ($_POST[$is_manual_entry_key] ?? 'true') === 'true';
 
-    // Basic Validations
-    if (empty($match_id) || !filter_var($match_id, FILTER_VALIDATE_INT)) {
+    $final_stream_url = '';
+
+    // Validate match_id first as it's used for session keys
+    if (empty($match_id_str) || !filter_var($match_id_str, FILTER_VALIDATE_INT)) {
         $_SESSION['form_error_message']['add_stream_general'] = "ID do jogo inválido ou ausente ao tentar adicionar stream.";
-        // Cannot redirect to a specific match anchor if match_id is invalid
         header("Location: index.php");
         exit;
     }
-    // Ensure $match_id is an integer for array key usage
-    $match_id = (int)$match_id;
+    $match_id = (int)$match_id_str; // Now convert to int
 
-    if (empty($stream_url) || empty($stream_label)) {
-        $_SESSION['form_error_message']['add_stream'][$match_id] = "URL do Stream e Rótulo são obrigatórios.";
-        header("Location: index.php#match-" . $match_id);
-        exit;
+    // Store POST data in session, keyed by match_id for this form context
+    $_SESSION['form_data']['add_stream'][$match_id] = $_POST;
+
+
+    if (empty($stream_label)) {
+        $_SESSION['form_error_message']['add_stream'][$match_id] = "Rótulo do Stream é obrigatório.";
+        header("Location: index.php#match-" . $match_id); exit;
     }
-    if (!filter_var($stream_url, FILTER_VALIDATE_URL)) {
-        $_SESSION['form_error_message']['add_stream'][$match_id] = "URL do Stream inválida.";
-        header("Location: index.php#match-" . $match_id);
-        exit;
+
+    if (!empty($saved_stream_id) && filter_var($saved_stream_id, FILTER_VALIDATE_INT) && !$is_manual_entry) {
+        // User selected a stream from the library
+        try {
+            $stmt_get_saved = $pdo->prepare("SELECT stream_url_value FROM saved_stream_urls WHERE id = :id");
+            $stmt_get_saved->bindParam(':id', $saved_stream_id, PDO::PARAM_INT);
+            $stmt_get_saved->execute();
+            $saved_url_data = $stmt_get_saved->fetch(PDO::FETCH_ASSOC);
+            if ($saved_url_data) {
+                $final_stream_url = $saved_url_data['stream_url_value'];
+            } else {
+                $_SESSION['form_error_message']['add_stream'][$match_id] = "Stream salvo selecionado não encontrado na biblioteca.";
+                header("Location: index.php#match-" . $match_id); exit;
+            }
+        } catch (PDOException $e) {
+            $_SESSION['form_error_message']['add_stream'][$match_id] = "Erro ao buscar stream da biblioteca: " . $e->getMessage();
+            header("Location: index.php#match-" . $match_id); exit;
+        }
+    } else {
+        // Manual URL entry or library selection was overridden/ignored
+        $final_stream_url = $stream_url_manual;
+        if (empty($final_stream_url)) {
+            $_SESSION['form_error_message']['add_stream'][$match_id] = "URL do Stream é obrigatória se não selecionar da biblioteca.";
+            header("Location: index.php#match-" . $match_id); exit;
+        }
+        if (!filter_var($final_stream_url, FILTER_VALIDATE_URL)) {
+            $_SESSION['form_error_message']['add_stream'][$match_id] = "URL do Stream (manual) inválida.";
+            header("Location: index.php#match-" . $match_id); exit;
+        }
+    }
+
+    if ($is_manual_entry && $save_to_library) {
+        if (empty($library_stream_name)) {
+            $_SESSION['form_error_message']['add_stream'][$match_id] = "Nome para Biblioteca é obrigatório ao salvar nova URL.";
+            header("Location: index.php#match-" . $match_id); exit;
+        }
+        try {
+            $stmt_check_lib = $pdo->prepare("SELECT id FROM saved_stream_urls WHERE stream_name = :name");
+            $stmt_check_lib->bindParam(':name', $library_stream_name, PDO::PARAM_STR);
+            $stmt_check_lib->execute();
+            if ($stmt_check_lib->rowCount() == 0) {
+                $sql_save_lib = "INSERT INTO saved_stream_urls (stream_name, stream_url_value) VALUES (:name, :url)";
+                $stmt_save_lib = $pdo->prepare($sql_save_lib);
+                $stmt_save_lib->bindParam(':name', $library_stream_name, PDO::PARAM_STR);
+                $stmt_save_lib->bindParam(':url', $final_stream_url, PDO::PARAM_STR);
+                $stmt_save_lib->execute();
+            } else {
+                // Optionally add a specific message if name already exists, but for now, just don't re-add.
+                // $_SESSION['form_error_message']['add_stream'][$match_id] .= " (Aviso: Nome já existente na biblioteca, não salvo novamente.)";
+            }
+        } catch (PDOException $e) {
+            // Append warning, but don't stop adding stream to match
+            $existing_error = $_SESSION['form_error_message']['add_stream'][$match_id] ?? '';
+            $_SESSION['form_error_message']['add_stream'][$match_id] = trim($existing_error . " (Aviso: falha ao salvar na biblioteca: nome duplicado ou erro de BD.)");
+        }
     }
 
     try {
-        // Check if match_id exists
-        $checkSql = "SELECT id FROM matches WHERE id = :match_id";
-        $checkStmt = $pdo->prepare($checkSql);
-        $checkStmt->bindParam(":match_id", $match_id, PDO::PARAM_INT);
-        $checkStmt->execute();
-        if ($checkStmt->rowCount() == 0) {
-            $_SESSION['form_error_message']['add_stream'][$match_id] = "Jogo não encontrado para associar o stream.";
-            header("Location: index.php#match-" . $match_id);
-            exit;
+        $stmt_check_match = $pdo->prepare("SELECT id FROM matches WHERE id = :match_id");
+        $stmt_check_match->bindParam(":match_id", $match_id, PDO::PARAM_INT);
+        $stmt_check_match->execute();
+        if ($stmt_check_match->rowCount() == 0) {
+            $_SESSION['form_error_message']['add_stream_general'] = "Jogo não encontrado ao tentar adicionar stream.";
+            header("Location: index.php"); exit;
         }
 
-        $sql = "INSERT INTO streams (match_id, stream_url, stream_label) VALUES (:match_id, :stream_url, :stream_label)";
-        $stmt = $pdo->prepare($sql);
-        $stmt->bindParam(":match_id", $match_id, PDO::PARAM_INT);
-        $stmt->bindParam(":stream_url", $stream_url, PDO::PARAM_STR);
-        $stmt->bindParam(":stream_label", $stream_label, PDO::PARAM_STR);
+        $sql_add = "INSERT INTO streams (match_id, stream_url, stream_label) VALUES (:match_id, :stream_url, :stream_label)";
+        $stmt_add = $pdo->prepare($sql_add);
+        $stmt_add->bindParam(":match_id", $match_id, PDO::PARAM_INT);
+        $stmt_add->bindParam(":stream_url", $final_stream_url, PDO::PARAM_STR);
+        $stmt_add->bindParam(":stream_label", $stream_label, PDO::PARAM_STR);
 
-        if ($stmt->execute()) {
+        if ($stmt_add->execute()) {
             unset($_SESSION['form_data']['add_stream'][$match_id]);
-            unset($_SESSION['form_error_message']['add_stream'][$match_id]);
-            header("Location: index.php?status=stream_added#match-" . $match_id);
+            // Do not unset error message here if it contains a warning from library save attempt
+            // Only unset specific add_stream errors if no library warning
+            if(strpos($_SESSION['form_error_message']['add_stream'][$match_id] ?? '', 'Aviso:') === false) {
+                 unset($_SESSION['form_error_message']['add_stream'][$match_id]);
+            }
+            $redirect_status = isset($_SESSION['form_error_message']['add_stream'][$match_id]) ? "stream_added_with_library_warning" : "stream_added";
+
+            header("Location: index.php?status=".$redirect_status."#match-" . $match_id);
         } else {
-            $_SESSION['form_error_message']['add_stream'][$match_id] = "Erro ao adicionar stream no banco de dados.";
+            $_SESSION['form_error_message']['add_stream'][$match_id] = "Erro ao adicionar stream ao jogo.";
             header("Location: index.php#match-" . $match_id);
         }
         exit;
     } catch (PDOException $e) {
-        $_SESSION['form_error_message']['add_stream'][$match_id] = "Erro de BD: " . $e->getMessage();
+        $_SESSION['form_error_message']['add_stream'][$match_id] = "Erro de BD ao adicionar stream: " . $e->getMessage();
         header("Location: index.php#match-" . $match_id);
         exit;
     }
 } else {
-    // Not a POST request, redirect to admin index. Clear any general add_stream error.
     if(isset($_SESSION['form_error_message']['add_stream_general'])) unset($_SESSION['form_error_message']['add_stream_general']);
     header("Location: index.php");
     exit;

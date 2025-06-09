@@ -57,7 +57,8 @@ try {
                 <a href="index.php">Painel Principal (Jogos)</a>
                 <a href="manage_leagues.php">Gerenciar Ligas</a>
                 <a href="manage_channels.php">Gerenciar Canais TV</a>
-                <a href="manage_settings.php">Configurações</a> <!-- New Link -->
+                <a href="manage_saved_streams.php">Biblioteca de Streams</a>
+                <a href="manage_settings.php">Configurações</a>
             </div>
             <div class="nav-user-info"> <!-- Group for user info and logout -->
                 Usuário: <?php echo htmlspecialchars($_SESSION['admin_username'] ?? 'Admin'); ?> |
