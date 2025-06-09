@@ -150,6 +150,40 @@ if ($match_id > 0) {
             padding: 15px;
             border-radius: 4px;
         }
+
+    .report-issue-button {
+        background-color: red;
+        color: white;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-top: 15px; /* Ajuste a margem conforme necessário */
+        margin-bottom: 10px;
+        display: block;
+        width: fit-content;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    .report-issue-button:hover {
+        background-color: darkred;
+    }
+    .report-issue-button:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+    }
+    .report-feedback {
+        margin-top: 5px;
+        font-size: 0.9em;
+        text-align: center; /* Centralizar feedback */
+    }
+    .report-feedback.success {
+        color: green;
+    }
+    .report-feedback.error {
+        color: red;
+    }
     </style>
 </head>
 <body>
@@ -215,7 +249,17 @@ if ($match_id > 0) {
                     <p class="info-message">Nenhuma opção de stream disponível para este jogo no momento.</p>
                 <?php endif; ?>
 
-            <?php else: ?>
+                <?php // <!-- ADICIONAR BOTÃO DE REPORTE AQUI --> ?>
+                <?php if ($match && isset($match['id'])): // Garante que temos um ID de partida ?>
+                <div class="report-button-container" style="text-align: center; margin-top: 20px; margin-bottom: 15px;">
+                    <button id="reportMatchProblemBtn" class="report-issue-button" data-item-id="<?php echo htmlspecialchars($match['id']); ?>" data-item-type="match">
+                        Reportar Problema no Jogo/Transmissão
+                    </button>
+                    <div id="reportMatchFeedback" class="report-feedback"></div>
+                </div>
+                <?php endif; ?>
+
+            <?php else: // Este é o else para if ($match) ?>
                 <p class="error-message">Detalhes do jogo não puderam ser carregados.</p>
             <?php endif; ?>
 
@@ -259,6 +303,68 @@ if ($match_id > 0) {
                 }
             }
         });
+
+    // Script para o botão de reportar problema no jogo
+    const reportMatchButton = document.getElementById('reportMatchProblemBtn');
+    const reportMatchFeedback = document.getElementById('reportMatchFeedback');
+
+    if (reportMatchButton) {
+        reportMatchButton.addEventListener('click', function() {
+            const itemId = this.dataset.itemId;
+            const itemType = this.dataset.itemType;
+
+            if (!itemId || !itemType) {
+                if (reportMatchFeedback) {
+                    reportMatchFeedback.textContent = 'Erro: ID ou Tipo do item não encontrado.';
+                    reportMatchFeedback.className = 'report-feedback error';
+                }
+                return;
+            }
+
+            this.disabled = true;
+            if (reportMatchFeedback) {
+                reportMatchFeedback.textContent = 'Enviando reporte...';
+                reportMatchFeedback.className = 'report-feedback';
+            }
+
+            const formData = new FormData();
+            formData.append('item_id', itemId);
+            formData.append('item_type', itemType);
+
+            fetch('admin/report_item_issue.php', { // Usa o endpoint generalizado
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (reportMatchFeedback) {
+                    reportMatchFeedback.textContent = data.message || 'Reporte processado.';
+                    if (data.success) {
+                        reportMatchFeedback.className = 'report-feedback success';
+                    } else {
+                        reportMatchFeedback.className = 'report-feedback error';
+                    }
+                }
+                setTimeout(() => {
+                    reportMatchButton.disabled = false;
+                    if (reportMatchFeedback && data.success) {
+                        reportMatchFeedback.textContent = '';
+                    }
+                }, 5000);
+            })
+            .catch(error => {
+                console.error('Erro ao reportar problema no jogo:', error);
+                if (reportMatchFeedback) {
+                    reportMatchFeedback.textContent = 'Erro ao enviar o reporte. Tente novamente mais tarde.';
+                    reportMatchFeedback.className = 'report-feedback error';
+                }
+                setTimeout(() => {
+                    reportMatchButton.disabled = false;
+                }, 5000);
+            });
+        });
+    }
+    // Fim do script para reportar problema
     </script>
 </body>
 </html>
