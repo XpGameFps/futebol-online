@@ -376,6 +376,28 @@ if ($match_id > 0) {
         #acceptCookieConsent:hover {
             background-color: #00cc00;
         }
+
+        .main-navigation a.active { /* Style for active menu links */
+            color: #0d0d0d;
+            background-color: #00ff00; /* Green accent */
+            font-weight: bold; /* Ensure active link is prominent */
+        }
+
+        .admin-panel-link {
+            display: inline-block;
+            margin-left: 15px; /* Space from leagues dropdown or search */
+            padding: 6px 12px;
+            background-color: #00b300; /* Slightly different green or a distinct color */
+            color: #ffffff;
+            text-decoration: none;
+            font-weight: bold;
+            border-radius: 4px;
+            font-size: 0.9em;
+            transition: background-color 0.3s;
+        }
+        .admin-panel-link:hover {
+            background-color: #009900; /* Darker shade on hover */
+        }
     </style>
 </head>
 <body>

@@ -30,7 +30,17 @@ try {
 
 // Fetch matches - UPDATED QUERY
 try {
-    $stmt_matches = $pdo->query("SELECT id, team_home, team_away, match_time, description, league_id, cover_image_filename FROM matches ORDER BY match_time DESC LIMIT 30"); // Added league_id, cover_image_filename, and a LIMIT
+    // Fetch upcoming/ongoing matches, ordered by soonest first.
+    // We can use NOW() for current server time. Consider a small offset if needed for "just started" games.
+    // For example, to include games that started in the last 2 hours: DATE_SUB(NOW(), INTERVAL 2 HOUR)
+    // For simplicity, we'll start with NOW() to show only future or very current games.
+    $current_time_sql = "NOW()"; // Or specific timezone adjusted time if necessary
+    $sql_matches = "SELECT id, team_home, team_away, match_time, description, league_id, cover_image_filename
+                    FROM matches
+                    WHERE match_time >= {$current_time_sql}
+                    ORDER BY match_time ASC
+                    LIMIT 30";
+    $stmt_matches = $pdo->query($sql_matches);
     $matches = $stmt_matches->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     if(empty($error_message)) { // Avoid overwriting other potential errors
@@ -305,61 +315,80 @@ try {
             gap: 20px; /* Increased gap slightly */
         }
         .match-list-item {
+            /* position: relative; /* Not strictly needed if <a> is the direct child doing the work */
+            /* overflow: hidden; /* Keep this for image corners */
+            /* display: flex; flex-direction: column; /* This should now be on .match-card-link */
+            /* Remove background, border, shadow from here as <a> will take over */
+            background-color: transparent; /* Or remove if not set */
+            border: none; /* Or remove if not set */
+            box-shadow: none; /* Or remove if not set */
+        }
+
+        .match-card-link { /* The new wrapper link */
+            display: flex;
+            flex-direction: column;
             background-color: #2c2c2c;
             border: 1px solid #008000;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0, 255, 0, 0.05);
             transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-            display: flex;
-            flex-direction: column;
-            /* Removed justify-content: space-between and min-height here, will control via content wrapper */
-            overflow: hidden; /* Ensure image corners conform to border-radius */
+            text-decoration: none; /* Remove underline from the whole card link */
+            color: inherit; /* Inherit text color for content within */
+            overflow: hidden; /* To make image corners conform */
+            height: 100%; /* Make the link fill the li if li has fixed height or is part of a grid row */
         }
-        .match-list-item:hover {
-            transform: translateY(-4px); /* Slightly more lift */
-            box-shadow: 0 7px 14px rgba(0, 255, 0, 0.2); /* Enhanced shadow */
+        .match-card-link:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 7px 14px rgba(0, 255, 0, 0.2);
             border-color: #00ff00;
         }
 
-        .match-cover-image {
+        .match-cover-image { /* Existing style, should be fine */
             width: 100%;
-            height: 160px; /* Fixed height for cover images, adjust as needed */
-            object-fit: cover; /* Crop image to fit, maintaining aspect ratio */
-            /* No border-radius needed here if .match-list-item has overflow:hidden */
+            height: 160px;
+            object-fit: cover;
+        }
+        .match-cover-image-placeholder { /* Optional: if no image, maintain space */
+            width: 100%;
+            height: 160px; /* Same height as image */
+            background-color: #3a3a3a; /* Dark placeholder color */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            /* content: "Sem Capa"; /* Can't use content on a div, use text or an SVG background */
         }
 
-        .match-item-content { /* New wrapper for text content */
+
+        .match-item-content { /* Existing style, should be fine */
             padding: 15px;
             display: flex;
             flex-direction: column;
-            flex-grow: 1; /* Allows this part to take remaining space if items have different heights due to text */
-            justify-content: space-between; /* Pushes description down */
+            flex-grow: 1;
+            justify-content: space-between;
         }
 
-        .match-list-item .match-link {
-            text-decoration: none;
+        .match-title { /* New class for the title, formerly .match-link */
             color: #00dd00;
-            font-size: 1.2em; /* Adjusted slightly */
+            font-size: 1.2em;
             font-weight: bold;
-            display: block;
-            margin-bottom: 8px;
+            margin: 0 0 8px 0; /* Remove default heading margins */
         }
-        .match-list-item .match-link:hover {
+        .match-card-link:hover .match-title { /* Optional: underline title on card hover */
             text-decoration: underline;
             color: #00ff00;
         }
-        .match-time {
-            font-size: 0.85em; /* Adjusted slightly */
+
+        .match-time { /* Existing style, ensure color is not overridden by <a> if it was specific */
+            font-size: 0.85em;
             color: #a0a0a0;
             margin-bottom: 8px;
         }
-        .match-description {
-            font-size: 0.9em; /* Adjusted slightly */
+        .match-description { /* Existing style, ensure color is not overridden */
+            font-size: 0.9em;
             color: #c0c0c0;
             line-height: 1.4;
-            flex-grow: 1; /* Allows description to take available space before time if needed */
-            /* Optional: Limit lines for description */
-            /* display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; */
+            flex-grow: 1;
         }
 
         /* Responsive adjustments for match list */
@@ -368,7 +397,7 @@ try {
                 grid-template-columns: repeat(2, 1fr);
                 gap: 15px; /* Adjust gap for tablets */
             }
-            .match-list-item .match-link {
+            .match-title { /* Was .match-list-item .match-link */
                 font-size: 1.3em;
             }
             .match-cover-image {
@@ -379,7 +408,7 @@ try {
             .match-list {
                 grid-template-columns: 1fr;
             }
-            .match-list-item .match-link {
+            .match-title { /* Was .match-list-item .match-link */
                 font-size: 1.4em;
             }
             /* .match-list-item content padding was 20px, now handled by .match-item-content */
@@ -451,6 +480,28 @@ try {
         #acceptCookieConsent:hover {
             background-color: #00cc00;
         }
+
+        .main-navigation a.active { /* Style for active menu links */
+            color: #0d0d0d;
+            background-color: #00ff00; /* Green accent */
+            font-weight: bold; /* Ensure active link is prominent */
+        }
+
+        .admin-panel-link {
+            display: inline-block;
+            margin-left: 15px; /* Space from leagues dropdown or search */
+            padding: 6px 12px;
+            background-color: #00b300; /* Slightly different green or a distinct color */
+            color: #ffffff;
+            text-decoration: none;
+            font-weight: bold;
+            border-radius: 4px;
+            font-size: 0.9em;
+            transition: background-color 0.3s;
+        }
+        .admin-panel-link:hover {
+            background-color: #009900; /* Darker shade on hover */
+        }
     </style>
 </head>
 <body>
@@ -490,7 +541,7 @@ try {
                          alt="Capa para <?php echo htmlspecialchars($match['team_home']); ?> vs <?php echo htmlspecialchars($match['team_away']); ?>"
                          class="match-cover-image">
                 <?php endif; ?>
-                <div class="match-item-content"> {/* New div to wrap content other than image for better flex control */}
+                <div class="match-item-content">
                     <a class="match-link" href="match.php?id=<?php echo htmlspecialchars($match['id']); ?>">
                         <?php echo htmlspecialchars($match['team_home']); ?> vs <?php echo htmlspecialchars($match['team_away']); ?>
                     </a>

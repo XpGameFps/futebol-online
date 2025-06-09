@@ -1,14 +1,17 @@
 <?php
-require_once 'config.php'; // Database connection
-define('FRONTEND_MATCH_COVER_BASE_PATH', 'uploads/covers/matches/'); // For cover images
+require_once 'config.php'; // Corrected path
+define('FRONTEND_MATCH_COVER_BASE_PATH', 'uploads/covers/matches/');
 
-// Fetch Leagues for Header (reusing the same logic as index.php and match.php)
+// Fetch Leagues for Header
 $header_leagues = [];
 try {
-    $stmt_header_leagues = $pdo->query("SELECT id, name FROM leagues ORDER BY name ASC");
-    $header_leagues = $stmt_header_leagues->fetchAll(PDO::FETCH_ASSOC);
+    // Ensure $pdo is available after config.php is correctly included
+    if (isset($pdo)) {
+        $stmt_header_leagues = $pdo->query("SELECT id, name FROM leagues ORDER BY name ASC");
+        $header_leagues = $stmt_header_leagues->fetchAll(PDO::FETCH_ASSOC);
+    }
 } catch (PDOException $e) {
-    // Silently fail for header leagues or log
+    // Silently fail or log
 }
 
 $search_query = '';
@@ -91,18 +94,80 @@ if (isset($_GET['query'])) {
         .page-title { color: #00ff00; text-align: center; font-size: 2.5em; margin-top: 20px; margin-bottom: 20px; }
         .section-title { color: #00ff00; text-align: center; font-size: 2em; margin-bottom: 20px; text-transform: uppercase; }
         .match-list { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-        .match-list-item { background-color: #2c2c2c; border: 1px solid #008000; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 255, 0, 0.05); transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; display: flex; flex-direction: column; overflow: hidden; }
-        .match-list-item:hover { transform: translateY(-4px); box-shadow: 0 7px 14px rgba(0, 255, 0, 0.2); border-color: #00ff00; }
-        .match-cover-image { width: 100%; height: 160px; object-fit: cover; }
-        .match-item-content { padding: 15px; display: flex; flex-direction: column; flex-grow: 1; justify-content: space-between; }
-        .match-list-item .match-link { text-decoration: none; color: #00dd00; font-size: 1.2em; font-weight: bold; display: block; margin-bottom: 8px; }
-        .match-list-item .match-link:hover { text-decoration: underline; color: #00ff00; }
-        .match-time { font-size: 0.85em; color: #a0a0a0; margin-bottom: 8px; }
-        .match-description { font-size: 0.9em; color: #c0c0c0; line-height: 1.4; flex-grow: 1; }
+        .match-list-item {
+            background-color: transparent;
+            border: none;
+            box-shadow: none;
+        }
+
+        .match-card-link {
+            display: flex;
+            flex-direction: column;
+            background-color: #2c2c2c;
+            border: 1px solid #008000;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 255, 0, 0.05);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+            text-decoration: none;
+            color: inherit;
+            overflow: hidden;
+            height: 100%;
+        }
+        .match-card-link:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 7px 14px rgba(0, 255, 0, 0.2);
+            border-color: #00ff00;
+        }
+
+        .match-cover-image {
+            width: 100%;
+            height: 160px;
+            object-fit: cover;
+        }
+        .match-cover-image-placeholder {
+            width: 100%;
+            height: 160px;
+            background-color: #3a3a3a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+        }
+
+        .match-item-content {
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            justify-content: space-between;
+        }
+
+        .match-title {
+            color: #00dd00;
+            font-size: 1.2em;
+            font-weight: bold;
+            margin: 0 0 8px 0;
+        }
+        .match-card-link:hover .match-title {
+            text-decoration: underline;
+            color: #00ff00;
+        }
+
+        .match-time {
+            font-size: 0.85em;
+            color: #a0a0a0;
+            margin-bottom: 8px;
+        }
+        .match-description {
+            font-size: 0.9em;
+            color: #c0c0c0;
+            line-height: 1.4;
+            flex-grow: 1;
+        }
         .no-matches, .error-message, .search-info { text-align: center; font-size: 1.2em; color: #ffcc00; padding: 20px; background-color: #2c2c2c; border: 1px solid #ffcc00; border-radius: 5px; margin-top:20px; }
         .search-info { color: #e0e0e0; border-color: #00ff00; }
-        @media (max-width: 992px) { .match-list { grid-template-columns: repeat(2, 1fr); gap: 15px; } .match-list-item .match-link { font-size: 1.3em; } .match-cover-image { height: 140px; } }
-        @media (max-width: 576px) { .match-list { grid-template-columns: 1fr; } .match-list-item .match-link { font-size: 1.4em; } .match-cover-image { height: 180px; } }
+        @media (max-width: 992px) { .match-list { grid-template-columns: repeat(2, 1fr); gap: 15px; } .match-title { font-size: 1.3em; } .match-cover-image { height: 140px; } .match-cover-image-placeholder { height: 140px; } }
+        @media (max-width: 576px) { .match-list { grid-template-columns: 1fr; } .match-title { font-size: 1.4em; } .match-cover-image { height: 180px; } .match-cover-image-placeholder { height: 180px; } }
         /* TV channels styles are intentionally omitted for search.php to keep it focused on match results */
 
         /* Basic Footer Styles */
@@ -159,6 +224,28 @@ if (isset($_GET['query'])) {
         #acceptCookieConsent:hover {
             background-color: #00cc00;
         }
+
+        .main-navigation a.active { /* Style for active menu links */
+            color: #0d0d0d;
+            background-color: #00ff00; /* Green accent */
+            font-weight: bold; /* Ensure active link is prominent */
+        }
+
+        .admin-panel-link {
+            display: inline-block;
+            margin-left: 15px; /* Space from leagues dropdown or search */
+            padding: 6px 12px;
+            background-color: #00b300; /* Slightly different green or a distinct color */
+            color: #ffffff;
+            text-decoration: none;
+            font-weight: bold;
+            border-radius: 4px;
+            font-size: 0.9em;
+            transition: background-color 0.3s;
+        }
+        .admin-panel-link:hover {
+            background-color: #009900; /* Darker shade on hover */
+        }
     </style>
 </head>
 <body>
@@ -177,22 +264,26 @@ if (isset($_GET['query'])) {
             <ul class="match-list">
                 <?php foreach ($matches as $match): ?>
                     <li class="match-list-item">
-                        <?php if (!empty($match['cover_image_filename'])): ?>
-                            <img src="<?php echo FRONTEND_MATCH_COVER_BASE_PATH . htmlspecialchars($match['cover_image_filename']); ?>"
-                                 alt="Capa para <?php echo htmlspecialchars($match['team_home']); ?> vs <?php echo htmlspecialchars($match['team_away']); ?>"
-                                 class="match-cover-image">
-                        <?php endif; ?>
-                        <div class="match-item-content">
-                            <a class="match-link" href="match.php?id=<?php echo htmlspecialchars($match['id']); ?>">
-                                <?php echo htmlspecialchars($match['team_home']); ?> vs <?php echo htmlspecialchars($match['team_away']); ?>
-                            </a>
-                            <p class="match-time">
-                                Horário: <?php echo htmlspecialchars(date('d/m/Y H:i', strtotime($match['match_time']))); ?>
-                            </p>
-                            <?php if (!empty($match['description'])): ?>
-                                <p class="match-description"><?php echo nl2br(htmlspecialchars($match['description'])); ?></p>
+                        <a class="match-card-link" href="match.php?id=<?php echo htmlspecialchars($match['id']); ?>">
+                            <?php if (!empty($match['cover_image_filename'])): ?>
+                                <img src="<?php echo FRONTEND_MATCH_COVER_BASE_PATH . htmlspecialchars($match['cover_image_filename']); ?>"
+                                     alt="Capa para <?php echo htmlspecialchars($match['team_home']); ?> vs <?php echo htmlspecialchars($match['team_away']); ?>"
+                                     class="match-cover-image">
+                            <?php else: ?>
+                                <div class="match-cover-image-placeholder"></div>
                             <?php endif; ?>
-                        </div>
+                            <div class="match-item-content">
+                                <h3 class="match-title">
+                                    <?php echo htmlspecialchars($match['team_home']); ?> vs <?php echo htmlspecialchars($match['team_away']); ?>
+                                </h3>
+                                <p class="match-time">
+                                    Horário: <?php echo htmlspecialchars(date('d/m/Y H:i', strtotime($match['match_time']))); ?>
+                                </p>
+                                <?php if (!empty($match['description'])): ?>
+                                    <p class="match-description"><?php echo nl2br(htmlspecialchars($match['description'])); ?></p>
+                                <?php endif; ?>
+                            </div>
+                        </a>
                     </li>
                 <?php endforeach; ?>
             </ul>
