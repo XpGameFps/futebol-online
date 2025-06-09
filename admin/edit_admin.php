@@ -210,23 +210,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_admin'])) {
 
                             if ($stmt_update->execute($params_update)) {
                                 $_SESSION['admin_flash_message'] = ['type' => 'success', 'text' => 'Administrador atualizado com sucesso!'];
-                                // Se o admin atualizou o próprio nome de usuário, atualiza a sessão
-                                if (($_SESSION['admin_id'] ?? null) == $admin_id_being_edited && $_SESSION['admin_username'] != $username_val) {
+                                if (($_SESSION['admin_id'] ?? null) == $admin_id_being_edited && isset($_SESSION['admin_username']) && $_SESSION['admin_username'] != $username_val) {
                                     $_SESSION['admin_username'] = $username_val;
                                 }
                                 header("Location: manage_admins.php");
                                 exit;
                             } else {
-                                $error_message = "Erro ao atualizar administrador no banco de dados.";
+                                $pdo_error_info = $stmt_update->errorInfo();
+                                $error_message = "Erro ao atualizar administrador no banco de dados. Detalhe: " . ($pdo_error_info[2] ?? 'Sem detalhes');
+                                error_log("Admin Update Failed (ID: {$admin_id_being_edited}): Query: {$sql_update} Params: " . json_encode($params_update) . " PDO Error: " . ($pdo_error_info[2] ?? 'N/A'));
                             }
                         }
-                    }
-                } catch (PDOException $e) {
+                    } // Fim da verificação de duplicidade
+                } catch (PDOException $e) { // Catch para a verificação de duplicidade e outras exceções PDO
                     $error_message = "Erro de banco de dados (update): " . $e->getMessage();
+                     error_log("Admin Update PDOException (ID: {$admin_id_being_edited}): " . $e->getMessage());
                 }
-            }
-        }
-    }
+            } // Fim da validação de username e email
+        } // Fim da validação de ID e permissão
+    } // Fim do elseif ($current_action === 'update')
 }
 
 
