@@ -120,6 +120,14 @@ td img.logo { max-height: 30px; max-width: 100px; vertical-align: middle; margin
 .view-switcher a { margin: 0 10px; padding: 8px 15px; text-decoration: none; border-radius: 4px; font-weight:bold; }
 .view-switcher a.active-view { background-color: #007bff; color: white; }
 .view-switcher a:not(.active-view) { background-color: #e9ecef; color: #007bff; }
+.color-preview {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 1px solid #ccc;
+    margin-left: 5px;
+    vertical-align: middle;
+}
 
 .edit-button {
     background-color: #ffc107; /* Yellow for edit */

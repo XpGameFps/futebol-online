@@ -47,6 +47,18 @@ try {
     $message .= '<p style="color:red;">Erro ao buscar ligas para o formulário: ' . $e->getMessage() . '</p>';
 }
 
+// Fetch Teams for dropdowns
+$teams_for_dropdown = [];
+if (isset($pdo)) {
+    try {
+        $stmt_teams = $pdo->query("SELECT id, name FROM teams ORDER BY name ASC");
+        $teams_for_dropdown = $stmt_teams->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        $message .= '<p style="color:red;">Erro ao buscar times para formulário: ' . $e->getMessage() . '</p>';
+    }
+}
+
+
 // Determine view type for matches (upcoming/all or past)
 $view_type = $_GET['view'] ?? 'upcoming';
 $matches_sql_condition = "m.match_time >= NOW()";
@@ -61,6 +73,8 @@ if ($view_type === 'past') {
 // Fetch existing matches to display
 $matches = [];
 try {
+    // This query will need to be updated after matches table uses team IDs
+    // For now, it fetches text names. The display logic for existing matches will also need update later.
     $sql_fetch_matches = "SELECT m.id, m.team_home, m.team_away, m.match_time, m.description, m.cover_image_filename, l.name as league_name
                           FROM matches m
                           LEFT JOIN leagues l ON m.league_id = l.id
@@ -112,6 +126,7 @@ if (isset($pdo)) {
                 <a href="index.php">Painel Principal (Jogos)</a>
                 <a href="manage_leagues.php">Gerenciar Ligas</a>
                 <a href="manage_channels.php">Gerenciar Canais TV</a>
+                <a href="manage_teams.php">Gerenciar Times</a>
                 <a href="manage_saved_streams.php">Biblioteca de Streams</a>
                 <a href="manage_settings.php">Configurações</a>
             </div>
@@ -148,8 +163,28 @@ if (isset($pdo)) {
         ?>
         <?php if (!empty($add_match_form_error)) echo $add_match_form_error; ?>
         <form action="add_match.php" method="POST" enctype="multipart/form-data">
-            <div><label for="team_home">Time da Casa:</label><input type="text" id="team_home" name="team_home" value="<?php echo htmlspecialchars($form_data_add_match['team_home'] ?? ''); ?>" required></div>
-            <div><label for="team_away">Time Visitante:</label><input type="text" id="team_away" name="team_away" value="<?php echo htmlspecialchars($form_data_add_match['team_away'] ?? ''); ?>" required></div>
+            <div>
+                <label for="home_team_id">Time da Casa:</label>
+                <select id="home_team_id" name="home_team_id" required>
+                    <option value="">-- Selecionar Time da Casa --</option>
+                    <?php foreach ($teams_for_dropdown as $team_opt): ?>
+                        <option value="<?php echo htmlspecialchars($team_opt['id']); ?>" <?php echo (isset($form_data_add_match['home_team_id']) && $form_data_add_match['home_team_id'] == $team_opt['id']) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($team_opt['name']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div>
+                <label for="away_team_id">Time Visitante:</label>
+                <select id="away_team_id" name="away_team_id" required>
+                    <option value="">-- Selecionar Time Visitante --</option>
+                    <?php foreach ($teams_for_dropdown as $team_opt): ?>
+                        <option value="<?php echo htmlspecialchars($team_opt['id']); ?>" <?php echo (isset($form_data_add_match['away_team_id']) && $form_data_add_match['away_team_id'] == $team_opt['id']) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($team_opt['name']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
             <div><label for="match_time">Data e Hora da Partida:</label><input type="datetime-local" id="match_time" name="match_time" value="<?php echo htmlspecialchars($form_data_add_match['match_time'] ?? ''); ?>" required></div>
             <div><label for="league_id">Liga (Opcional):</label><select id="league_id" name="league_id"><option value="">-- Selecionar Liga --</option><?php foreach ($leagues_for_dropdown as $league_opt) { $selected_league = (isset($form_data_add_match['league_id']) && $form_data_add_match['league_id'] == $league_opt['id']) ? 'selected' : ''; echo '<option value="'.htmlspecialchars($league_opt['id']).'" '.$selected_league.'>'.htmlspecialchars($league_opt['name']).'</option>'; } ?></select></div>
             <div>
@@ -337,14 +372,11 @@ if (isset($pdo)) {
                 } else {
                     saveToLibraryCheckbox.disabled = false;
                     isManualEntryInput.value = 'true';
-                    // Visibility of library_name_input_div is controlled by checkbox event listener
-                    // Trigger change on checkbox to correctly set visibility if manual is chosen after library item
                     saveToLibraryCheckbox.dispatchEvent(new Event('change'));
                 }
             });
-            // Trigger change on page load if a saved stream was selected and form is repopulated
-            if (selectElement.value) {
-                 selectElement.dispatchEvent(new Event('change'));
+            if (selectElement.value && (selectElement.options[selectElement.selectedIndex].dataset.url || "<?php echo htmlspecialchars($form_data_add_match['saved_stream_id'] ?? ''); ?>" === selectElement.value) ) {
+                selectElement.dispatchEvent(new Event('change'));
             }
         });
 
@@ -366,13 +398,29 @@ if (isset($pdo)) {
                     libraryStreamNameInput.required = false;
                 }
             });
-            // Trigger change on page load if checkbox was checked and form is repopulated
-            if (checkbox.checked) {
-                checkbox.dispatchEvent(new Event('change'));
+            if (checkbox.checked) { checkbox.dispatchEvent(new Event('change')); }
+        });
+
+        // Online users counter script
+        document.addEventListener('DOMContentLoaded', function() {
+            const onlineUsersCountElement_nav = document.getElementById('online-users-count');
+            function fetchOnlineUsers_nav() {
+                if (!onlineUsersCountElement_nav) return;
+                fetch('get_online_users.php')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data && data.status === 'success') {
+                            onlineUsersCountElement_nav.textContent = data.online_count;
+                        } else { onlineUsersCountElement_nav.textContent = '--'; }
+                    })
+                    .catch(error => {
+                        onlineUsersCountElement_nav.textContent = 'Err';
+                        console.error('Fetch error for online users (nav):', error);
+                    });
             }
+            fetchOnlineUsers_nav();
+            setInterval(fetchOnlineUsers_nav, 30000);
         });
     </script>
 </body>
 </html>
-
-[end of admin/index.php]

@@ -23,15 +23,24 @@ if (isset($_GET['query'])) {
 
     if (!empty($search_query)) {
         try {
-            $sql = "SELECT id, team_home, team_away, match_time, description, league_id, cover_image_filename
-                    FROM matches
-                    WHERE team_home LIKE :query
-                       OR team_away LIKE :query
-                       OR description LIKE :query_desc
-                    ORDER BY match_time DESC";
+            $sql = "SELECT
+                        m.id, m.match_time, m.description, m.league_id, m.cover_image_filename,
+                        m.meta_description, m.meta_keywords,
+                        ht.name AS home_team_name, ht.logo_filename AS home_team_logo, ht.primary_color_hex AS home_team_color,
+                        at.name AS away_team_name, at.logo_filename AS away_team_logo, at.primary_color_hex AS away_team_color,
+                        l.name as league_name
+                    FROM matches m
+                    LEFT JOIN teams ht ON m.home_team_id = ht.id
+                    LEFT JOIN teams at ON m.away_team_id = at.id
+                    LEFT JOIN leagues l ON m.league_id = l.id
+                    WHERE (ht.name LIKE :query_team_home OR at.name LIKE :query_team_away OR m.description LIKE :query_desc)
+                    ORDER BY m.match_time DESC"; // Search might need to look into joined team names now
 
             $stmt = $pdo->prepare($sql);
             $search_term_like = '%' . $search_query . '%';
+            // Bind for new search logic targeting team names and description
+            $stmt->bindParam(':query_team_home', $search_term_like, PDO::PARAM_STR);
+            $stmt->bindParam(':query_team_away', $search_term_like, PDO::PARAM_STR);
             $stmt->bindParam(':query', $search_term_like, PDO::PARAM_STR);
             $stmt->bindParam(':query_desc', $search_term_like, PDO::PARAM_STR);
 
@@ -73,27 +82,48 @@ if (isset($_GET['query'])) {
         <?php elseif (!empty($matches)): ?>
             <ul class="match-list">
                 <?php foreach ($matches as $match): ?>
-                    <li class="match-list-item">
-                        <a class="match-card-link" href="match.php?id=<?php echo htmlspecialchars($match['id']); ?>">
-                            <?php if (!empty($match['cover_image_filename'])): ?>
-                                <img src="<?php echo FRONTEND_MATCH_COVER_BASE_PATH . htmlspecialchars($match['cover_image_filename']); ?>"
-                                     alt="Capa para <?php echo htmlspecialchars($match['team_home']); ?> vs <?php echo htmlspecialchars($match['team_away']); ?>"
-                                     class="match-cover-image">
-                            <?php else: ?>
-                                <div class="match-cover-image-placeholder"></div>
-                            <?php endif; ?>
-                            <div class="match-item-content">
-                                <h3 class="match-title">
-                                    <?php echo htmlspecialchars($match['team_home']); ?> vs <?php echo htmlspecialchars($match['team_away']); ?>
-                                </h3>
-                                <p class="match-time">
-                                    Horário: <?php echo htmlspecialchars(date('d/m/Y H:i', strtotime($match['match_time']))); ?>
-                                </p>
-                                <?php if (!empty($match['description'])): ?>
-                                    <p class="match-description"><?php echo nl2br(htmlspecialchars($match['description'])); ?></p>
+                    <li class="match-list-item-container">
+                        <article>
+                            <a class="match-card-link new-design" href="match.php?id=<?php echo htmlspecialchars($match['id']); ?>">
+
+                                <div class="match-card-background-sections">
+                                    <div class="match-card-bg-left"
+                                         style="<?php echo !empty($match['home_team_color']) ? 'background-color: ' . hexToRgba($match['home_team_color'], 0.3) . ';' : ''; ?>">
+                                    </div>
+                                    <div class="match-card-bg-right"
+                                         style="<?php echo !empty($match['away_team_color']) ? 'background-color: ' . hexToRgba($match['away_team_color'], 0.3) . ';' : ''; ?>">
+                                    </div>
+                                </div>
+
+                                <?php if (!empty($match['cover_image_filename'])): ?>
+                                    <img src="<?php echo FRONTEND_MATCH_COVER_BASE_PATH . htmlspecialchars($match['cover_image_filename']); ?>"
+                                         alt="Background" class="match-card-main-bg-image">
+                                <?php else: ?>
+                                    <div class="match-card-main-bg-placeholder"></div>
                                 <?php endif; ?>
-                            </div>
-                        </a>
+
+                                <div class="match-card-overlay-content">
+                                    <div class="teams-row">
+                                        <div class="team-info home-team">
+                                            <?php if (!empty($match['home_team_logo'])): ?>
+                                                <img src="uploads/logos/teams/<?php echo htmlspecialchars($match['home_team_logo']); ?>" alt="<?php echo htmlspecialchars($match['home_team_name'] ?? 'Time da Casa'); ?>" class="team-logo">
+                                            <?php endif; ?>
+                                            <span class="team-name"><?php echo htmlspecialchars($match['home_team_name'] ?? 'Time da Casa'); ?></span>
+                                        </div>
+                                        <div class="match-versus">VS</div>
+                                        <div class="team-info away-team">
+                                            <?php if (!empty($match['away_team_logo'])): ?>
+                                                <img src="uploads/logos/teams/<?php echo htmlspecialchars($match['away_team_logo']); ?>" alt="<?php echo htmlspecialchars($match['away_team_name'] ?? 'Time Visitante'); ?>" class="team-logo">
+                                            <?php endif; ?>
+                                            <span class="team-name"><?php echo htmlspecialchars($match['away_team_name'] ?? 'Time Visitante'); ?></span>
+                                        </div>
+                                    </div>
+                                    <div class="match-card-time">
+                                        <?php echo htmlspecialchars(date('d/m H:i', strtotime($match['match_time']))); ?>
+                                    </div>
+                                </div>
+                            </a>
+                        </article>
                     </li>
                 <?php endforeach; ?>
             </ul>
