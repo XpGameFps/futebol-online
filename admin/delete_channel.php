@@ -33,6 +33,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             if ($stmt_delete_db->execute()) {
                 if ($stmt_delete_db->rowCount() > 0) {
+                    // Canal foi deletado com sucesso, agora deletar reportes associados
+                    try {
+                        $stmt_delete_reports = $pdo->prepare(
+                            "DELETE FROM player_reports WHERE item_id = :item_id AND item_type = 'channel'"
+                        );
+                        $stmt_delete_reports->bindParam(':item_id', $channel_id, PDO::PARAM_INT);
+                        $stmt_delete_reports->execute();
+                    } catch (PDOException $e_reports) {
+                        error_log("PDOException ao deletar reportes para channel_id {$channel_id}: " . $e_reports->getMessage());
+                    }
+
+                    // Código existente para deletar logo
                     if ($logo_filename_to_delete) {
                         $file_path_to_delete = CHANNEL_LOGO_UPLOAD_DIR_FOR_DELETE . $logo_filename_to_delete;
                         if (file_exists($file_path_to_delete)) {
@@ -41,14 +53,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             } else {
                                 error_log("Failed to delete channel logo file: " . $file_path_to_delete . " for channel ID: " . $channel_id . ". Check permissions.");
                             }
-                        } else {
-                            // error_log("Channel logo file not found: " . $file_path_to_delete);
                         }
                     }
                     $status_message_type = 'channel_deleted';
                     $status_reason = 'success';
-                } else { $status_reason = 'not_found'; }
-            } else { $status_reason = 'execute_failed'; }
+                } else {
+                    $status_reason = 'not_found';
+                }
+            } else {
+                $status_reason = 'execute_failed';
+            }
         } catch (PDOException $e) {
             $status_reason = 'pdo_exception_' . $e->getCode();
             error_log("PDOException in delete_channel.php: " . $e->getMessage());

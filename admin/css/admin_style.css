@@ -18,39 +18,109 @@ body {
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
-/* Navegação */
+/* Navegação Principal do Admin */
 nav {
-    background-color: #343a40; /* Um cinza escuro para a navegação */
+    background-color: #343a40; /* Cinza escuro */
     color: #fff;
-    padding: 10px 20px;
+    padding: 0 15px; /* Reduzir padding vertical, adicionar horizontal */
     display: flex;
-    justify-content: space-between;
+    justify-content: space-between; /* Alinha 'links' e 'user-info' nas extremidades */
+    align-items: center; /* Alinha verticalmente os itens */
+    flex-wrap: wrap; /* Permite quebra de linha se necessário */
+    border-radius: 8px 8px 0 0; /* Cantos arredondados no topo */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Sombra sutil */
+    margin-bottom: 20px; /* Espaço abaixo do menu */
+}
+
+nav > div:first-child { /* Container dos links principais */
+    display: flex;
+    flex-wrap: wrap; /* Links podem quebrar linha */
     align-items: center;
-    border-radius: 8px 8px 0 0; /* Arredondar cantos superiores se o container for o primeiro elemento */
 }
 
-nav a, nav .nav-user-info {
-    color: #f8f9fa;
+nav a { /* Estilo base para todos os links na nav */
+    color: #e9ecef; /* Cor de texto mais clara */
     text-decoration: none;
-    padding: 8px 12px;
-    margin-right: 5px;
-    border-radius: 4px;
-    transition: background-color 0.3s ease;
+    padding: 12px 15px; /* Padding generoso para área de clique */
+    margin: 5px 2px; /* Pequena margem para separação */
+    border-radius: 5px;
+    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+    font-size: 0.9em; /* Tamanho de fonte um pouco menor */
+    font-weight: 500; /* Peso da fonte médio */
+    border-bottom: 2px solid transparent; /* Para efeito no hover/active */
 }
 
-nav a:hover, nav a.active-nav {
-    background-color: #495057; /* Um pouco mais claro ao passar o mouse ou ativo */
-    color: #fff;
+nav a:hover {
+    background-color: #495057; /* Fundo sutil ao passar o mouse */
+    color: #ffffff;
+    border-bottom-color: #007bff; /* Borda azul no hover */
+}
+
+nav a.active-nav { /* Classe para o link da página ativa */
+    background-color: #007bff; /* Azul primário */
+    color: #ffffff;
+    font-weight: bold;
+    border-bottom-color: #0056b3; /* Borda mais escura para ativo */
 }
 
 nav .nav-user-info {
-    font-size: 0.9em;
+    display: flex; /* Alinhar itens do user-info */
+    align-items: center;
+    font-size: 0.85em; /* Tamanho de fonte menor para user-info */
+    color: #adb5bd; /* Cinza claro para texto do usuário */
+    padding: 10px 0; /* Padding vertical para user-info */
+    margin-left: 15px; /* Espaço se os links quebrarem antes dele */
 }
+
+nav .nav-user-info #online-users-indicator {
+    margin-right: 10px;
+    color: #28a745; /* Verde para online */
+    font-weight: normal; /* Remover bold daqui, já está no span interno */
+}
+nav .nav-user-info #online-users-indicator #online-users-count{
+    font-weight: bold;
+}
+
+
 nav .nav-user-info .logout-link {
-    color: #ffc107; /* Cor de destaque para logout */
+    color: #ffc107; /* Amarelo para logout */
+    padding: 8px 10px;
+    margin-left: 8px;
+    background-color: rgba(255,255,255,0.1); /* Fundo sutil para logout */
+    border-radius: 4px;
 }
+
 nav .nav-user-info .logout-link:hover {
-    color: #e0a800;
+    background-color: rgba(255,255,255,0.2);
+    color: #fff3cd; /* Amarelo mais claro no hover */
+    border-bottom-color: transparent; /* Remover borda do 'a' geral */
+}
+
+/* Media Query para telas menores - exemplo */
+@media (max-width: 992px) { /* Ajuste este breakpoint conforme necessário */
+    nav {
+        flex-direction: column; /* Empilhar links e user-info */
+        align-items: flex-start; /* Alinhar à esquerda */
+        padding: 10px;
+    }
+    nav > div:first-child { /* Container dos links */
+        margin-bottom: 10px; /* Espaço entre bloco de links e user-info */
+        width: 100%; /* Ocupar largura total */
+    }
+    nav a {
+        display: block; /* Links ocupam largura total */
+        width: calc(100% - 30px); /* Ajustar padding */
+        margin: 5px 0; /* Margem vertical */
+        text-align: left;
+    }
+    nav .nav-user-info {
+        width: 100%;
+        justify-content: flex-start; /* Alinhar à esquerda */
+        padding: 10px 0 0 0; /* Ajustar padding */
+        margin-left: 0;
+        border-top: 1px solid #495057; /* Linha separadora */
+        margin-top: 10px;
+    }
 }
 
 h1, h2, h3, h4 {
@@ -322,3 +392,12 @@ details form {
 }
 .item-type-channel { background-color: #17a2b8; } /* Azul Info */
 .item-type-match { background-color: #6f42c1; }   /* Roxo Indigo */
+
+.team-logo-list-item {
+    max-height: 30px; /* Altura máxima menor para a lista */
+    width: auto; /* Manter proporção */
+    max-width: 50px; /* Largura máxima para evitar logos muito largos e finos */
+    vertical-align: middle;
+    border: 1px solid #eee;
+    border-radius: 3px;
+}
