@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once 'auth_check.php'; // Session start and login check
 require_once '../config.php';
 
 // Define target directory for channel logos (relative to this script's location)

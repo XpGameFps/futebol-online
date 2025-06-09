@@ -1,6 +1,9 @@
 <?php
-session_start();
-require_once '../config.php'; // Ensure DB connection is available
+// admin/index.php
+require_once 'auth_check.php'; // Session start and login check
+// The rest of the existing session_start() calls in these files can be removed if they only started sessions.
+// config.php is still needed for DB access.
+require_once '../config.php';
 
 // Handle messages
 $message = '';
@@ -9,7 +12,12 @@ if (isset($_GET['status'])) {
     if ($status == 'match_added') {
         $message = '<p style="color:green;">Jogo adicionado com sucesso!</p>';
     } elseif ($status == 'match_add_error') {
-        $message = '<p style="color:red;">Erro ao adicionar jogo: ' . htmlspecialchars($_GET['reason'] ?? '') . '</p>';
+        if ($reason == 'file_upload_error') { // New specific reason for cover image
+            $upload_error_msg = isset($_GET['err_msg']) ? htmlspecialchars(urldecode($_GET['err_msg'])) : 'Erro desconhecido no upload da capa.';
+            $message = '<p style="color:red;">Erro ao adicionar jogo: Problema no upload da imagem de capa. ' . $upload_error_msg . '</p>';
+        } else {
+            $message = '<p style="color:red;">Erro ao adicionar jogo: ' . htmlspecialchars($reason) . '</p>';
+        }
     } elseif ($status == 'match_deleted') {
         $message = '<p style="color:green;">Jogo excluído com sucesso!</p>';
     } elseif ($status == 'match_delete_error') {
@@ -64,10 +72,25 @@ try {
             border-bottom: 1px solid #eee;
             display: flex; /* Ensures items are in a row */
             align-items: center; /* Vertically aligns items in the nav bar */
+            justify-content: space-between; /* This will push user-info to the right if it's the last direct child */
         }
         nav a { margin-right: 15px; text-decoration: none; color: #007bff; font-weight: bold; }
         nav a:hover { text-decoration: underline; color: #0056b3; }
-        nav a.action-link { margin-left: auto; } /* Pushes this link to the far right */
+        /* nav a.action-link { margin-left: auto; } /* Commented out or removed */
+        .nav-user-info {
+           /* margin-left: auto; /* Alternative way to push to right if not using justify-content on nav */
+           font-size: 0.9em;
+           color: #555;
+        }
+       .logout-link {
+           color: #dc3545; /* Red color for logout */
+           font-weight: bold;
+           text-decoration: none;
+        }
+       .logout-link:hover {
+           text-decoration: underline;
+           color: #c82333;
+        }
         hr { margin-top: 30px; margin-bottom: 30px; border: 0; border-top: 1px solid #eee; }
         h1, h2, h3 { color: #333; }
         h1 { text-align: center; margin-bottom:30px; }
@@ -156,7 +179,12 @@ try {
             <a href="index.php">Painel Principal (Jogos)</a>
             <a href="manage_leagues.php">Gerenciar Ligas</a>
             <a href="manage_channels.php">Gerenciar Canais TV</a>
-            <a href="index.php#add-match-form" class="action-link">Adicionar Novo Jogo</a>
+            <span class="nav-user-info">
+                Usuário: <?php echo htmlspecialchars($_SESSION['admin_username'] ?? 'Admin'); ?> |
+                <a href="logout.php" class="logout-link">Logout</a>
+            </span>
+            <!-- The "Adicionar Novo Jogo" link might need repositioning or could be a button elsewhere if nav gets too crowded -->
+            <!-- For now, let's assume it's removed from the far right to simplify, or becomes part of main links -->
         </nav>
 
         <?php if(!empty($message)): ?>
@@ -164,7 +192,7 @@ try {
         <?php endif; ?>
 
         <h2 id="add-match-form">Adicionar Novo Jogo</h2>
-        <form action="add_match.php" method="POST">
+        <form action="add_match.php" method="POST" enctype="multipart/form-data">
             <div>
                 <label for="team_home">Time da Casa:</label>
                 <input type="text" id="team_home" name="team_home" required>
@@ -187,6 +215,10 @@ try {
                         </option>
                     <?php endforeach; ?>
                 </select>
+            </div>
+            <div>
+                <label for="cover_image_file">Imagem de Capa (opcional, PNG, JPG, GIF, max 2MB):</label>
+                <input type="file" id="cover_image_file" name="cover_image_file" accept="image/png, image/jpeg, image/gif">
             </div>
             <div>
                 <label for="description">Descrição (opcional):</label>

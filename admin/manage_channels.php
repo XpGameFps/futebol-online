@@ -1,5 +1,6 @@
 <?php
-session_start();
+// admin/manage_channels.php
+require_once 'auth_check.php'; // Session start and login check
 require_once '../config.php'; // Database connection
 
 // Define base path for channel logos for display - relative to this script's location
@@ -47,10 +48,30 @@ try {
         * { box-sizing: border-box; }
         body { font-family: Arial, sans-serif; margin: 0; padding:0; background-color: #f4f7f6; color: #333; }
         .container { width: 90%; max-width: 1000px; margin: 20px auto; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        nav { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+        nav {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+            justify-content: space-between; /* Added */
+        }
         nav a { margin-right: 15px; text-decoration: none; color: #007bff; font-weight: bold; }
         nav a:hover { text-decoration: underline; color: #0056b3; }
-        nav a.action-link { margin-left: auto; }
+        /* nav a.action-link { margin-left: auto; } */
+        .nav-user-info { /* Added */
+           font-size: 0.9em;
+           color: #555;
+        }
+       .logout-link { /* Added */
+           color: #dc3545;
+           font-weight: bold;
+           text-decoration: none;
+        }
+       .logout-link:hover { /* Added */
+           text-decoration: underline;
+           color: #c82333;
+        }
         h1, h2 { color: #333; }
         h1 { text-align: center; margin-bottom:30px; }
         h2 { margin-top: 30px; border-bottom: 2px solid #007bff; padding-bottom: 5px; color: #007bff;}
@@ -78,6 +99,10 @@ try {
             <a href="index.php">Painel Principal (Jogos)</a>
             <a href="manage_leagues.php">Gerenciar Ligas</a>
             <a href="manage_channels.php">Gerenciar Canais TV</a>
+            <span class="nav-user-info">
+                Usuário: <?php echo htmlspecialchars($_SESSION['admin_username'] ?? 'Admin'); ?> |
+                <a href="logout.php" class="logout-link">Logout</a>
+            </span>
         </nav>
         <h1>Gerenciar Canais de TV</h1>
 

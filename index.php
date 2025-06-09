@@ -3,6 +3,16 @@
 require_once 'config.php'; // Database connection
 // Define base path for channel logos for frontend display - relative to project root
 define('FRONTEND_CHANNELS_LOGO_BASE_PATH', 'uploads/logos/channels/');
+define('FRONTEND_MATCH_COVER_BASE_PATH', 'uploads/covers/matches/'); // New base path for match covers
+
+// Fetch Leagues for Header
+$header_leagues = [];
+try {
+    $stmt_header_leagues = $pdo->query("SELECT id, name FROM leagues ORDER BY name ASC");
+    $header_leagues = $stmt_header_leagues->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    // Silently fail for header leagues, or log error
+}
 
 $matches = [];
 $error_message = '';
@@ -18,15 +28,14 @@ try {
     // $error_message .= "<p>Erro ao buscar canais de TV: " . $e->getMessage() . "</p>";
 }
 
+// Fetch matches - UPDATED QUERY
 try {
-    // Fetch upcoming or recent matches, ordered by match time.
-    // For simplicity, let's fetch all matches ordered by most recent first.
-    // A more advanced query might filter for match_time >= NOW() for upcoming games.
-    $stmt = $pdo->query("SELECT id, team_home, team_away, match_time, description FROM matches ORDER BY match_time DESC");
-    $matches = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $stmt_matches = $pdo->query("SELECT id, team_home, team_away, match_time, description, league_id, cover_image_filename FROM matches ORDER BY match_time DESC LIMIT 30"); // Added league_id, cover_image_filename, and a LIMIT
+    $matches = $stmt_matches->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $error_message = "Erro ao buscar jogos: " . $e->getMessage();
-    // In a production environment, log this error instead of displaying to user directly.
+    if(empty($error_message)) { // Avoid overwriting other potential errors
+        $error_message = "Erro ao buscar jogos: " . $e->getMessage();
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -113,6 +122,74 @@ try {
         }
         .search-area button[type="submit"]:hover {
             background-color: #00cc00; /* Slightly darker green */
+        }
+
+        .header-container { /* Ensure this is flex and items are centered */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .main-navigation { /* Adjust if it takes too much space or allow it to shrink */
+            flex-grow: 1; /* Allows main nav to take space, pushing right controls */
+        }
+        .main-navigation ul { /* If only "Início" is left, this is fine */
+             margin-left: 20px; /* Add some space from logo */
+        }
+
+        .header-right-controls {
+            display: flex;
+            align-items: center;
+        }
+
+        .search-area { /* Already styled, ensure it fits with the new menu */
+            margin-right: 15px; /* Space between search and leagues menu */
+        }
+
+        .leagues-menu {
+            position: relative; /* For dropdown positioning */
+        }
+        .leagues-menu-button {
+            background: none;
+            border: none;
+            color: #00ff00; /* Green accent */
+            font-size: 1.8em; /* Adjust size of ellipsis/icon */
+            cursor: pointer;
+            padding: 5px;
+            line-height: 1; /* Ensure icon is centered */
+        }
+        .leagues-menu-button:hover {
+            opacity: 0.8;
+        }
+        .leagues-dropdown-content {
+            display: none; /* Hidden by default */
+            position: absolute;
+            top: 100%; /* Position below the button */
+            right: 0; /* Align to the right of the button/menu container */
+            background-color: #1a1a1a; /* Dark background for dropdown */
+            border: 1px solid #00ff00; /* Green border */
+            border-radius: 0 0 4px 4px; /* Rounded bottom corners */
+            min-width: 200px; /* Minimum width */
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.3);
+            z-index: 100; /* Ensure it's above other content */
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .leagues-dropdown-content.show {
+            display: block; /* Show when .show class is added by JS */
+        }
+        .leagues-dropdown-content li a {
+            color: #e0e0e0;
+            padding: 10px 15px;
+            text-decoration: none;
+            display: block;
+            font-size: 0.95em;
+            white-space: nowrap;
+        }
+        .leagues-dropdown-content li a:hover {
+            background-color: #00ff00; /* Green background on hover */
+            color: #0d0d0d; /* Dark text on green */
         }
 
         /* Adjustments for existing styles if old header was very different */
@@ -219,74 +296,95 @@ try {
             overflow: hidden;
             padding: 20px;
         }
-        /* Match Listing Grid Styles - Replaces previous .match-list and .match-list-item styles */
+        /* Match Listing Grid Styles - Update existing .match-list and .match-list-item */
         .match-list {
             list-style: none;
             padding: 0;
             display: grid;
-            grid-template-columns: repeat(3, 1fr); /* 3 columns */
-            gap: 15px; /* Space between items */
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px; /* Increased gap slightly */
         }
         .match-list-item {
             background-color: #2c2c2c;
-            border: 1px solid #008000; /* Darker green border, brightens on hover */
-            padding: 15px; /* Slightly reduced padding for smaller items */
+            border: 1px solid #008000;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 255, 0, 0.05); /* More subtle shadow */
+            box-shadow: 0 2px 4px rgba(0, 255, 0, 0.05);
             transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-            display: flex; /* Use flex to manage content height and alignment */
+            display: flex;
             flex-direction: column;
-            justify-content: space-between; /* Pushes description down if content varies */
-            min-height: 150px; /* Give items a minimum height, adjust as needed */
+            /* Removed justify-content: space-between and min-height here, will control via content wrapper */
+            overflow: hidden; /* Ensure image corners conform to border-radius */
         }
         .match-list-item:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 12px rgba(0, 255, 0, 0.15);
-            border-color: #00ff00; /* Bright green border on hover */
+            transform: translateY(-4px); /* Slightly more lift */
+            box-shadow: 0 7px 14px rgba(0, 255, 0, 0.2); /* Enhanced shadow */
+            border-color: #00ff00;
         }
-        .match-list-item .match-link { /* Changed from direct 'a' to a class for more specific targeting if needed */
+
+        .match-cover-image {
+            width: 100%;
+            height: 160px; /* Fixed height for cover images, adjust as needed */
+            object-fit: cover; /* Crop image to fit, maintaining aspect ratio */
+            /* No border-radius needed here if .match-list-item has overflow:hidden */
+        }
+
+        .match-item-content { /* New wrapper for text content */
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1; /* Allows this part to take remaining space if items have different heights due to text */
+            justify-content: space-between; /* Pushes description down */
+        }
+
+        .match-list-item .match-link {
             text-decoration: none;
-            color: #00dd00; /* Slightly less bright green for default state */
-            font-size: 1.3em; /* Adjusted font size for smaller cards */
+            color: #00dd00;
+            font-size: 1.2em; /* Adjusted slightly */
             font-weight: bold;
-            display: block; /* Make it block for better layout control */
+            display: block;
             margin-bottom: 8px;
         }
         .match-list-item .match-link:hover {
             text-decoration: underline;
-            color: #00ff00; /* Brighter green on hover */
+            color: #00ff00;
         }
         .match-time {
-            font-size: 0.9em; /* Adjusted font size */
+            font-size: 0.85em; /* Adjusted slightly */
             color: #a0a0a0;
-            margin-bottom: 8px; /* Adjusted margin */
+            margin-bottom: 8px;
         }
         .match-description {
-            font-size: 0.95em; /* Adjusted font size */
+            font-size: 0.9em; /* Adjusted slightly */
             color: #c0c0c0;
             line-height: 1.4;
-            /* Optional: Limit lines for description if they become too long */
+            flex-grow: 1; /* Allows description to take available space before time if needed */
+            /* Optional: Limit lines for description */
             /* display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; */
         }
 
         /* Responsive adjustments for match list */
-        @media (max-width: 992px) { /* For tablets */
+        @media (max-width: 992px) {
             .match-list {
-                grid-template-columns: repeat(2, 1fr); /* 2 columns */
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px; /* Adjust gap for tablets */
+            }
+            .match-list-item .match-link {
+                font-size: 1.3em;
+            }
+            .match-cover-image {
+                height: 140px; /* Adjust cover height for tablets */
+            }
+        }
+        @media (max-width: 576px) {
+            .match-list {
+                grid-template-columns: 1fr;
             }
             .match-list-item .match-link {
                 font-size: 1.4em;
             }
-        }
-        @media (max-width: 576px) { /* For mobile phones */
-            .match-list {
-                grid-template-columns: 1fr; /* 1 column */
-            }
-            .match-list-item .match-link {
-                font-size: 1.5em;
-            }
-            .match-list-item {
-                padding: 20px; /* Restore more padding for single column items */
+            /* .match-list-item content padding was 20px, now handled by .match-item-content */
+            .match-cover-image {
+                height: 180px; /* Adjust cover height for mobile - can be taller */
             }
         }
         .no-matches, .error-message {
@@ -297,6 +395,61 @@ try {
             background-color: #2c2c2c;
             border: 1px solid #ffcc00;
             border-radius: 5px;
+        }
+
+        /* Basic Footer Styles */
+        .site-footer-main {
+            background-color: #0d0d0d; /* Darker metallic black, similar to header */
+            color: #a0a0a0; /* Light gray text */
+            padding: 20px 0;
+            text-align: center;
+            border-top: 2px solid #00ff00; /* Green accent line */
+            font-size: 0.9em;
+            margin-top: 30px; /* Space above the footer */
+        }
+        .footer-container {
+            max-width: 1200px;
+            width: 90%;
+            margin: 0 auto;
+        }
+
+        /* Cookie Consent Banner Styles */
+        .cookie-consent-banner {
+            display: none; /* Hidden by default, shown by JS */
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: rgba(10, 10, 10, 0.95); /* Very dark, slightly transparent */
+            color: #e0e0e0;
+            padding: 15px 20px;
+            z-index: 1000; /* Ensure it's on top */
+            text-align: center;
+            border-top: 1px solid #00ff00; /* Green accent */
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
+        }
+        .cookie-consent-banner p {
+            margin: 0 0 10px 0;
+            font-size: 0.9em;
+            display: inline; /* Keep text and button on same line if space allows */
+        }
+        .cookie-consent-banner a {
+            color: #00ff00; /* Green link */
+            text-decoration: underline;
+        }
+        #acceptCookieConsent {
+            background-color: #00ff00; /* Green button */
+            color: #0d0d0d;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-left: 15px;
+            transition: background-color 0.3s;
+        }
+        #acceptCookieConsent:hover {
+            background-color: #00cc00;
         }
     </style>
 </head>
@@ -323,28 +476,37 @@ try {
 <?php endif; ?>
 
     <div class="container"> <!-- Existing container -->
-    <h1 class="page-title">Jogos de Hoje</h1> <!-- Add page title here -->
-    <?php if (!empty($error_message)): ?>
-            <p class="error-message"><?php echo htmlspecialchars($error_message); ?></p>
-        <?php elseif (empty($matches)): ?>
-            <p class="no-matches">Nenhum jogo programado no momento. Volte mais tarde!</p>
-        <?php else: ?>
-            <ul class="match-list">
-                <?php foreach ($matches as $match): ?>
-                    <li class="match-list-item">
-                        <a class="match-link" href="match.php?id=<?php echo htmlspecialchars($match['id']); ?>">
-                            <?php echo htmlspecialchars($match['team_home']); ?> vs <?php echo htmlspecialchars($match['team_away']); ?>
-                        </a>
-                        <p class="match-time">
-                            Horário: <?php echo htmlspecialchars(date('d/m/Y H:i', strtotime($match['match_time']))); ?>
-                        </p>
-                        <?php if (!empty($match['description'])): ?>
-                            <p class="match-description"><?php echo nl2br(htmlspecialchars($match['description'])); ?></p>
-                        <?php endif; ?>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
-        <?php endif; ?>
-    </div>
+    <h1 class="page-title">Jogos de Hoje</h1>
+<?php if (!empty($error_message) && empty($matches)): // Display error only if no matches and error exists ?>
+    <p class="error-message"><?php echo htmlspecialchars($error_message); ?></p>
+<?php elseif (empty($matches)): ?>
+    <p class="no-matches">Nenhum jogo programado no momento. Volte mais tarde!</p>
+<?php else: ?>
+    <ul class="match-list">
+        <?php foreach ($matches as $match): ?>
+            <li class="match-list-item">
+                <?php if (!empty($match['cover_image_filename'])): ?>
+                    <img src="<?php echo FRONTEND_MATCH_COVER_BASE_PATH . htmlspecialchars($match['cover_image_filename']); ?>"
+                         alt="Capa para <?php echo htmlspecialchars($match['team_home']); ?> vs <?php echo htmlspecialchars($match['team_away']); ?>"
+                         class="match-cover-image">
+                <?php endif; ?>
+                <div class="match-item-content"> {/* New div to wrap content other than image for better flex control */}
+                    <a class="match-link" href="match.php?id=<?php echo htmlspecialchars($match['id']); ?>">
+                        <?php echo htmlspecialchars($match['team_home']); ?> vs <?php echo htmlspecialchars($match['team_away']); ?>
+                    </a>
+                    <p class="match-time">
+                        Horário: <?php echo htmlspecialchars(date('d/m/Y H:i', strtotime($match['match_time']))); ?>
+                    </p>
+                    <?php if (!empty($match['description'])): ?>
+                        <p class="match-description"><?php echo nl2br(htmlspecialchars($match['description'])); ?></p>
+                    <?php endif; ?>
+                    <?php // Placeholder for league display if $match['league_id'] is used later ?>
+                </div>
+            </li>
+        <?php endforeach; ?>
+    </ul>
+<?php endif; ?>
+</div><!-- end .container -->
+<?php require_once 'templates/footer.php'; ?>
 </body>
 </html>

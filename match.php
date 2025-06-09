@@ -4,6 +4,16 @@ require_once 'config.php'; // Database connection
 
 $match_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $match = null;
+// Fetch Leagues for Header
+$header_leagues = [];
+if (isset($pdo)) { // Check if $pdo is set from config.php
+    try {
+        $stmt_header_leagues = $pdo->query("SELECT id, name FROM leagues ORDER BY name ASC");
+        $header_leagues = $stmt_header_leagues->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        // Silently fail for header leagues, or log error
+    }
+}
 $streams = [];
 $error_message = '';
 
@@ -116,6 +126,74 @@ if ($match_id > 0) {
         }
         .search-area button[type="submit"]:hover {
             background-color: #00cc00; /* Slightly darker green */
+        }
+
+        .header-container { /* Ensure this is flex and items are centered */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .main-navigation { /* Adjust if it takes too much space or allow it to shrink */
+            flex-grow: 1; /* Allows main nav to take space, pushing right controls */
+        }
+        .main-navigation ul { /* If only "Início" is left, this is fine */
+             margin-left: 20px; /* Add some space from logo */
+        }
+
+        .header-right-controls {
+            display: flex;
+            align-items: center;
+        }
+
+        .search-area { /* Already styled, ensure it fits with the new menu */
+            margin-right: 15px; /* Space between search and leagues menu */
+        }
+
+        .leagues-menu {
+            position: relative; /* For dropdown positioning */
+        }
+        .leagues-menu-button {
+            background: none;
+            border: none;
+            color: #00ff00; /* Green accent */
+            font-size: 1.8em; /* Adjust size of ellipsis/icon */
+            cursor: pointer;
+            padding: 5px;
+            line-height: 1; /* Ensure icon is centered */
+        }
+        .leagues-menu-button:hover {
+            opacity: 0.8;
+        }
+        .leagues-dropdown-content {
+            display: none; /* Hidden by default */
+            position: absolute;
+            top: 100%; /* Position below the button */
+            right: 0; /* Align to the right of the button/menu container */
+            background-color: #1a1a1a; /* Dark background for dropdown */
+            border: 1px solid #00ff00; /* Green border */
+            border-radius: 0 0 4px 4px; /* Rounded bottom corners */
+            min-width: 200px; /* Minimum width */
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.3);
+            z-index: 100; /* Ensure it's above other content */
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .leagues-dropdown-content.show {
+            display: block; /* Show when .show class is added by JS */
+        }
+        .leagues-dropdown-content li a {
+            color: #e0e0e0;
+            padding: 10px 15px;
+            text-decoration: none;
+            display: block;
+            font-size: 0.95em;
+            white-space: nowrap;
+        }
+        .leagues-dropdown-content li a:hover {
+            background-color: #00ff00; /* Green background on hover */
+            color: #0d0d0d; /* Dark text on green */
         }
 
         /* Adjustments for existing styles if old header was very different */
@@ -243,6 +321,61 @@ if ($match_id > 0) {
             border: 1px solid #ffcc00;
             border-radius: 5px;
         }
+
+        /* Basic Footer Styles */
+        .site-footer-main {
+            background-color: #0d0d0d; /* Darker metallic black, similar to header */
+            color: #a0a0a0; /* Light gray text */
+            padding: 20px 0;
+            text-align: center;
+            border-top: 2px solid #00ff00; /* Green accent line */
+            font-size: 0.9em;
+            margin-top: 30px; /* Space above the footer */
+        }
+        .footer-container {
+            max-width: 1200px;
+            width: 90%;
+            margin: 0 auto;
+        }
+
+        /* Cookie Consent Banner Styles */
+        .cookie-consent-banner {
+            display: none; /* Hidden by default, shown by JS */
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: rgba(10, 10, 10, 0.95); /* Very dark, slightly transparent */
+            color: #e0e0e0;
+            padding: 15px 20px;
+            z-index: 1000; /* Ensure it's on top */
+            text-align: center;
+            border-top: 1px solid #00ff00; /* Green accent */
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
+        }
+        .cookie-consent-banner p {
+            margin: 0 0 10px 0;
+            font-size: 0.9em;
+            display: inline; /* Keep text and button on same line if space allows */
+        }
+        .cookie-consent-banner a {
+            color: #00ff00; /* Green link */
+            text-decoration: underline;
+        }
+        #acceptCookieConsent {
+            background-color: #00ff00; /* Green button */
+            color: #0d0d0d;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-left: 15px;
+            transition: background-color 0.3s;
+        }
+        #acceptCookieConsent:hover {
+            background-color: #00cc00;
+        }
     </style>
 </head>
 <body>
@@ -325,5 +458,6 @@ if ($match_id > 0) {
             }
         });
     </script>
+<?php require_once 'templates/footer.php'; ?>
 </body>
 </html>
