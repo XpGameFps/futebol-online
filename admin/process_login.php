@@ -12,7 +12,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = trim($_POST["password"]);
 
     try {
-        $sql = "SELECT id, username, password_hash FROM admins WHERE username = :username";
+        $sql = "SELECT id, username, password_hash, is_superadmin FROM admins WHERE username = :username";
         $stmt = $pdo->prepare($sql);
         $stmt->bindParam(":username", $username, PDO::PARAM_STR);
         $stmt->execute();
@@ -24,6 +24,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $_SESSION['admin_loggedin'] = true;
                 $_SESSION['admin_id'] = $admin['id'];
                 $_SESSION['admin_username'] = $admin['username'];
+                $_SESSION['admin_is_superadmin'] = !empty($admin['is_superadmin']); // Converte para boolean
 
                 // Redirect to admin dashboard
                 header("Location: index.php");

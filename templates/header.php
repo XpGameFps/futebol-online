@@ -34,6 +34,26 @@ if (isset($pdo) && function_exists('session_id') && session_id()) {
 }
 // --- END Activity Tracking ---
 
+// --- BEGIN Site Identity Settings ---
+$site_name_from_db = 'FutOnline'; // Default
+$site_logo_filename_from_db = null;
+$site_display_format_from_db = 'text'; // Default 'text' or 'logo'
+
+if (isset($pdo)) {
+    try {
+        $stmt_settings = $pdo->query("SELECT setting_key, setting_value FROM site_settings
+                                      WHERE setting_key IN ('site_name', 'site_logo_filename', 'site_display_format')");
+        $site_settings = $stmt_settings->fetchAll(PDO::FETCH_KEY_PAIR);
+
+        $site_name_from_db = $site_settings['site_name'] ?? 'FutOnline';
+        $site_logo_filename_from_db = $site_settings['site_logo_filename'] ?? null;
+        $site_display_format_from_db = $site_settings['site_display_format'] ?? 'text';
+    } catch (PDOException $e) {
+        error_log("Error fetching site identity settings: " . $e->getMessage());
+        // Defaults will be used
+    }
+}
+// --- END Site Identity Settings ---
 
 // Assumes $header_leagues variable is passed or fetched by including script
 if (!isset($header_leagues)) {
@@ -51,7 +71,27 @@ $direct_nav_leagues = array_slice($header_leagues, 0, 3);
     <header class="site-header">
         <div class="header-container">
             <div class="logo-area">
-                <a href="index.php" class="logo-text">Fut<span class="logo-accent">Online</span></a>
+                <?php
+                $effective_site_name = $site_name_from_db ?? 'FutOnline';
+                $effective_display_format = $site_display_format_from_db ?? 'text';
+                $logo_full_path = (!empty($site_logo_filename_from_db)) ? 'uploads/site/' . htmlspecialchars($site_logo_filename_from_db) : '';
+                // Check if file exists relative to the root of the project.
+                // This header is included by files in the root (e.g. index.php, match.php).
+                $logo_file_exists = (!empty($logo_full_path) && file_exists($logo_full_path));
+                ?>
+                <a href="index.php" class="<?php echo ($effective_display_format === 'logo' && $logo_file_exists) ? 'logo-image-link' : 'logo-text'; ?>">
+                    <?php if ($effective_display_format === 'logo' && $logo_file_exists): ?>
+                        <img src="<?php echo $logo_full_path; ?>" alt="<?php echo htmlspecialchars($effective_site_name); ?>" style="max-height: 55px; width: auto; vertical-align: middle;">
+                    <?php else: ?>
+                        <?php
+                        if ($effective_site_name === 'FutOnline') {
+                            echo 'Fut<span class="logo-accent">Online</span>';
+                        } else {
+                            echo htmlspecialchars($effective_site_name);
+                        }
+                        ?>
+                    <?php endif; ?>
+                </a>
             </div>
             <nav class="main-navigation">
                 <ul>
