@@ -24,7 +24,7 @@ $direct_nav_leagues = array_slice($header_leagues, 0, 3); // Get up to the first
             <ul>
                 <li><a href="index.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'index.php' && !isset($_GET['league_id']) && !isset($_GET['query']) ? 'active' : ''; ?>">Início</a></li>
                 <?php foreach ($direct_nav_leagues as $league): ?>
-                    <li class="league-nav-link"> {/* ADDED CLASS HERE */}
+                    <li class="league-nav-link">
                         <a href="index.php?league_id=<?php echo htmlspecialchars($league['id']); ?>"
                            class="<?php echo isset($_GET['league_id']) && $_GET['league_id'] == $league['id'] ? 'active' : ''; ?>">
                             <?php echo htmlspecialchars($league['name']); ?>
