@@ -30,12 +30,22 @@ try {
     $message .= '<p style="color:red;">Erro ao buscar jogos: ' . $e->getMessage() . '</p>';
 }
 
+// Fetch existing leagues for the dropdown
+$leagues_for_dropdown = [];
+try {
+    $stmt_leagues = $pdo->query("SELECT id, name FROM leagues ORDER BY name ASC");
+    $leagues_for_dropdown = $stmt_leagues->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    // Optionally handle error, but for dropdown, it might just mean it's empty
+    // $message .= '<p style="color:red;">Erro ao buscar ligas para o formulário: ' . $e->getMessage() . '</p>';
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Painel Admin</title>
+    <title>Painel Admin - Jogos</title> <!-- Update title slightly if needed -->
     <style>
         * { box-sizing: border-box; }
         body { font-family: Arial, sans-serif; margin: 0; padding:0; background-color: #f4f7f6; color: #333; }
@@ -48,9 +58,16 @@ try {
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        nav { margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+        nav {
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex; /* Ensures items are in a row */
+            align-items: center; /* Vertically aligns items in the nav bar */
+        }
         nav a { margin-right: 15px; text-decoration: none; color: #007bff; font-weight: bold; }
         nav a:hover { text-decoration: underline; color: #0056b3; }
+        nav a.action-link { margin-left: auto; } /* Pushes this link to the far right */
         hr { margin-top: 30px; margin-bottom: 30px; border: 0; border-top: 1px solid #eee; }
         h1, h2, h3 { color: #333; }
         h1 { text-align: center; margin-bottom:30px; }
@@ -61,7 +78,8 @@ try {
         input[type="text"],
         input[type="datetime-local"],
         input[type="url"],
-        textarea {
+        textarea,
+        select { /* Added select here */
             width: 100%;
             padding: 10px;
             border: 1px solid #ccc;
@@ -135,8 +153,10 @@ try {
     <div class="container">
         <h1>Painel Administrativo</h1>
         <nav>
-            <a href="index.php">Ver Jogos</a>
-            <a href="#add-match-form">Adicionar Novo Jogo</a>
+            <a href="index.php">Painel Principal (Jogos)</a>
+            <a href="manage_leagues.php">Gerenciar Ligas</a>
+            <a href="manage_channels.php">Gerenciar Canais TV</a>
+            <a href="index.php#add-match-form" class="action-link">Adicionar Novo Jogo</a>
         </nav>
 
         <?php if(!empty($message)): ?>
@@ -156,6 +176,17 @@ try {
             <div>
                 <label for="match_time">Data e Hora da Partida:</label>
                 <input type="datetime-local" id="match_time" name="match_time" required>
+            </div>
+            <div>
+                <label for="league_id">Liga (Opcional):</label>
+                <select id="league_id" name="league_id">
+                    <option value="">-- Selecionar Liga --</option>
+                    <?php foreach ($leagues_for_dropdown as $league): ?>
+                        <option value="<?php echo htmlspecialchars($league['id']); ?>">
+                            <?php echo htmlspecialchars($league['name']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
             <div>
                 <label for="description">Descrição (opcional):</label>
