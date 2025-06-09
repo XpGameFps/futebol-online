@@ -73,17 +73,28 @@ if ($view_type === 'past') {
 // Fetch existing matches to display
 $matches = [];
 try {
-    // This query will need to be updated after matches table uses team IDs
-    // For now, it fetches text names. The display logic for existing matches will also need update later.
-    $sql_fetch_matches = "SELECT m.id, m.team_home, m.team_away, m.match_time, m.description, m.cover_image_filename, l.name as league_name
+    $sql_fetch_matches = "SELECT
+                              m.id,
+                              m.match_time,
+                              m.description,
+                              m.cover_image_filename,
+                              m.league_id,
+                              ht.name AS home_team_name,
+                              at.name AS away_team_name,
+                              l.name as league_name
                           FROM matches m
+                          LEFT JOIN teams ht ON m.home_team_id = ht.id
+                          LEFT JOIN teams at ON m.away_team_id = at.id
                           LEFT JOIN leagues l ON m.league_id = l.id
                           WHERE {$matches_sql_condition}
                           ORDER BY {$matches_order_by}";
+    // Note: $matches_sql_condition and $matches_order_by are derived from $_GET['view'] which is checked.
+    // If they were directly from user input, prepare() would be essential.
     $stmt_matches = $pdo->query($sql_fetch_matches);
     $matches = $stmt_matches->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $message .= '<p style="color:red;">Erro ao buscar jogos: ' . $e->getMessage() . '</p>';
+    $matches = []; // Ensure matches is empty on error
 }
 
 // Fetch Saved Stream URLs for dropdowns
@@ -217,7 +228,7 @@ if (isset($pdo)) {
         <?php else: ?>
             <?php foreach ($matches as $match): ?>
                 <div class="match-item" id="match-<?php echo $match['id']; ?>">
-                    <h3><?php echo htmlspecialchars($match['team_home']); ?> vs <?php echo htmlspecialchars($match['team_away']); ?></h3>
+                    <h3><?php echo htmlspecialchars($match['home_team_name'] ?? 'Time da Casa N/D'); ?> vs <?php echo htmlspecialchars($match['away_team_name'] ?? 'Time Visitante N/D'); ?></h3>
                     <?php if (!empty($match['cover_image_filename'])): ?>
                         <img src="../uploads/covers/matches/<?php echo htmlspecialchars($match['cover_image_filename']); ?>" alt="Capa" class="match-cover-admin">
                     <?php endif; ?>

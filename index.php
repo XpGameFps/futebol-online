@@ -68,7 +68,7 @@ try {
     if ($selected_league_id !== null) {
         $sql_matches .= " AND m.league_id = :selected_league_id";
     }
-    $sql_matches .= " ORDER BY m.match_time ASC LIMIT 30";
+    $sql_matches .= " ORDER BY m.match_time ASC LIMIT 12"; // Changed to 12
 
     $stmt_matches = $pdo->prepare($sql_matches);
     if ($selected_league_id !== null) {

@@ -67,14 +67,57 @@ body {
     text-transform: uppercase;
 }
 
-/* TV Channels Slider/Grid Styles (from index.php) */
+/* TV Channels Slider/Grid Styles - Update for 8 items per row */
 .tv-channels-slider { background-color: #111; padding: 20px 0; margin-bottom: 30px; border-top: 2px solid #00ff00; border-bottom: 2px solid #00ff00; }
-.channels-grid { max-width: 1200px; width: 90%; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; }
-.channel-item { display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #2c2c2c; border: 1px solid #008000; border-radius: 8px; padding: 10px; text-decoration: none; color: #e0e0e0; transition: transform 0.2s ease, border-color 0.2s ease; height: 100px; overflow: hidden; }
-.channel-item:hover { transform: translateY(-3px); border-color: #00ff00; }
-.channel-logo { max-height: 50px; max-width: 100%; margin-bottom: 8px; object-fit: contain; }
-.channel-name { font-size: 0.9em; text-align: center; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
-.channel-name-placeholder { font-size: 1.1em; font-weight: bold; text-align: center; margin-bottom: 8px; }
+.channels-grid {
+    max-width: 1200px;
+    width: 90%; /* Or 95% for tighter fit if needed */
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(125px, 1fr));
+    gap: 10px; /* Reduced gap for more items */
+}
+.channel-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #2c2c2c;
+    border: 1px solid #008000;
+    border-radius: 6px; /* Slightly smaller radius */
+    padding: 8px; /* Reduced padding */
+    text-decoration: none;
+    color: #e0e0e0;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+    height: 100px; /* UPDATED HEIGHT - adjust based on visual preference with new width */
+    overflow: hidden;
+}
+.channel-item:hover {
+    transform: translateY(-2px); /* Less lift for smaller items */
+    border-color: #00ff00;
+}
+.channel-logo {
+    max-height: 45px; /* Significantly REDUCED max-height for logo */
+    max-width: 80%;   /* Adjust as needed */
+    margin-bottom: 5px; /* Reduced margin */
+    object-fit: contain;
+}
+.channel-name {
+    font-size: 0.8em; /* REDUCED font size for name */
+    text-align: center;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    line-height: 1.2; /* Adjust line height */
+}
+.channel-name-placeholder { /* If no logo, show name */
+    font-size: 0.9em; /* REDUCED font size */
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 5px; /* Reduced margin */
+}
 
 /* Match Listing Grid Styles (Common for index.php, search.php) */
 .match-list { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
