@@ -6,30 +6,32 @@ require_once '../config.php'; // Database connection
 // Define base path for logos for display - relative to this script's location
 define('LEAGUES_LOGO_BASE_PATH_RELATIVE_TO_ADMIN', '../uploads/logos/leagues/');
 
-
-// Handle messages (existing message handling)
+// Handle general status messages from GET parameters (for delete, successful add from other pages)
 $message = '';
 if (isset($_GET['status'])) {
     $status = $_GET['status'];
     $reason = isset($_GET['reason']) ? htmlspecialchars($_GET['reason']) : '';
-    if ($status == 'league_added') {
+    if ($status == 'league_added') { // This is for success from add_league.php
         $message = '<p style="color:green;">Liga adicionada com sucesso!</p>';
-    } elseif ($status == 'league_add_error') {
-        if ($reason == 'league_name_exists') {
-            $message = '<p style="color:red;">Erro ao adicionar liga: Este nome de liga já existe. Por favor, escolha outro nome.</p>';
-        } elseif ($reason == 'file_upload_error') {
-            $upload_error_msg = isset($_GET['err_msg']) ? htmlspecialchars(urldecode($_GET['err_msg'])) : 'Erro desconhecido no upload.';
-            $message = '<p style="color:red;">Erro ao adicionar liga: Problema no upload do logo. ' . $upload_error_msg . '</p>';
-        } else {
-            $message = '<p style="color:red;">Erro ao adicionar liga: ' . $reason . '</p>';
-        }
     } elseif ($status == 'league_deleted') {
         $message = '<p style="color:green;">Liga excluída com sucesso!</p>';
     } elseif ($status == 'league_delete_error') {
         $message = '<p style="color:red;">Erro ao excluir liga: ' . $reason . '</p>';
+    } elseif ($status == 'edit_error') { // From edit_league.php redirect if ID invalid or not found
+        $message = '<p style="color:red;">Erro na edição da liga: ' . $reason . '</p>';
     }
+    // Errors from add_league.php itself are now handled by session messages below
 }
 
+// Display and clear form error message for Add League if it exists from session
+$add_league_form_error = '';
+if (isset($_SESSION['form_error_message']['add_league'])) {
+    $add_league_form_error = '<p style="color:red; background-color: #f8d7da; border:1px solid #f5c6cb; padding:10px; border-radius:4px;">' . htmlspecialchars($_SESSION['form_error_message']['add_league']) . '</p>';
+    unset($_SESSION['form_error_message']['add_league']);
+}
+
+// Retrieve form data from session for pre-filling, then clear it after form rendering
+$form_data_add_league = $_SESSION['form_data']['add_league'] ?? [];
 
 // Fetch existing leagues
 $leagues = [];
@@ -64,26 +66,35 @@ try {
         </nav>
         <h1>Gerenciar Ligas</h1>
 
-        <?php if(!empty($message)): ?>
-            <div class="message"><?php echo $message; ?></div>
-        <?php endif; ?>
+        <?php if (!empty($message)) echo "<div class='message'>{$message}</div>"; ?>
+        <?php if (!empty($add_league_form_error)) echo "<div class='message'>{$add_league_form_error}</div>"; ?>
 
-        <h2>Adicionar Nova Liga</h2>
-        <!-- IMPORTANT: Added enctype for file upload -->
+
+        <h2 id="add-league-form">Adicionar Nova Liga</h2>
         <form action="add_league.php" method="POST" enctype="multipart/form-data">
             <div>
                 <label for="name">Nome da Liga:</label>
-                <input type="text" id="name" name="name" required>
+                <input type="text" id="name" name="name" value="<?php echo htmlspecialchars($form_data_add_league['name'] ?? ''); ?>" required>
             </div>
             <div>
                 <label for="logo_file">Logo da Liga (opcional, PNG, JPG, GIF, max 1MB):</label>
                 <input type="file" id="logo_file" name="logo_file" accept="image/png, image/jpeg, image/gif">
+                <?php if (!empty($form_data_add_league['logo_filename_tmp'])): ?>
+                    <p style="font-size:0.8em; color:blue;">Arquivo previamente selecionado: <?php echo htmlspecialchars($form_data_add_league['logo_filename_tmp']); ?> (selecione novamente se desejar manter ou alterar)</p>
+                <?php endif; ?>
             </div>
             <div>
                 <button type="submit">Adicionar Liga</button>
             </div>
         </form>
+        <?php
+        // Clear form data from session AFTER the form is rendered
+        if (isset($_SESSION['form_data']['add_league'])) {
+            unset($_SESSION['form_data']['add_league']);
+        }
+        ?>
 
+        <hr>
         <h2>Ligas Cadastradas</h2>
         <?php if (empty($leagues)): ?>
             <p>Nenhuma liga cadastrada ainda.</p>
