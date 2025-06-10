@@ -133,22 +133,10 @@ if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_SESSION['general_message']['m
 </head>
 <body>
     <div class="container" style="max-width:700px;">
-        <nav>
-            <div>
-                <a href="index.php">Painel Principal (Jogos)</a>
-                <a href="manage_leagues.php">Gerenciar Ligas</a>
-                <a href="manage_channels.php">Gerenciar Canais TV</a>
-                <a href="manage_teams.php">Gerenciar Times</a>
-                <a href="manage_saved_streams.php">Biblioteca de Streams</a>
-                <a href="manage_item_reports.php">Reportes de Itens</a>
-                <a href="manage_settings.php">Configurações</a>
-            </div>
-            <div class="nav-user-info">
-                 Usuário: <?php echo htmlspecialchars($_SESSION['admin_username'] ?? 'Admin'); ?> |
-                <a href="logout.php" class="logout-link">Logout</a>
-            </div>
-        </nav>
-        <h1><?php echo htmlspecialchars($page_title); ?></h1>
+        <div class="admin-layout">
+            <?php require_once 'templates/navigation.php'; ?>
+            <div class="main-content">
+                <h1><?php echo htmlspecialchars($page_title); ?></h1>
         <?php if(!empty($message)) echo "<div class='message'>{$message}</div>"; ?>
 
         <?php if ($saved_stream_id && (isset($item) && $item || $_SERVER["REQUEST_METHOD"] == "POST")): // Show form if data was fetched or it's a POST (even with errors) ?>
@@ -172,6 +160,8 @@ if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_SESSION['general_message']['m
             echo '<p style="color:red;">Não foi possível carregar os dados do stream salvo para edição. Verifique se o ID é válido.</p>';
             echo '<p><a href="manage_saved_streams.php">Voltar para Biblioteca de Streams</a></p>';
         endif; ?>
-    </div>
+            </div> <!-- end main-content -->
+        </div> <!-- end admin-layout -->
+    </div> <!-- end container -->
 </body>
 </html>

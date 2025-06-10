@@ -190,24 +190,13 @@ if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_SESSION['general_message']['m
 ?>
 <!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title><?php echo htmlspecialchars($page_title); ?> - Painel Admin</title><link rel="stylesheet" href="css/admin_style.css">
 <style>.color-preview { display: inline-block; width: 20px; height: 20px; border: 1px solid #ccc; vertical-align: middle; margin-left: 5px; }</style>
-</head><body> <div class="container" style="max-width:700px;">
-    <nav>
-        <div>
-            <a href="index.php">Painel Principal (Jogos)</a>
-            <a href="manage_leagues.php">Gerenciar Ligas</a>
-            <a href="manage_channels.php">Gerenciar Canais TV</a>
-            <a href="manage_teams.php">Gerenciar Times</a>
-            <a href="manage_saved_streams.php">Biblioteca de Streams</a>
-            <a href="manage_item_reports.php">Reportes de Itens</a>
-            <a href="manage_settings.php">Configurações</a>
-        </div>
-        <div class="nav-user-info">
-            <span id="online-users-indicator" style="margin-right: 15px; color: #007bff; font-weight:bold;">Online: <span id="online-users-count">--</span></span>
-            Usuário: <?php echo htmlspecialchars($_SESSION['admin_username'] ?? 'Admin'); ?> |
-            <a href="logout.php" class="logout-link">Logout</a>
-        </div>
-    </nav>
-    <h1><?php echo htmlspecialchars($page_title); ?></h1>
+</head>
+<body>
+    <div class="container" style="max-width:700px;">
+        <div class="admin-layout">
+            <?php require_once 'templates/navigation.php'; ?>
+            <div class="main-content">
+                <h1><?php echo htmlspecialchars($page_title); ?></h1>
     <?php if(!empty($message)) echo "<div class='message'>{$message}</div>"; ?>
 
     <?php if ($team_id && ($team_data_loaded || $_SERVER["REQUEST_METHOD"] == "POST")): ?>
@@ -238,7 +227,9 @@ if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_SESSION['general_message']['m
         echo '<p style="color:red;">Time não encontrado ou ID inválido.</p>';
         echo '<p><a href="manage_teams.php">Voltar para Gerenciar Times</a></p>';
     endif; ?>
-</div>
+            </div> <!-- end main-content -->
+        </div> <!-- end admin-layout -->
+    </div> <!-- end container -->
 <script> // JS for online user counter
 document.addEventListener('DOMContentLoaded', function() {
     const onlineUsersCountElement = document.getElementById('online-users-count');

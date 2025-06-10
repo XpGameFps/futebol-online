@@ -145,23 +145,10 @@ try {
 </head>
 <body>
     <div class="container">
-        <nav>
-            <div>
-                <a href="index.php">Painel Principal (Jogos)</a>
-                <a href="manage_leagues.php">Gerenciar Ligas</a>
-                <a href="manage_channels.php">Gerenciar Canais TV</a>
-                <a href="manage_teams.php">Gerenciar Times</a>
-                <a href="manage_saved_streams.php">Biblioteca de Streams</a>
-                <a href="manage_item_reports.php" class="active-nav">Reportes de Itens</a> <!-- Link Atualizado -->
-                <a href="manage_settings.php">Configurações</a>
-            </div>
-            <div class="nav-user-info">
-                 Usuário: <?php echo htmlspecialchars($_SESSION['admin_username'] ?? 'Admin'); ?> |
-                <a href="logout.php" class="logout-link">Logout</a>
-            </div>
-        </nav>
-
-        <h1>Gerenciar Reportes de Problemas (Canais e Jogos)</h1>
+        <div class="admin-layout">
+            <?php require_once 'templates/navigation.php'; ?>
+            <div class="main-content">
+                <h1>Gerenciar Reportes de Problemas (Canais e Jogos)</h1>
 
         <?php if (!empty($message)): ?>
             <div class="message success"><?php echo htmlspecialchars($message); ?></div>
@@ -253,6 +240,8 @@ try {
                 </tbody>
             </table>
         <?php endif; ?>
-    </div>
+            </div> <!-- end main-content -->
+        </div> <!-- end admin-layout -->
+    </div> <!-- end container -->
 </body>
 </html>
