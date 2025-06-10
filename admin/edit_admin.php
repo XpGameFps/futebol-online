@@ -91,11 +91,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_admin'])) {
             $is_superadmin_val = 0;
         }
 
-        // ADD TOKEN REGENERATION HERE
-        if (function_exists('generate_csrf_token')) {
-            $csrf_token = generate_csrf_token(true); // Force regeneration
-        }
-
     } else {
         // **Start of existing processing logic**
         $current_action = $_POST['action_type'] ?? 'add'; // 'add' or 'update'
@@ -261,15 +256,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_admin'])) {
                                 $sql_update = "UPDATE admins SET " . implode(", ", $sql_update_parts) . " WHERE id = :id";
                                 $stmt_update = $pdo->prepare($sql_update);
 
-                                if ($stmt_update->execute($params_update)) {
-                                    $_SESSION['admin_flash_message'] = ['type' => 'success', 'text' => 'Administrador atualizado com sucesso!'];
-                                    // Se o admin atualizou o próprio nome de usuário, atualiza a sessão
-                                    if (($_SESSION['admin_id'] ?? null) == $admin_id_being_edited && isset($_SESSION['admin_username']) && $_SESSION['admin_username'] != $username_val) {
-                                        $_SESSION['admin_username'] = $username_val;
+                                $executed_successfully = $stmt_update->execute($params_update);
+
+                                if ($executed_successfully) {
+                                    $affected_rows = $stmt_update->rowCount();
+                                    if ($affected_rows > 0) {
+                                        $_SESSION['admin_flash_message'] = ['type' => 'success', 'text' => 'Administrador atualizado com sucesso! (' . $affected_rows . ' linha(s) afetada(s))'];
+                                        if (($_SESSION['admin_id'] ?? null) == $admin_id_being_edited && isset($_SESSION['admin_username']) && $_SESSION['admin_username'] != $username_val) {
+                                            $_SESSION['admin_username'] = $username_val;
+                                        }
+                                        header("Location: manage_admins.php");
+                                        exit;
+                                    } else {
+                                        // Query ran, but no rows were updated.
+                                        // This could be because the data submitted was the same as the existing data,
+                                        // or the ID didn't match (though less likely if form loaded correctly).
+                                        $error_message = "Nenhuma alteração foi detectada nos dados para o administrador (ID: " . $admin_id_being_edited . "). Nenhuma atualização realizada.";
+                                        // Log this as it might be unexpected depending on context
+                                        error_log("Admin Update Warning (ID: {$admin_id_being_edited}): execute() was true, but rowCount() was 0. Submitted params: " . json_encode($params_update));
                                     }
-                                    header("Location: manage_admins.php");
-                                    exit;
                                 } else {
+                                    // execute() returned false - database error
                                     $pdo_error_info = $stmt_update->errorInfo();
                                     $error_message = "Erro ao atualizar administrador no banco de dados. Detalhe: " . ($pdo_error_info[2] ?? 'Sem detalhes');
                                     error_log("Admin Update Failed (ID: {$admin_id_being_edited}): Query: {$sql_update} Params: " . json_encode($params_update) . " PDO Error: " . ($pdo_error_info[2] ?? 'N/A'));
@@ -285,7 +292,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_admin'])) {
         } // Fim do elseif ($current_action === 'update')
         // **End of existing processing logic**
     }
-}
+
+    // AFTER all POST processing (CSRF check, add/update attempts):
+    // If any error occurred that prevents a redirect and will cause the form to be re-rendered,
+    // regenerate the CSRF token to ensure the re-rendered form has a fresh one.
+    if (!empty($error_message)) {
+        if (function_exists('generate_csrf_token')) {
+            $csrf_token = generate_csrf_token(true); // Force regeneration
+        }
+        // Make sure $username_val, $email_val, etc., are correctly set from $_POST
+        // if we are re-rendering due to an error AFTER CSRF validation passed initially
+        // but an error occurred later in the add/update process.
+        // This is important so the user doesn't lose their typed input.
+        if (isset($_POST['username'])) $username_val = trim($_POST['username']);
+        if (isset($_POST['email'])) $email_val = trim($_POST['email']);
+        // For checkbox 'is_superadmin', its value needs to be correctly determined from $_POST
+        // if it was part of the submission and an error occurred.
+        if (isset($_POST['action_type'])) { // Check if form was actually submitted
+            if (($_SESSION['admin_is_superadmin'] ?? false)) { // Only superadmins can set this
+                 $is_superadmin_val = isset($_POST['is_superadmin']) ? 1 : 0;
+            }
+            // If not superadmin, $is_superadmin_val retains its loaded value or default for 'add'
+            // (this logic is already handled earlier when $is_superadmin_val is first determined from POST).
+        }
+    }
+} // End of POST processing block
 
 
 // Flash messages (exibidas em manage_admins.php após redirecionamento)
