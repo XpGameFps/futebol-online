@@ -1,6 +1,28 @@
 <?php
 // templates/header.php
 
+// Set secure session cookie parameters for consistency
+$cookie_params_frontend = [
+    'lifetime' => 0, // Expires when browser closes
+    'path' => '/', // Cookie available for the entire domain
+    'domain' => '', // Let PHP handle the host effectively
+    'secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on', // Only send over HTTPS
+    'httponly' => true, // Prevent JavaScript access to the session cookie
+    'samesite' => 'Lax' // CSRF protection measure
+];
+// For PHP versions < 7.3, session_set_cookie_params must be called differently
+if (PHP_VERSION_ID < 70300) {
+    session_set_cookie_params(
+        $cookie_params_frontend['lifetime'],
+        $cookie_params_frontend['path'],
+        $cookie_params_frontend['domain'],
+        $cookie_params_frontend['secure'],
+        $cookie_params_frontend['httponly']
+    );
+} else {
+    session_set_cookie_params($cookie_params_frontend);
+}
+
 // Start session if not already started
 if (session_status() == PHP_SESSION_NONE) {
     session_start();

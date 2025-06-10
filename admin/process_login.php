@@ -6,7 +6,7 @@
 $cookie_params = [
     'lifetime' => 0, // Expires when browser closes
     'path' => '/', // Cookie available for the entire domain
-    'domain' => $_SERVER['HTTP_HOST'], // Current domain
+    'domain' => '', // Let PHP handle the host effectively
     'secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on', // Only send over HTTPS
     'httponly' => true, // Prevent JavaScript access to the session cookie
     'samesite' => 'Lax' // CSRF protection measure
@@ -49,10 +49,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $_SESSION['admin_loggedin'] = true;
                 $_SESSION['admin_id'] = $admin['id'];
                 $_SESSION['admin_username'] = $admin['username'];
-                $_SESSION['admin_is_superadmin'] = !empty($admin['is_superadmin']); // Converte para boolean
-
-                // ADD SESSION REGENERATION HERE
-                //session_regenerate_id(true); // Destroy old session ID and create a new one
+                $_SESSION['admin_is_superadmin'] = !empty($admin['is_superadmin']); // Converte para boolea
 
                 // Redirect to admin dashboard
                 header("Location: index.php");
