@@ -50,7 +50,8 @@ if ($_SERVER["REQUEST_METHOD"] != "POST" || !empty($message)) {
         $stream_name = $item['stream_name'];
         $stream_url_value = $item['stream_url_value'];
     } catch (PDOException $e) {
-        $message = '<p style="color:red;">Erro ao buscar dados do stream salvo: ' . $e->getMessage() . '</p>';
+        error_log("PDOException in " . __FILE__ . " (fetching saved stream ID: " . $saved_stream_id . "): " . $e->getMessage());
+        $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao carregar o stream salvo. Por favor, tente novamente.</p>';
         // Allow form to render with this message
     }
 }
@@ -105,9 +106,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_saved_stream'])
             }
         } catch (PDOException $e) {
              if ($e->getCode() == '23000' && strpos($e->getMessage(), "unique_stream_name") !== false) {
-                $message = '<p style="color:red;">Erro: O nome do stream já existe na biblioteca.</p>';
+                $message = '<p style="color:red;">Erro: O nome do stream já existe na biblioteca.</p>'; // Specific, user-friendly
             } else {
-                $message = '<p style="color:red;">Erro de BD: ' . $e->getMessage() . '</p>';
+                error_log("PDOException in " . __FILE__ . " (updating saved stream ID: " . $saved_stream_id . "): " . $e->getMessage());
+                $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao atualizar o stream salvo. Por favor, tente novamente.</p>';
             }
         }
     }

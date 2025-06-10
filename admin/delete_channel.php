@@ -72,10 +72,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $status_reason = 'not_found';
                 }
             } else {
-                $status_reason = 'execute_failed';
+                $status_reason = 'db_error'; // Changed from 'execute_failed'
             }
         } catch (PDOException $e) {
-            $status_reason = 'pdo_exception_' . $e->getCode();
+            $status_reason = 'db_error'; // Changed from 'pdo_exception_...'
             error_log("PDOException in delete_channel.php: " . $e->getMessage());
         }
     } else {

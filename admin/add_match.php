@@ -171,7 +171,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         } elseif (strpos($e->getMessage(), "FOREIGN KEY (`league_id`)") !== false) {
              $_SESSION['form_error_message']['add_match'] = "Erro: ID da liga inválido.";
         } else {
-            $_SESSION['form_error_message']['add_match'] = "Erro de BD: " . $e->getMessage() . ". Verifique se a tabela 'matches' foi atualizada.";
+            error_log("PDOException in " . __FILE__ . " (add_match): " . $e->getMessage());
+            $_SESSION['form_error_message']['add_match'] = "Ocorreu um erro no banco de dados ao adicionar o jogo. Por favor, tente novamente.";
         }
         if ($cover_image_filename_to_save && file_exists(MATCH_COVER_UPLOAD_DIR . $cover_image_filename_to_save)) {
              @unlink(MATCH_COVER_UPLOAD_DIR . $cover_image_filename_to_save);

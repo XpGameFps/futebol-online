@@ -50,7 +50,8 @@ if ($_SERVER["REQUEST_METHOD"] != "POST" || !empty($message)) {
         $league_name = $league['name'];
         $current_logo_filename = $league['logo_filename'];
     } catch (PDOException $e) {
-        $message = '<p style="color:red;">Erro ao buscar dados da liga: ' . $e->getMessage() . '</p>';
+        error_log("PDOException in " . __FILE__ . " (fetching league data for ID: " . $league_id . "): " . $e->getMessage());
+        $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao carregar os dados da liga. Por favor, tente novamente.</p>';
     }
 }
 
@@ -145,9 +146,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_league'])) {
                 }
             } catch (PDOException $e) {
                  if ($e->getCode() == '23000' && strpos($e->getMessage(), "Duplicate entry") !== false) {
-                     $message = '<p style="color:red;">Erro: O nome da liga já existe.</p>';
+                     $message = '<p style="color:red;">Erro: O nome da liga já existe.</p>'; // This is a specific error, not a raw DB message, so it can remain.
                  } else {
-                    $message = '<p style="color:red;">Erro de banco de dados: ' . $e->getMessage() . '</p>';
+                    error_log("PDOException in " . __FILE__ . " (updating league ID: " . $league_id . "): " . $e->getMessage());
+                    $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao atualizar a liga. Por favor, tente novamente.</p>';
                  }
                  // Cleanup uploaded file on PDOException as well
                 if ($file_was_moved_in_this_request && $new_logo_filename_to_save) {

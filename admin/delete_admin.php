@@ -63,8 +63,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['admin_id_to_delete'])
                 }
             }
         } catch (PDOException $e) {
-            $message_text = "Erro de banco de dados ao excluir administrador: " . $e->getMessage();
-            // Logar $e->getMessage()
+            error_log("PDOException in " . __FILE__ . " (deleting admin ID: " . $admin_id_to_delete . "): " . $e->getMessage());
+            $message_text = "Ocorreu um erro no banco de dados ao excluir o administrador. Por favor, tente novamente.";
+            // Logar $e->getMessage() // Original comment noted to log
         }
     }
 } else {

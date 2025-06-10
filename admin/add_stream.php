@@ -63,7 +63,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 header("Location: index.php#match-" . $match_id); exit;
             }
         } catch (PDOException $e) {
-            $_SESSION['form_error_message']['add_stream'][$match_id] = "Erro ao buscar stream da biblioteca: " . $e->getMessage();
+            error_log("PDOException in " . __FILE__ . " (fetching saved stream ID " . $saved_stream_id . " for match " . $match_id . "): " . $e->getMessage());
+            $_SESSION['form_error_message']['add_stream'][$match_id] = "Ocorreu um erro no banco de dados ao buscar o stream da biblioteca. Por favor, tente novamente.";
             header("Location: index.php#match-" . $match_id); exit;
         }
     } else {
@@ -99,9 +100,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 // $_SESSION['form_error_message']['add_stream'][$match_id] .= " (Aviso: Nome já existente na biblioteca, não salvo novamente.)";
             }
         } catch (PDOException $e) {
+            error_log("PDOException in " . __FILE__ . " (saving stream to library for match " . $match_id . "): " . $e->getMessage());
             // Append warning, but don't stop adding stream to match
             $existing_error = $_SESSION['form_error_message']['add_stream'][$match_id] ?? '';
-            $_SESSION['form_error_message']['add_stream'][$match_id] = trim($existing_error . " (Aviso: falha ao salvar na biblioteca: nome duplicado ou erro de BD.)");
+            $_SESSION['form_error_message']['add_stream'][$match_id] = trim($existing_error . " (Aviso: Falha ao tentar salvar o stream na biblioteca. Verifique se já existe um com o mesmo nome.)");
         }
     }
 
@@ -136,7 +138,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
         exit;
     } catch (PDOException $e) {
-        $_SESSION['form_error_message']['add_stream'][$match_id] = "Erro de BD ao adicionar stream: " . $e->getMessage();
+        error_log("PDOException in " . __FILE__ . " (adding stream to match " . $match_id . "): " . $e->getMessage());
+        $_SESSION['form_error_message']['add_stream'][$match_id] = "Ocorreu um erro no banco de dados ao adicionar o stream ao jogo. Por favor, tente novamente.";
         header("Location: index.php#match-" . $match_id);
         exit;
     }

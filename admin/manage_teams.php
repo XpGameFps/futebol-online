@@ -132,8 +132,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_team'])) {
                     }
                 }
             } catch (PDOException $e) {
-                if ($e->getCode() == '23000') { $_SESSION['form_error_message']['add_team'] = "Erro: O nome do time já existe."; }
-                else { $_SESSION['form_error_message']['add_team'] = "Erro de BD: " . $e->getMessage(); }
+                if ($e->getCode() == '23000') {
+                    $_SESSION['form_error_message']['add_team'] = "Erro: O nome do time já existe."; // Specific, user-friendly
+                } else {
+                    error_log("PDOException in " . __FILE__ . " (adding team): " . $e->getMessage());
+                    $_SESSION['form_error_message']['add_team'] = "Ocorreu um erro no banco de dados ao adicionar o time. Por favor, tente novamente.";
+                }
                 if ($logo_filename_to_save && file_exists(TEAM_LOGO_UPLOAD_DIR . $logo_filename_to_save)) { @unlink(TEAM_LOGO_UPLOAD_DIR . $logo_filename_to_save); unset($_SESSION['form_data']['add_team']['logo_filename_tmp']);}
             }
         }
@@ -154,7 +158,10 @@ $teams = [];
 try {
     $stmt_list_teams = $pdo->query("SELECT id, name, logo_filename, primary_color_hex, created_at FROM teams ORDER BY name ASC");
     $teams = $stmt_list_teams->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) { $message .= '<p style="color:red;">Erro ao buscar times: ' . $e->getMessage() . '</p>'; }
+} catch (PDOException $e) {
+    error_log("PDOException in " . __FILE__ . " (fetching teams list): " . $e->getMessage());
+    $message .= '<p style="color:red;">Ocorreu um erro no banco de dados ao buscar os times. Por favor, tente novamente.</p>';
+}
 ?>
 <!DOCTYPE html>
 <html lang="pt-br">

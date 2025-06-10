@@ -47,10 +47,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             if ($stmt->execute()) {
                 $message = '<p style="color:green;">Texto do banner de cookies atualizado com sucesso!</p>';
             } else {
-                $message = '<p style="color:red;">Erro ao atualizar o texto do banner de cookies.</p>';
+                $message = '<p style="color:red;">Erro ao atualizar o texto do banner de cookies.</p>'; // Generic enough already
             }
         } catch (PDOException $e) {
-            $message = '<p style="color:red;">Erro de banco de dados: ' . $e->getMessage() . '</p>';
+            error_log("PDOException in " . __FILE__ . " (save_cookie_banner): " . $e->getMessage());
+            $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao salvar as configurações do banner de cookies. Por favor, tente novamente.</p>';
         }
     } elseif (isset($_POST['save_site_identity'])) {
         $new_site_name = trim($_POST['site_name'] ?? 'FutOnline');
@@ -151,7 +152,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 }
                 $message = '<p style="color:green;">Configurações de identidade do site atualizadas com sucesso!</p>';
             } catch (PDOException $e) {
-                $message = '<p style="color:red;">Erro de banco de dados ao salvar identidade do site: ' . $e->getMessage() . '</p>';
+                error_log("PDOException in " . __FILE__ . " (save_site_identity): " . $e->getMessage());
+                $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao salvar as configurações de identidade do site. Por favor, tente novamente.</p>';
                 // Cleanup uploaded site logo on PDOException if a new one was moved
                 if ($file_was_moved_for_site_logo && $new_logo_filename_to_save && $new_logo_filename_to_save !== $initial_db_logo_filename) {
                     $filePathToDelete = SITE_LOGO_UPLOAD_DIR . $new_logo_filename_to_save;
@@ -183,7 +185,8 @@ try {
     $current_site_display_format = $all_settings[$site_display_format_key] ?? 'text';
 
 } catch (PDOException $e) {
-    $message .= '<p style="color:red;">Erro ao buscar configurações do site: ' . $e->getMessage() . '</p>';
+    error_log("PDOException in " . __FILE__ . " (fetching all settings): " . $e->getMessage());
+    $message .= '<p style="color:red;">Ocorreu um erro no banco de dados ao carregar as configurações do site. Por favor, tente novamente.</p>';
     // Set defaults if DB fetch fails for all
     $current_cookie_banner_text = $current_cookie_banner_text ?: 'Este site utiliza cookies para melhorar a sua experiência. Ao continuar navegando, você concorda com o nosso uso de cookies.';
     $current_site_name = $current_site_name ?: 'FutOnline';

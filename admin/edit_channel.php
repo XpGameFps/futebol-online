@@ -58,7 +58,8 @@ if ($_SERVER["REQUEST_METHOD"] != "POST" || !empty($message)) {
         $meta_description = $channel['meta_description']; // Populate SEO fields
         $meta_keywords = $channel['meta_keywords'];       // Populate SEO fields
     } catch (PDOException $e) {
-        $message = '<p style="color:red;">Erro ao buscar dados do canal: ' . $e->getMessage() . '</p>';
+        error_log("PDOException in " . __FILE__ . " (fetching channel data for ID: " . $channel_id . "): " . $e->getMessage());
+        $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao carregar os dados do canal. Por favor, tente novamente.</p>';
     }
 }
 
@@ -153,7 +154,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_channel'])) {
                     header("Location: manage_channels.php?status=saved_channel_updated"); // Use a distinct status if needed
                     exit;
                 } else {
-                    $message = '<p style="color:red;">Erro ao atualizar canal no banco de dados.</p>';
+                    $message = '<p style="color:red;">Erro ao atualizar canal no banco de dados.</p>'; // This is a generic message already.
                     if ($file_was_moved_in_this_request && $new_logo_filename_to_save) {
                         $filePathToDelete = CHANNEL_LOGO_UPLOAD_DIR . $new_logo_filename_to_save;
                         if (file_exists($filePathToDelete)) {
@@ -162,7 +163,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_channel'])) {
                     }
                 }
             } catch (PDOException $e) {
-                $message = '<p style="color:red;">Erro de banco de dados: ' . $e->getMessage() . '</p>';
+                error_log("PDOException in " . __FILE__ . " (updating channel ID: " . $channel_id . "): " . $e->getMessage());
+                $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao atualizar o canal. Por favor, tente novamente.</p>';
                 if ($file_was_moved_in_this_request && $new_logo_filename_to_save) {
                     $filePathToDelete = CHANNEL_LOGO_UPLOAD_DIR . $new_logo_filename_to_save;
                     if (file_exists($filePathToDelete)) {

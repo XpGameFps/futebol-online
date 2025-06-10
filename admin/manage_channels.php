@@ -50,7 +50,8 @@ if (isset($pdo)) {
         }, $saved_stream_urls_list);
         $saved_streams_json = json_encode($js_friendly_streams);
     } catch (PDOException $e) {
-        $message .= '<p style="color:red;">Erro ao buscar biblioteca de streams: ' . $e->getMessage() . '</p>';
+        error_log("PDOException in " . __FILE__ . " (fetching saved streams): " . $e->getMessage());
+        $message .= '<p style="color:red;">Ocorreu um erro no banco de dados ao buscar a biblioteca de streams. Por favor, tente novamente.</p>';
     }
 }
 
@@ -60,7 +61,8 @@ try {
     $stmt = $pdo->query("SELECT id, name, logo_filename, stream_url, sort_order FROM tv_channels ORDER BY sort_order ASC, name ASC");
     $channels = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $message .= '<p style="color:red;">Erro ao buscar canais: ' . $e->getMessage() . '</p>';
+    error_log("PDOException in " . __FILE__ . " (fetching channels): " . $e->getMessage());
+    $message .= '<p style="color:red;">Ocorreu um erro no banco de dados ao buscar os canais. Por favor, tente novamente.</p>';
 }
 ?>
 <!DOCTYPE html>
