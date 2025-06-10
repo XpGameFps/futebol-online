@@ -62,7 +62,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_league'])) {
         $csrf_token = generate_csrf_token(true);
         // Do NOT proceed with processing, allow the script to fall through to re-display the form with the error and new token.
     } else {
-        // ... (rest of the existing POST processing logic)
         $new_league_name = trim($_POST['name'] ?? '');
         $league_name = $new_league_name; // For repopulation
         $new_logo_filename_to_save = $current_logo_filename; // Initialize with current, might change if new file uploaded
@@ -70,92 +69,100 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_league'])) {
         $upload_error_message = '';
 
         if (empty($new_league_name)) {
-        $message = '<p style="color:red;">O nome da liga não pode ser vazio.</p>';
-    } else {
-        if (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] == UPLOAD_ERR_OK) {
-            $file_tmp_path = $_FILES['logo_file']['tmp_name'];
-            $file_name = $_FILES['logo_file']['name'];
-            $file_size = $_FILES['logo_file']['size'];
-            $file_type = $_FILES['logo_file']['type'];
-            $file_ext_array = explode('.', $file_name);
-            $file_extension = strtolower(end($file_ext_array));
+            $message = '<p style="color:red;">O nome da liga não pode ser vazio.</p>';
+        } else {
+            if (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] == UPLOAD_ERR_OK) {
+                $file_tmp_path = $_FILES['logo_file']['tmp_name'];
+                $file_name = $_FILES['logo_file']['name'];
+                $file_size = $_FILES['logo_file']['size'];
+                $file_type = $_FILES['logo_file']['type'];
+                $file_ext_array = explode('.', $file_name);
+                $file_extension = strtolower(end($file_ext_array));
 
-            if ($file_size > MAX_FILE_SIZE) { $upload_error_message = 'Arquivo muito grande. Máximo 1MB.'; }
-            elseif (!in_array($file_type, $allowed_mime_types)) { $upload_error_message = 'Tipo de arquivo inválido. Apenas PNG, JPG, GIF.'; }
-            else {
-                // getimagesize check
-                $image_info = @getimagesize($file_tmp_path);
-                if ($image_info === false) {
-                    $upload_error_message = 'Arquivo inválido. Conteúdo não reconhecido como imagem.';
-                } else {
-                    // Proceed with move_uploaded_file only if getimagesize passed
-                    $new_uploaded_filename = uniqid('league_', true) . '.' . $file_extension;
-                    $destination_path = LEAGUE_LOGO_UPLOAD_DIR . $new_uploaded_filename;
-                    if (!is_dir(LEAGUE_LOGO_UPLOAD_DIR)) { @mkdir(LEAGUE_LOGO_UPLOAD_DIR, 0755, true); }
-                    if (move_uploaded_file($file_tmp_path, $destination_path)) {
-                        // Successfully moved new file
-                        if ($current_logo_filename && file_exists(LEAGUE_LOGO_UPLOAD_DIR . $current_logo_filename)) {
-                            // If there was an old logo, and it's different from the new one, delete old.
-                            // This check might be redundant if $new_uploaded_filename is always unique.
-                            if ($current_logo_filename != $new_uploaded_filename) {
-                                @unlink(LEAGUE_LOGO_UPLOAD_DIR . $current_logo_filename);
-                            }
-                        }
-                        $new_logo_filename_to_save = $new_uploaded_filename; // This is the new file's name
-                        $file_was_moved_in_this_request = true; // Mark that a new file was physically moved
-                    } else { $upload_error_message = 'Falha ao mover novo arquivo de logo.'; }
+                if ($file_size > MAX_FILE_SIZE) { 
+                    $upload_error_message = 'Arquivo muito grande. Máximo 1MB.'; 
                 }
+                elseif (!in_array($file_type, $allowed_mime_types)) { 
+                    $upload_error_message = 'Tipo de arquivo inválido. Apenas PNG, JPG, GIF.'; 
+                }
+                else {
+                    // getimagesize check
+                    $image_info = @getimagesize($file_tmp_path);
+                    if ($image_info === false) {
+                        $upload_error_message = 'Arquivo inválido. Conteúdo não reconhecido como imagem.';
+                    } else {
+                        // Proceed with move_uploaded_file only if getimagesize passed
+                        $new_uploaded_filename = uniqid('league_', true) . '.' . $file_extension;
+                        $destination_path = LEAGUE_LOGO_UPLOAD_DIR . $new_uploaded_filename;
+                        if (!is_dir(LEAGUE_LOGO_UPLOAD_DIR)) { @mkdir(LEAGUE_LOGO_UPLOAD_DIR, 0755, true); }
+                        if (move_uploaded_file($file_tmp_path, $destination_path)) {
+                            // Successfully moved new file
+                            if ($current_logo_filename && file_exists(LEAGUE_LOGO_UPLOAD_DIR . $current_logo_filename)) {
+                                // If there was an old logo, and it's different from the new one, delete old.
+                                if ($current_logo_filename != $new_uploaded_filename) {
+                                    @unlink(LEAGUE_LOGO_UPLOAD_DIR . $current_logo_filename);
+                                }
+                            }
+                            $new_logo_filename_to_save = $new_uploaded_filename;
+                            $file_was_moved_in_this_request = true;
+                        } else { 
+                            $upload_error_message = 'Falha ao mover novo arquivo de logo.'; 
+                        }
+                    }
+                }
+                if (!empty($upload_error_message)) { 
+                    $message = '<p style="color:red;">Erro no upload do logo: ' . $upload_error_message . '</p>'; 
+                }
+            } elseif (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] != UPLOAD_ERR_NO_FILE && $_FILES['logo_file']['error'] != UPLOAD_ERR_OK) {
+                $message = '<p style="color:red;">Erro no upload do logo. Código: ' . $_FILES['logo_file']['error'] . '</p>';
             }
-            if (!empty($upload_error_message)) { $message = '<p style="color:red;">Erro no upload do logo: ' . $upload_error_message . '</p>'; }
-        } elseif (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] != UPLOAD_ERR_NO_FILE && $_FILES['logo_file']['error'] != UPLOAD_ERR_OK) {
-             $message = '<p style="color:red;">Erro no upload do logo. Código: ' . $_FILES['logo_file']['error'] . '</p>';
-        }
 
-        if (empty($message) || (!empty($message) && empty($upload_error_message) && isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] == UPLOAD_ERR_NO_FILE)) {
-            try {
-                $stmt_check_name = $pdo->prepare("SELECT id FROM leagues WHERE name = :name AND id != :id");
-                $stmt_check_name->bindParam(':name', $new_league_name, PDO::PARAM_STR);
-                $stmt_check_name->bindParam(':id', $league_id, PDO::PARAM_INT);
-                $stmt_check_name->execute();
-                if ($stmt_check_name->rowCount() > 0) {
-                    $message = '<p style="color:red;">Este nome de liga já está em uso por outra liga.</p>';
-                } else {
-                    $sql_update = "UPDATE leagues SET name = :name, logo_filename = :logo_filename WHERE id = :id";
-                    $stmt_update = $pdo->prepare($sql_update);
-                    $stmt_update->bindParam(':name', $new_league_name, PDO::PARAM_STR);
-                    $stmt_update->bindParam(':id', $league_id, PDO::PARAM_INT);
-                    if ($new_logo_filename_to_save === null) {
-                        $stmt_update->bindValue(':logo_filename', null, PDO::PARAM_NULL);
+            if (empty($message) || (!empty($message) && empty($upload_error_message) && isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] == UPLOAD_ERR_NO_FILE)) {
+                try {
+                    $stmt_check_name = $pdo->prepare("SELECT id FROM leagues WHERE name = :name AND id != :id");
+                    $stmt_check_name->bindParam(':name', $new_league_name, PDO::PARAM_STR);
+                    $stmt_check_name->bindParam(':id', $league_id, PDO::PARAM_INT);
+                    $stmt_check_name->execute();
+                    if ($stmt_check_name->rowCount() > 0) {
+                        $message = '<p style="color:red;">Este nome de liga já está em uso por outra liga.</p>';
                     } else {
-                        $stmt_update->bindParam(':logo_filename', $new_logo_filename_to_save, PDO::PARAM_STR);
-                    }
-                    if ($stmt_update->execute()) {
-                        $current_logo_filename = $new_logo_filename_to_save;
-                        $_SESSION['general_message']['manage_leagues'] = '<p style="color:green;">Liga atualizada com sucesso!</p>';
-                        header("Location: manage_leagues.php?status=saved_league_updated"); // Using a generic status for now
-                        exit;
-                    } else {
-                        $message = '<p style="color:red;">Erro ao atualizar liga no banco de dados.</p>';
-                        if ($file_was_moved_in_this_request && $new_logo_filename_to_save) {
-                            $filePathToDelete = LEAGUE_LOGO_UPLOAD_DIR . $new_logo_filename_to_save;
-                            if (file_exists($filePathToDelete)) {
-                                @unlink($filePathToDelete);
+                        $sql_update = "UPDATE leagues SET name = :name, logo_filename = :logo_filename WHERE id = :id";
+                        $stmt_update = $pdo->prepare($sql_update);
+                        $stmt_update->bindParam(':name', $new_league_name, PDO::PARAM_STR);
+                        $stmt_update->bindParam(':id', $league_id, PDO::PARAM_INT);
+                        if ($new_logo_filename_to_save === null) {
+                            $stmt_update->bindValue(':logo_filename', null, PDO::PARAM_NULL);
+                        } else {
+                            $stmt_update->bindParam(':logo_filename', $new_logo_filename_to_save, PDO::PARAM_STR);
+                        }
+                        if ($stmt_update->execute()) {
+                            $current_logo_filename = $new_logo_filename_to_save;
+                            $_SESSION['general_message']['manage_leagues'] = '<p style="color:green;">Liga atualizada com sucesso!</p>';
+                            header("Location: manage_leagues.php?status=saved_league_updated");
+                            exit;
+                        } else {
+                            $message = '<p style="color:red;">Erro ao atualizar liga no banco de dados.</p>';
+                            if ($file_was_moved_in_this_request && $new_logo_filename_to_save) {
+                                $filePathToDelete = LEAGUE_LOGO_UPLOAD_DIR . $new_logo_filename_to_save;
+                                if (file_exists($filePathToDelete)) {
+                                    @unlink($filePathToDelete);
+                                }
                             }
                         }
                     }
-                }
-            } catch (PDOException $e) {
-                 if ($e->getCode() == '23000' && strpos($e->getMessage(), "Duplicate entry") !== false) {
-                     $message = '<p style="color:red;">Erro: O nome da liga já existe.</p>'; // This is a specific error, not a raw DB message, so it can remain.
-                 } else {
-                    error_log("PDOException in " . __FILE__ . " (updating league ID: " . $league_id . "): " . $e->getMessage());
-                    $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao atualizar a liga. Por favor, tente novamente.</p>';
-                 }
-                 // Cleanup uploaded file on PDOException as well
-                if ($file_was_moved_in_this_request && $new_logo_filename_to_save) {
-                    $filePathToDelete = LEAGUE_LOGO_UPLOAD_DIR . $new_logo_filename_to_save;
-                    if (file_exists($filePathToDelete)) {
-                        @unlink($filePathToDelete);
+                } catch (PDOException $e) {
+                    if ($e->getCode() == '23000' && strpos($e->getMessage(), "Duplicate entry") !== false) {
+                        $message = '<p style="color:red;">Erro: O nome da liga já existe.</p>';
+                    } else {
+                        error_log("PDOException in " . __FILE__ . " (updating league ID: " . $league_id . "): " . $e->getMessage());
+                        $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao atualizar a liga. Por favor, tente novamente.</p>';
+                    }
+                    // Cleanup uploaded file on PDOException as well
+                    if ($file_was_moved_in_this_request && $new_logo_filename_to_save) {
+                        $filePathToDelete = LEAGUE_LOGO_UPLOAD_DIR . $new_logo_filename_to_save;
+                        if (file_exists($filePathToDelete)) {
+                            @unlink($filePathToDelete);
+                        }
                     }
                 }
             }
