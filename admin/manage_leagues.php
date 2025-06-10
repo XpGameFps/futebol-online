@@ -3,6 +3,11 @@
 require_once 'auth_check.php'; // Session start and login check
 require_once '../config.php'; // Database connection
 
+if (!function_exists('generate_csrf_token')) {
+    require_once 'csrf_utils.php';
+}
+$csrf_token = generate_csrf_token();
+
 // Define base path for logos for display - relative to this script's location
 define('LEAGUES_LOGO_BASE_PATH_RELATIVE_TO_ADMIN', '../uploads/logos/leagues/');
 
@@ -77,6 +82,7 @@ try {
 
         <h2 id="add-league-form">Adicionar Nova Liga</h2>
         <form action="add_league.php" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
             <div>
                 <label for="name">Nome da Liga:</label>
                 <input type="text" id="name" name="name" value="<?php echo htmlspecialchars($form_data_add_league['name'] ?? ''); ?>" required>
@@ -114,7 +120,11 @@ try {
                             <td><?php echo htmlspecialchars($league_item['name']); ?></td>
                             <td>
                                 <a href="edit_league.php?id=<?php echo $league_item['id']; ?>" class="edit-button" style="margin-right: 5px;">Editar</a>
-                                <form action="delete_league.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir esta liga? Os jogos associados terão a liga removida (definida como NULA), mas não serão excluídos.');" style="display:inline;"><input type="hidden" name="league_id" value="<?php echo $league_item['id']; ?>"><button type="submit" class="delete-button">Excluir</button></form>
+                                <form action="delete_league.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir esta liga? Os jogos associados terão a liga removida (definida como NULA), mas não serão excluídos.');" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
+                                    <input type="hidden" name="league_id" value="<?php echo $league_item['id']; ?>">
+                                    <button type="submit" class="delete-button">Excluir</button>
+                                </form>
                             </td>
                         </tr>
                     <?php endforeach; ?>

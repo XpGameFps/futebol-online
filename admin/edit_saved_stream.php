@@ -2,6 +2,14 @@
 require_once 'auth_check.php';
 require_once '../config.php';
 
+// Ensure csrf_utils.php is loaded (auth_check.php should have already included it)
+if (!function_exists('generate_csrf_token')) {
+    require_once 'csrf_utils.php';
+}
+// Generate a token. If form processing below fails and form is re-displayed,
+// a new token will be generated for the redisplayed form.
+$csrf_token = generate_csrf_token(true); // Force regenerate for fresh form display or re-display
+
 $page_title = "Editar Stream Salvo";
 $message = '';
 $saved_stream_id = null;
@@ -50,8 +58,15 @@ if ($_SERVER["REQUEST_METHOD"] != "POST" || !empty($message)) {
 
 // Handle form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_saved_stream'])) {
-    $new_stream_name = trim($_POST['stream_name'] ?? '');
-    $new_stream_url_value = trim($_POST['stream_url_value'] ?? '');
+    if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
+        $message = '<p style="color:red;">Falha na verificação de segurança (CSRF). Por favor, tente novamente.</p>';
+        // Regenerate token for the form if it's redisplayed with this error
+        $csrf_token = generate_csrf_token(true);
+        // Do NOT proceed with processing, allow the script to fall through to re-display the form with the error and new token.
+    } else {
+        // ... (rest of the existing POST processing logic)
+        $new_stream_name = trim($_POST['stream_name'] ?? '');
+        $new_stream_url_value = trim($_POST['stream_url_value'] ?? '');
 
     // Repopulate form vars with POSTed data in case of error and re-display
     $stream_name = $new_stream_name;
@@ -136,6 +151,7 @@ if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_SESSION['general_message']['m
 
         <?php if ($saved_stream_id && (isset($item) && $item || $_SERVER["REQUEST_METHOD"] == "POST")): // Show form if data was fetched or it's a POST (even with errors) ?>
         <form action="edit_saved_stream.php?id=<?php echo $saved_stream_id; ?>" method="POST">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
             <input type="hidden" name="saved_stream_id" value="<?php echo $saved_stream_id; ?>">
             <div>
                 <label for="stream_name">Nome do Stream (Identificador):</label>

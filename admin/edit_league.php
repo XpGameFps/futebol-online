@@ -2,6 +2,14 @@
 require_once 'auth_check.php';
 require_once '../config.php';
 
+// Ensure csrf_utils.php is loaded (auth_check.php should have already included it)
+if (!function_exists('generate_csrf_token')) {
+    require_once 'csrf_utils.php';
+}
+// Generate a token. If form processing below fails and form is re-displayed,
+// a new token will be generated for the redisplayed form.
+$csrf_token = generate_csrf_token(true); // Force regenerate for fresh form display or re-display
+
 define('LEAGUE_LOGO_UPLOAD_DIR', '../uploads/logos/leagues/'); // Relative to current admin folder
 define('MAX_FILE_SIZE', 1024 * 1024); // 1MB
 $allowed_mime_types = ['image/jpeg', 'image/png', 'image/gif'];
@@ -47,12 +55,20 @@ if ($_SERVER["REQUEST_METHOD"] != "POST" || !empty($message)) {
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_league'])) {
-    $new_league_name = trim($_POST['name'] ?? '');
-    $league_name = $new_league_name; // For repopulation
-    $new_logo_filename_to_save = $current_logo_filename;
-    $upload_error_message = '';
+    if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
+        $message = '<p style="color:red;">Falha na verificação de segurança (CSRF). Por favor, tente novamente.</p>';
+        // Regenerate token for the form if it's redisplayed with this error
+        $csrf_token = generate_csrf_token(true);
+        // Do NOT proceed with processing, allow the script to fall through to re-display the form with the error and new token.
+    } else {
+        // ... (rest of the existing POST processing logic)
+        $new_league_name = trim($_POST['name'] ?? '');
+        $league_name = $new_league_name; // For repopulation
+        $new_logo_filename_to_save = $current_logo_filename; // Initialize with current, might change if new file uploaded
+        $file_was_moved_in_this_request = false; // Flag to track if a new file was moved
+        $upload_error_message = '';
 
-    if (empty($new_league_name)) {
+        if (empty($new_league_name)) {
         $message = '<p style="color:red;">O nome da liga não pode ser vazio.</p>';
     } else {
         if (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] == UPLOAD_ERR_OK) {
@@ -66,15 +82,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_league'])) {
             if ($file_size > MAX_FILE_SIZE) { $upload_error_message = 'Arquivo muito grande. Máximo 1MB.'; }
             elseif (!in_array($file_type, $allowed_mime_types)) { $upload_error_message = 'Tipo de arquivo inválido. Apenas PNG, JPG, GIF.'; }
             else {
-                $new_uploaded_filename = uniqid('league_', true) . '.' . $file_extension;
-                $destination_path = LEAGUE_LOGO_UPLOAD_DIR . $new_uploaded_filename;
-                if (!is_dir(LEAGUE_LOGO_UPLOAD_DIR)) { @mkdir(LEAGUE_LOGO_UPLOAD_DIR, 0755, true); }
-                if (move_uploaded_file($file_tmp_path, $destination_path)) {
-                    if ($current_logo_filename && file_exists(LEAGUE_LOGO_UPLOAD_DIR . $current_logo_filename)) {
-                        @unlink(LEAGUE_LOGO_UPLOAD_DIR . $current_logo_filename);
-                    }
-                    $new_logo_filename_to_save = $new_uploaded_filename;
-                } else { $upload_error_message = 'Falha ao mover novo arquivo de logo.'; }
+                // getimagesize check
+                $image_info = @getimagesize($file_tmp_path);
+                if ($image_info === false) {
+                    $upload_error_message = 'Arquivo inválido. Conteúdo não reconhecido como imagem.';
+                } else {
+                    // Proceed with move_uploaded_file only if getimagesize passed
+                    $new_uploaded_filename = uniqid('league_', true) . '.' . $file_extension;
+                    $destination_path = LEAGUE_LOGO_UPLOAD_DIR . $new_uploaded_filename;
+                    if (!is_dir(LEAGUE_LOGO_UPLOAD_DIR)) { @mkdir(LEAGUE_LOGO_UPLOAD_DIR, 0755, true); }
+                    if (move_uploaded_file($file_tmp_path, $destination_path)) {
+                        // Successfully moved new file
+                        if ($current_logo_filename && file_exists(LEAGUE_LOGO_UPLOAD_DIR . $current_logo_filename)) {
+                            // If there was an old logo, and it's different from the new one, delete old.
+                            // This check might be redundant if $new_uploaded_filename is always unique.
+                            if ($current_logo_filename != $new_uploaded_filename) {
+                                @unlink(LEAGUE_LOGO_UPLOAD_DIR . $current_logo_filename);
+                            }
+                        }
+                        $new_logo_filename_to_save = $new_uploaded_filename; // This is the new file's name
+                        $file_was_moved_in_this_request = true; // Mark that a new file was physically moved
+                    } else { $upload_error_message = 'Falha ao mover novo arquivo de logo.'; }
+                }
             }
             if (!empty($upload_error_message)) { $message = '<p style="color:red;">Erro no upload do logo: ' . $upload_error_message . '</p>'; }
         } elseif (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] != UPLOAD_ERR_NO_FILE && $_FILES['logo_file']['error'] != UPLOAD_ERR_OK) {
@@ -104,7 +133,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_league'])) {
                         $_SESSION['general_message']['manage_leagues'] = '<p style="color:green;">Liga atualizada com sucesso!</p>';
                         header("Location: manage_leagues.php?status=saved_league_updated"); // Using a generic status for now
                         exit;
-                    } else { $message = '<p style="color:red;">Erro ao atualizar liga no banco de dados.</p>'; }
+                    } else {
+                        $message = '<p style="color:red;">Erro ao atualizar liga no banco de dados.</p>';
+                        if ($file_was_moved_in_this_request && $new_logo_filename_to_save) {
+                            $filePathToDelete = LEAGUE_LOGO_UPLOAD_DIR . $new_logo_filename_to_save;
+                            if (file_exists($filePathToDelete)) {
+                                @unlink($filePathToDelete);
+                            }
+                        }
+                    }
                 }
             } catch (PDOException $e) {
                  if ($e->getCode() == '23000' && strpos($e->getMessage(), "Duplicate entry") !== false) {
@@ -112,6 +149,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_league'])) {
                  } else {
                     $message = '<p style="color:red;">Erro de banco de dados: ' . $e->getMessage() . '</p>';
                  }
+                 // Cleanup uploaded file on PDOException as well
+                if ($file_was_moved_in_this_request && $new_logo_filename_to_save) {
+                    $filePathToDelete = LEAGUE_LOGO_UPLOAD_DIR . $new_logo_filename_to_save;
+                    if (file_exists($filePathToDelete)) {
+                        @unlink($filePathToDelete);
+                    }
+                }
             }
         }
     }
@@ -156,6 +200,7 @@ if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_SESSION['general_message']['m
 
         <?php if ($league_id && (isset($league) && $league || $_SERVER["REQUEST_METHOD"] == "POST")): ?>
         <form action="edit_league.php?id=<?php echo $league_id; ?>" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
             <input type="hidden" name="league_id" value="<?php echo $league_id; ?>">
             <div>
                 <label for="name">Nome da Liga:</label>

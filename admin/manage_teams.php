@@ -2,6 +2,11 @@
 require_once 'auth_check.php'; // Handles session_start()
 require_once '../config.php';
 
+if (!function_exists('generate_csrf_token')) {
+    require_once 'csrf_utils.php';
+}
+$csrf_token = generate_csrf_token(); // Generate once for all forms on this page load
+
 define('TEAM_LOGO_UPLOAD_DIR', '../uploads/logos/teams/'); // New directory for team logos
 define('MAX_FILE_SIZE_TEAM_LOGO', 1024 * 1024); // 1MB
 $allowed_mime_types_team_logo = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml'];
@@ -39,6 +44,14 @@ if (isset($_SESSION['general_message']['manage_teams'])) {
 
 // Handle Add Team form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_team'])) {
+    if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
+        $_SESSION['form_error_message']['add_team'] = "Falha na verificação de segurança (CSRF). Por favor, tente novamente.";
+        // The redirect 'Location: manage_teams.php#add-team-form' will cause a new token generation on next load.
+        header("Location: manage_teams.php#add-team-form"); // This causes a reload, new token will be generated.
+        exit;
+    }
+    // ... rest of add_team processing logic
+
     $_SESSION['form_data']['add_team'] = $_POST;
     if (isset($_FILES['logo_file']) && !empty($_FILES['logo_file']['name'])) {
         $_SESSION['form_data']['add_team']['logo_filename_tmp'] = $_FILES['logo_file']['name'];
@@ -66,13 +79,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_team'])) {
             if ($file_size > MAX_FILE_SIZE_TEAM_LOGO) { $upload_error_message = 'Logo muito grande (max 1MB).'; }
             elseif (!in_array($file_type, $allowed_mime_types_team_logo)) { $upload_error_message = 'Tipo de arquivo inválido para logo (aceito: JPG, PNG, GIF, SVG).'; }
             else {
-                $new_file_name = uniqid('team_logo_', true) . '.' . $file_extension;
-                $destination_path = TEAM_LOGO_UPLOAD_DIR . $new_file_name;
-                if (!is_dir(TEAM_LOGO_UPLOAD_DIR)) { if(!@mkdir(TEAM_LOGO_UPLOAD_DIR, 0755, true)) {$upload_error_message = 'Falha ao criar diretório de logos de times.';} }
+                // getimagesize check
+                $image_info = @getimagesize($file_tmp_path);
+                if ($image_info === false) {
+                    $upload_error_message = 'Arquivo inválido. Conteúdo não reconhecido como imagem.';
+                } else {
+                    // Proceed with move_uploaded_file only if getimagesize passed
+                    $new_file_name = uniqid('team_logo_', true) . '.' . $file_extension;
+                    $destination_path = TEAM_LOGO_UPLOAD_DIR . $new_file_name;
+                    if (!is_dir(TEAM_LOGO_UPLOAD_DIR)) { if(!@mkdir(TEAM_LOGO_UPLOAD_DIR, 0755, true)) {$upload_error_message = 'Falha ao criar diretório de logos de times.';} }
 
-                if(empty($upload_error_message) && move_uploaded_file($file_tmp_path, $destination_path)) {
-                    $logo_filename_to_save = $new_file_name;
-                } else { if(empty($upload_error_message)) $upload_error_message = 'Falha ao mover arquivo de logo do time.'; }
+                    // Ensure $upload_error_message is checked after directory creation attempt as well
+                    if(empty($upload_error_message) && move_uploaded_file($file_tmp_path, $destination_path)) {
+                        $logo_filename_to_save = $new_file_name;
+                    } else { if(empty($upload_error_message)) $upload_error_message = 'Falha ao mover arquivo de logo do time.'; }
+                }
             }
             if(!empty($upload_error_message)) $_SESSION['form_error_message']['add_team'] = $upload_error_message;
         } elseif (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] != UPLOAD_ERR_NO_FILE && $_FILES['logo_file']['error'] != UPLOAD_ERR_OK) {
@@ -166,6 +187,7 @@ try {
 
     <h2 id="add-team-form">Adicionar Novo Time</h2>
     <form action="manage_teams.php" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
         <div><label for="team_name">Nome do Time:</label><input type="text" id="team_name" name="team_name" value="<?php echo htmlspecialchars($form_data['team_name'] ?? ''); ?>" required></div>
         <div><label for="logo_file">Logo do Time (PNG, JPG, GIF, SVG, max 1MB):</label><input type="file" id="logo_file" name="logo_file" accept="image/png, image/jpeg, image/gif, image/svg+xml"> <?php if (!empty($form_data['logo_filename_tmp'])): ?><p style="font-size:0.8em; color:blue;">Sel: <?php echo htmlspecialchars($form_data['logo_filename_tmp']); ?></p><?php endif; ?></div>
         <div><label for="primary_color_hex">Cor Primária Hex (ex: #RRGGBB):</label><input type="text" id="primary_color_hex" name="primary_color_hex" value="<?php echo htmlspecialchars($form_data['primary_color_hex'] ?? ''); ?>" placeholder="#FFFFFF"></div>
@@ -184,7 +206,11 @@ try {
             <td><?php echo htmlspecialchars(date('d/m/Y', strtotime($team_item['created_at']))); ?></td>
             <td>
                 <a href="edit_team.php?id=<?php echo $team_item['id']; ?>" class="edit-button" style="margin-right:5px;">Editar</a>
-                <form action="delete_team.php" method="POST" onsubmit="return confirm('Tem certeza? Isso pode afetar jogos existentes se não forem atualizados para remover este time.');" style="display:inline;"><input type="hidden" name="team_id" value="<?php echo $team_item['id']; ?>"><button type="submit" class="delete-button">Excluir</button></form>
+                <form action="delete_team.php" method="POST" onsubmit="return confirm('Tem certeza? Isso pode afetar jogos existentes se não forem atualizados para remover este time.');" style="display:inline;">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
+                    <input type="hidden" name="team_id" value="<?php echo $team_item['id']; ?>">
+                    <button type="submit" class="delete-button">Excluir</button>
+                </form>
             </td>
         </tr><?php endforeach; ?></tbody>
     </table></div><?php endif; ?>

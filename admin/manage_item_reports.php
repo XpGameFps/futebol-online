@@ -2,34 +2,49 @@
 require_once 'auth_check.php'; // Autenticação do Admin
 require_once '../config.php';   // Conexão PDO
 
+if (!function_exists('generate_csrf_token')) {
+    require_once 'csrf_utils.php';
+}
+$csrf_token = generate_csrf_token(); // Single token for all update forms on this page load
+
 $message = '';
 $error_message = '';
 
 // Lógica para atualizar status do reporte
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['report_id']) && isset($_POST['new_status'])) {
-    $report_id = (int)$_POST['report_id'];
-    $new_status = $_POST['new_status'];
-    $allowed_statuses = ['new', 'viewed', 'resolved'];
-
-    if (in_array($new_status, $allowed_statuses) && $report_id > 0) {
-        try {
-            $sql_update = "UPDATE player_reports SET status = :new_status WHERE id = :report_id";
-            $stmt_update = $pdo->prepare($sql_update);
-            $stmt_update->bindParam(':new_status', $new_status, PDO::PARAM_STR);
-            $stmt_update->bindParam(':report_id', $report_id, PDO::PARAM_INT);
-
-            if ($stmt_update->execute()) {
-                $message = "Status do reporte #{$report_id} atualizado para '{$new_status}'.";
-            } else {
-                $error_message = "Erro ao atualizar status do reporte.";
-            }
-        } catch (PDOException $e) {
-            $error_message = "Erro de banco de dados: " . $e->getMessage();
-        }
+    if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
+        $error_message = "Falha na verificação de segurança (CSRF). Por favor, tente novamente.";
+        $csrf_token = generate_csrf_token(true); // Regenerate for re-render
     } else {
-        $error_message = "Dados inválidos para atualização de status.";
-    }
-}
+        // CSRF PASSED - PROCEED WITH ORIGINAL LOGIC
+        $report_id = (int)$_POST['report_id'];
+        $new_status = $_POST['new_status'];
+        $allowed_statuses = ['new', 'viewed', 'resolved'];
+
+        if (in_array($new_status, $allowed_statuses) && $report_id > 0) {
+            try {
+                $sql_update = "UPDATE player_reports SET status = :new_status WHERE id = :report_id";
+                $stmt_update = $pdo->prepare($sql_update);
+                $stmt_update->bindParam(':new_status', $new_status, PDO::PARAM_STR);
+                $stmt_update->bindParam(':report_id', $report_id, PDO::PARAM_INT);
+
+                if ($stmt_update->execute()) {
+                    $message = "Status do reporte #{$report_id} atualizado para '{$new_status}'.";
+                } else {
+                    $error_message = "Erro ao atualizar status do reporte.";
+                }
+            } catch (PDOException $e) {
+                $error_message = "Erro de banco de dados: " . $e->getMessage();
+            }
+        } else {
+            // This else should only trigger if the data is invalid, *after* CSRF passes.
+            // It should not overwrite a CSRF error message.
+            if (empty($error_message)) {
+                 $error_message = "Dados inválidos para atualização de status.";
+            }
+        }
+    } // End CSRF else
+} // End POST check
 
 // Lógica para buscar reportes
 $reports = [];
@@ -221,6 +236,7 @@ try {
                             </td>
                             <td class="action-buttons">
                                 <form method="POST" action="manage_item_reports.php?filter_status=<?php echo htmlspecialchars($filter_status); ?>&filter_item_type=<?php echo htmlspecialchars($filter_item_type); ?>&sort=<?php echo htmlspecialchars($sort_order); ?>" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
                                     <input type="hidden" name="report_id" value="<?php echo htmlspecialchars($report['id']); ?>">
                                     <select name="new_status">
                                         <option value="new" <?php echo ($report['status'] === 'new') ? 'selected' : ''; ?>>Novo</option>

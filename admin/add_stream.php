@@ -4,6 +4,21 @@ require_once 'auth_check.php'; // Handles session_start()
 require_once '../config.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    if (!function_exists('validate_csrf_token')) { // Should be loaded by auth_check.php
+        require_once 'csrf_utils.php';
+    }
+    // The form on index.php includes a csrf_token field.
+    if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
+        $match_id_str_csrf_err = trim($_POST["match_id"] ?? '');
+        $_SESSION['form_error_message']['add_stream_general'] = "Falha na verificação de segurança (CSRF) ao adicionar stream. Por favor, tente novamente.";
+        if (!empty($match_id_str_csrf_err) && filter_var($match_id_str_csrf_err, FILTER_VALIDATE_INT)) {
+             header("Location: index.php#match-" . $match_id_str_csrf_err);
+        } else {
+             header("Location: index.php");
+        }
+        exit;
+    }
+    // ... rest of the existing POST processing logic
     $match_id_str = trim($_POST["match_id"] ?? ''); // Keep as string for hidden input name construction
     $stream_label = trim($_POST["stream_label"] ?? '');
     $stream_url_manual = trim($_POST["stream_url"] ?? '');

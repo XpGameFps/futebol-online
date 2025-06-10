@@ -10,6 +10,17 @@ $status_message_type = 'channel_delete_error';
 $status_reason = 'unknown_error';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    // CSRF token validation
+    if (!function_exists('validate_csrf_token')) {
+        require_once 'csrf_utils.php';
+    }
+    if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
+        $status_message_type = 'channel_delete_error';
+        $status_reason = 'csrf_failure';
+        header("Location: manage_channels.php?status=" . $status_message_type . "&reason=" . $status_reason);
+        exit;
+    }
+
     if (isset($_POST['channel_id']) && filter_var($_POST['channel_id'], FILTER_VALIDATE_INT)) {
         $channel_id = (int)$_POST['channel_id'];
     } else {
