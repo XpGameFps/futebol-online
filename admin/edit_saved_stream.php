@@ -114,6 +114,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_saved_stream'])
         }
     }
 }
+}
+ 
+
 
 // If it's a GET request and there was a session message from a previous redirect (e.g. after successful update)
 if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_SESSION['general_message']['manage_saved_streams'])) {
