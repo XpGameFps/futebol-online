@@ -75,25 +75,10 @@ try {
 </head>
 <body>
     <div class="container">
-        <nav>
-            <div>
-                <a href="index.php">Painel Principal (Jogos)</a>
-                <a href="manage_leagues.php">Gerenciar Ligas</a>
-                <a href="manage_channels.php">Gerenciar Canais TV</a>
-                <a href="manage_teams.php">Gerenciar Times</a>
-                <a href="manage_saved_streams.php">Biblioteca de Streams</a>
-                <a href="manage_item_reports.php">Reportes de Itens</a>
-                <a href="manage_settings.php">Configurações</a>
-            </div>
-            <div class="nav-user-info">
-                <span id="online-users-indicator" style="margin-right: 15px; color: #007bff; font-weight:bold;">
-                    Online: <span id="online-users-count">--</span>
-                </span>
-                Usuário: <?php echo htmlspecialchars($_SESSION['admin_username'] ?? 'Admin'); ?> |
-                <a href="logout.php" class="logout-link">Logout</a>
-            </div>
-        </nav>
-        <h1>Gerenciar Canais de TV</h1>
+        <div class="admin-layout">
+            <?php require_once 'templates/navigation.php'; ?>
+            <div class="main-content">
+                <h1>Gerenciar Canais de TV</h1>
 
         <?php if (!empty($message)) echo "<div class='message'>{$message}</div>"; ?>
         <?php if (!empty($add_channel_form_error)) echo "<div class='message'>{$add_channel_form_error}</div>"; ?>
@@ -184,7 +169,9 @@ try {
             </table>
             </div>
         <?php endif; ?>
-    </div>
+            </div> <!-- end main-content -->
+        </div> <!-- end admin-layout -->
+    </div> <!-- end container -->
 
     <script>
         const allSavedStreamsDataChannel = <?php echo $saved_streams_json ?? '[]'; ?>;

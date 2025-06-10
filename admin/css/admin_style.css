@@ -9,67 +9,81 @@ body {
 }
 
 .container {
-    width: 90%;
-    max-width: 1200px;
-    margin: 20px auto;
-    padding: 20px;
+    /* width: 90%; */ /* Removed for full-width layout with sidebar */
+    /* max-width: 1200px; */ /* Removed for full-width layout with sidebar */
+    /* margin: 20px auto; */ /* Removed for full-width layout with sidebar */
+    padding: 0; /* Adjusted for admin-layout to control padding */
     background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    /* border-radius: 8px; */ /* May not be needed if admin-layout is full width */
+    /* box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05); */ /* May not be needed */
 }
 
-/* Navegação Principal do Admin */
-nav {
-    background-color: #343a40; /* Cinza escuro */
-    color: #fff;
-    padding: 0 15px; /* Reduzir padding vertical, adicionar horizontal */
+.admin-layout {
     display: flex;
-    justify-content: space-between; /* Alinha 'links' e 'user-info' nas extremidades */
-    align-items: center; /* Alinha verticalmente os itens */
-    flex-wrap: wrap; /* Permite quebra de linha se necessário */
-    border-radius: 8px 8px 0 0; /* Cantos arredondados no topo */
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Sombra sutil */
-    margin-bottom: 20px; /* Espaço abaixo do menu */
+}
+
+/* Navegação Sidebar */
+nav {
+    width: 220px;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    background-color: #343a40;
+    color: #fff;
+    padding-top: 20px;
+    overflow-y: auto;
+    /* box-shadow: 0 2px 4px rgba(0,0,0,0.1); */ /* Removed, not typical for fixed sidebar */
+    /* margin-bottom: 20px; */ /* Removed */
+    /* border-radius: 8px 8px 0 0; */ /* Removed */
+    /* display: flex; */ /* Changed for vertical layout */
+    /* justify-content: space-between; */ /* Removed */
+    /* align-items: center; */ /* Removed */
+    /* flex-wrap: wrap; */ /* Removed */
 }
 
 nav > div:first-child { /* Container dos links principais */
     display: flex;
-    flex-wrap: wrap; /* Links podem quebrar linha */
-    align-items: center;
+    flex-direction: column; /* Stack links vertically */
+    /* flex-wrap: wrap; */ /* Removed */
+    /* align-items: center; */ /* Removed */
 }
 
 nav a { /* Estilo base para todos os links na nav */
-    color: #e9ecef; /* Cor de texto mais clara */
+    display: block; /* Make links take full width */
+    color: #e9ecef;
     text-decoration: none;
-    padding: 12px 15px; /* Padding generoso para área de clique */
-    margin: 5px 2px; /* Pequena margem para separação */
-    border-radius: 5px;
+    padding: 10px 15px; /* Adjusted for vertical layout */
+    /* margin: 5px 2px; */ /* Removed, padding handles spacing */
+    border-radius: 0; /* Typically no radius for full-width sidebar links */
     transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
-    font-size: 0.9em; /* Tamanho de fonte um pouco menor */
-    font-weight: 500; /* Peso da fonte médio */
-    border-bottom: 2px solid transparent; /* Para efeito no hover/active */
+    font-size: 0.9em;
+    font-weight: 500;
+    border-bottom: none; /* Removed bottom border, or set to 1px solid #495057; for subtle separation */
 }
 
 nav a:hover {
-    background-color: #495057; /* Fundo sutil ao passar o mouse */
+    background-color: #495057;
     color: #ffffff;
-    border-bottom-color: #007bff; /* Borda azul no hover */
+    /* border-bottom-color: #007bff; */ /* Removed */
 }
 
 nav a.active-nav { /* Classe para o link da página ativa */
-    background-color: #007bff; /* Azul primário */
+    background-color: #007bff;
     color: #ffffff;
     font-weight: bold;
-    border-bottom-color: #0056b3; /* Borda mais escura para ativo */
+    /* border-bottom-color: #0056b3; */ /* Removed */
 }
 
 nav .nav-user-info {
-    display: flex; /* Alinhar itens do user-info */
-    align-items: center;
-    font-size: 0.85em; /* Tamanho de fonte menor para user-info */
-    color: #adb5bd; /* Cinza claro para texto do usuário */
-    padding: 10px 0; /* Padding vertical para user-info */
-    margin-left: 15px; /* Espaço se os links quebrarem antes dele */
+    /* display: flex; */ /* Can remain flex if items inside need to be row-aligned */
+    /* align-items: center; */
+    font-size: 0.85em;
+    color: #adb5bd;
+    padding: 10px 15px; /* Consistent padding */
+    /* margin-left: 15px; */ /* Removed */
+    margin-top: 20px; /* Space above user info, or use margin-top: auto on first-child to push to bottom */
+    border-top: 1px solid #495057; /* Separator line */
 }
 
 nav .nav-user-info #online-users-indicator {
@@ -81,47 +95,57 @@ nav .nav-user-info #online-users-indicator #online-users-count{
     font-weight: bold;
 }
 
-
 nav .nav-user-info .logout-link {
-    color: #ffc107; /* Amarelo para logout */
+    color: #ffc107;
     padding: 8px 10px;
-    margin-left: 8px;
-    background-color: rgba(255,255,255,0.1); /* Fundo sutil para logout */
+    margin-left: 8px; /* This can stay if user info items are still in a row */
+    background-color: rgba(255,255,255,0.1);
     border-radius: 4px;
 }
 
 nav .nav-user-info .logout-link:hover {
     background-color: rgba(255,255,255,0.2);
-    color: #fff3cd; /* Amarelo mais claro no hover */
-    border-bottom-color: transparent; /* Remover borda do 'a' geral */
+    color: #fff3cd;
+    /* border-bottom-color: transparent; */ /* Ensured no border by default on nav a */
 }
 
-/* Media Query para telas menores - exemplo */
-@media (max-width: 992px) { /* Ajuste este breakpoint conforme necessário */
-    nav {
-        flex-direction: column; /* Empilhar links e user-info */
-        align-items: flex-start; /* Alinhar à esquerda */
-        padding: 10px;
-    }
-    nav > div:first-child { /* Container dos links */
-        margin-bottom: 10px; /* Espaço entre bloco de links e user-info */
-        width: 100%; /* Ocupar largura total */
-    }
-    nav a {
-        display: block; /* Links ocupam largura total */
-        width: calc(100% - 30px); /* Ajustar padding */
-        margin: 5px 0; /* Margem vertical */
-        text-align: left;
-    }
-    nav .nav-user-info {
-        width: 100%;
-        justify-content: flex-start; /* Alinhar à esquerda */
-        padding: 10px 0 0 0; /* Ajustar padding */
-        margin-left: 0;
-        border-top: 1px solid #495057; /* Linha separadora */
-        margin-top: 10px;
-    }
+/* Main Content Area */
+.main-content {
+    margin-left: 220px; /* Same as sidebar width */
+    padding: 20px;
+    flex-grow: 1;
+    /* overflow-y: auto; */ /* Optional: if main content itself needs scrolling independently */
+    /* height: 100vh; */ /* Optional: if you want main-content to also manage its own full height scrolling */
+    box-sizing: border-box; /* Include padding in width calculation */
 }
+
+
+/* Media Query para telas menores - exemplo */
+/* @media (max-width: 992px) { */ /* Ajuste este breakpoint conforme necessário */
+    /* nav { */
+        /* flex-direction: column; */ /* Empilhar links e user-info */
+        /* align-items: flex-start; */ /* Alinhar à esquerda */
+        /* padding: 10px; */
+    /* } */
+    /* nav > div:first-child { */ /* Container dos links */
+        /* margin-bottom: 10px; */ /* Espaço entre bloco de links e user-info */
+        /* width: 100%; */ /* Ocupar largura total */
+    /* } */
+    /* nav a { */
+        /* display: block; */ /* Links ocupam largura total */
+        /* width: calc(100% - 30px); */ /* Ajustar padding */
+        /* margin: 5px 0; */ /* Margem vertical */
+        /* text-align: left; */
+    /* } */
+    /* nav .nav-user-info { */
+        /* width: 100%; */
+        /* justify-content: flex-start; */ /* Alinhar à esquerda */
+        /* padding: 10px 0 0 0; */ /* Ajustar padding */
+        /* margin-left: 0; */
+        /* border-top: 1px solid #495057; */ /* Linha separadora */
+        /* margin-top: 10px; */
+    /* } */
+/* } */
 
 h1, h2, h3, h4 {
     color: #2c3e50; /* Azul escuro para títulos */
