@@ -91,6 +91,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_admin'])) {
             $is_superadmin_val = 0;
         }
 
+        // ADD TOKEN REGENERATION HERE
+        if (function_exists('generate_csrf_token')) {
+            $csrf_token = generate_csrf_token(true); // Force regeneration
+        }
+
     } else {
         // **Start of existing processing logic**
         $current_action = $_POST['action_type'] ?? 'add'; // 'add' or 'update'
