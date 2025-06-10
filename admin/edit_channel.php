@@ -2,6 +2,14 @@
 require_once 'auth_check.php';
 require_once '../config.php';
 
+// Ensure csrf_utils.php is loaded (auth_check.php should have already included it)
+if (!function_exists('generate_csrf_token')) {
+    require_once 'csrf_utils.php';
+}
+// Generate a token. If form processing below fails and form is re-displayed,
+// a new token will be generated for the redisplayed form.
+$csrf_token = generate_csrf_token(true); // Force regenerate for fresh form display or re-display
+
 define('CHANNEL_LOGO_UPLOAD_DIR', '../uploads/logos/channels/');
 define('MAX_FILE_SIZE', 1024 * 1024); // 1MB
 $allowed_mime_types = ['image/jpeg', 'image/png', 'image/gif'];
@@ -55,8 +63,15 @@ if ($_SERVER["REQUEST_METHOD"] != "POST" || !empty($message)) {
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_channel'])) {
-    $new_channel_name = trim($_POST['name'] ?? '');
-    $new_stream_url = trim($_POST['stream_url'] ?? '');
+    if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
+        $message = '<p style="color:red;">Falha na verificação de segurança (CSRF). Por favor, tente novamente.</p>';
+        // Regenerate token for the form if it's redisplayed with this error
+        $csrf_token = generate_csrf_token(true);
+        // Do NOT proceed with processing, allow the script to fall through to re-display the form with the error and new token.
+    } else {
+        // ... (rest of the existing POST processing logic)
+        $new_channel_name = trim($_POST['name'] ?? '');
+        $new_stream_url = trim($_POST['stream_url'] ?? '');
     $new_sort_order_input = trim($_POST['sort_order'] ?? '0');
     $new_meta_description = trim($_POST['meta_description'] ?? null);
     $new_meta_keywords = trim($_POST['meta_keywords'] ?? null);
@@ -68,7 +83,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_channel'])) {
     $meta_description = $new_meta_description;
     $meta_keywords = $new_meta_keywords;
 
-    $new_logo_filename_to_save = $current_logo_filename;
+    $new_logo_filename_to_save = $current_logo_filename; // Initialize with current, might change if new file uploaded
+    $file_was_moved_in_this_request = false; // Flag to track if a new file was moved
     $upload_error_message = '';
 
     if (empty($new_channel_name) || empty($new_stream_url)) {
@@ -91,15 +107,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_channel'])) {
             if ($file_size > MAX_FILE_SIZE) { $upload_error_message = 'Arquivo muito grande (max 1MB).'; }
             elseif (!in_array($file_type, $allowed_mime_types)) { $upload_error_message = 'Tipo de arquivo inválido (PNG, JPG, GIF).'; }
             else {
-                $new_uploaded_filename = uniqid('channel_', true) . '.' . $file_extension;
-                $destination_path = CHANNEL_LOGO_UPLOAD_DIR . $new_uploaded_filename;
-                if (!is_dir(CHANNEL_LOGO_UPLOAD_DIR)) { @mkdir(CHANNEL_LOGO_UPLOAD_DIR, 0755, true); }
-                if (move_uploaded_file($file_tmp_path, $destination_path)) {
-                    if ($current_logo_filename && file_exists(CHANNEL_LOGO_UPLOAD_DIR . $current_logo_filename)) {
-                        @unlink(CHANNEL_LOGO_UPLOAD_DIR . $current_logo_filename);
-                    }
-                    $new_logo_filename_to_save = $new_uploaded_filename;
-                } else { $upload_error_message = 'Falha ao mover novo arquivo de logo.'; }
+                // getimagesize check
+                $image_info = @getimagesize($file_tmp_path);
+                if ($image_info === false) {
+                    $upload_error_message = 'Arquivo inválido. Conteúdo não reconhecido como imagem.';
+                } else {
+                    // Proceed with move_uploaded_file only if getimagesize passed
+                    $new_uploaded_filename = uniqid('channel_', true) . '.' . $file_extension;
+                    $destination_path = CHANNEL_LOGO_UPLOAD_DIR . $new_uploaded_filename;
+                    if (!is_dir(CHANNEL_LOGO_UPLOAD_DIR)) { @mkdir(CHANNEL_LOGO_UPLOAD_DIR, 0755, true); }
+                    if (move_uploaded_file($file_tmp_path, $destination_path)) {
+                        if ($current_logo_filename && file_exists(CHANNEL_LOGO_UPLOAD_DIR . $current_logo_filename)) {
+                             if ($current_logo_filename != $new_uploaded_filename) { // Ensure not deleting the same file if names matched
+                                @unlink(CHANNEL_LOGO_UPLOAD_DIR . $current_logo_filename);
+                            }
+                        }
+                        $new_logo_filename_to_save = $new_uploaded_filename;
+                        $file_was_moved_in_this_request = true; // Mark that a new file was physically moved
+                    } else { $upload_error_message = 'Falha ao mover novo arquivo de logo.'; }
+                }
             }
             if (!empty($upload_error_message)) { $message = '<p style="color:red;">Erro no upload: ' . $upload_error_message . '</p>'; }
         } elseif (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] != UPLOAD_ERR_NO_FILE && $_FILES['logo_file']['error'] != UPLOAD_ERR_OK) {
@@ -126,8 +152,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_channel'])) {
                     $_SESSION['general_message']['manage_channels'] = '<p style="color:green;">Canal de TV atualizado com sucesso!</p>';
                     header("Location: manage_channels.php?status=saved_channel_updated"); // Use a distinct status if needed
                     exit;
-                } else { $message = '<p style="color:red;">Erro ao atualizar canal no banco de dados.</p>'; }
-            } catch (PDOException $e) { $message = '<p style="color:red;">Erro de banco de dados: ' . $e->getMessage() . '</p>'; }
+                } else {
+                    $message = '<p style="color:red;">Erro ao atualizar canal no banco de dados.</p>';
+                    if ($file_was_moved_in_this_request && $new_logo_filename_to_save) {
+                        $filePathToDelete = CHANNEL_LOGO_UPLOAD_DIR . $new_logo_filename_to_save;
+                        if (file_exists($filePathToDelete)) {
+                            @unlink($filePathToDelete);
+                        }
+                    }
+                }
+            } catch (PDOException $e) {
+                $message = '<p style="color:red;">Erro de banco de dados: ' . $e->getMessage() . '</p>';
+                if ($file_was_moved_in_this_request && $new_logo_filename_to_save) {
+                    $filePathToDelete = CHANNEL_LOGO_UPLOAD_DIR . $new_logo_filename_to_save;
+                    if (file_exists($filePathToDelete)) {
+                        @unlink($filePathToDelete);
+                    }
+                }
+            }
         }
     }
 }
@@ -169,6 +211,7 @@ if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_SESSION['general_message']['m
 
         <?php if ($channel_id && (isset($channel) && $channel || $_SERVER["REQUEST_METHOD"] == "POST")): ?>
         <form action="edit_channel.php?id=<?php echo $channel_id; ?>" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
             <input type="hidden" name="channel_id" value="<?php echo $channel_id; ?>">
             <div><label for="name">Nome do Canal:</label><input type="text" id="name" name="name" value="<?php echo htmlspecialchars($channel_name); ?>" required></div>
             <div><label for="stream_url">URL do Stream Principal:</label><input type="url" id="stream_url" name="stream_url" value="<?php echo htmlspecialchars($stream_url); ?>" required></div>

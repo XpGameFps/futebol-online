@@ -228,6 +228,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_admin'])) {
                             }
 
                             // Se não houve erro até agora, prosseguir com a atualização
+                                if (empty($error_message)) {
+                                    // Additional check for self-demotion of last superadmin
+                                    if (($_SESSION['admin_is_superadmin'] ?? false) && // Current logged-in user is a superadmin
+                                        ($admin_id_being_edited == ($_SESSION['admin_id'] ?? null)) && // They are editing themselves
+                                        $is_superadmin_val == 0) { // And they are trying to remove their own superadmin status (derived from POST earlier)
+
+                                        // Check if their current status in DB is actually superadmin
+                                        $stmt_check_current_status = $pdo->prepare("SELECT is_superadmin FROM admins WHERE id = :id");
+                                        $stmt_check_current_status->bindParam(':id', $admin_id_being_edited, PDO::PARAM_INT);
+                                        $stmt_check_current_status->execute();
+                                        $current_db_status = $stmt_check_current_status->fetch(PDO::FETCH_ASSOC);
+
+                                        if ($current_db_status && $current_db_status['is_superadmin'] == 1) {
+                                            // They are currently a superadmin and are trying to demote themselves.
+                                            // Now check if they are the last one.
+                                            $stmt_count_supers = $pdo->prepare("SELECT COUNT(id) as superadmin_count FROM admins WHERE is_superadmin = 1");
+                                            $stmt_count_supers->execute();
+                                            $super_count_result = $stmt_count_supers->fetch(PDO::FETCH_ASSOC);
+                                            $total_superadmins = $super_count_result ? (int)$super_count_result['superadmin_count'] : 0;
+
+                                            if ($total_superadmins <= 1) {
+                                                $error_message = "Você não pode remover seu próprio status de super administrador pois você é o único restante.";
+                                                $is_superadmin_val = 1; // Revert the change from form, ensure it's used if update proceeds for other fields
+                                            }
+                                        }
+                                    }
+                                } // End of self-demotion check block
+
+                                // Re-check error_message before proceeding with building the update, as it might have been set by the self-demotion check
                             if (empty($error_message)) {
                                 $sql_update_parts = ["username = :username", "email = :email"];
                                 $params_update = [
@@ -242,16 +271,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_admin'])) {
                                 }
 
                                 // Atualizar is_superadmin apenas se o admin logado for superadmin
+                                // $is_superadmin_val would have been corrected by the self-demotion check if necessary.
                                 if (($_SESSION['admin_is_superadmin'] ?? false)) {
                                     $sql_update_parts[] = "is_superadmin = :is_superadmin";
-                                    $params_update[':is_superadmin'] = $is_superadmin_val; // $is_superadmin_val já vem do POST
-                                } elseif (isset($_POST['is_superadmin']) && $admin_id_being_edited == ($_SESSION['admin_id'] ?? null)) {
-                                    // Um admin não pode rebaixar a si mesmo se for o único superadmin, ou promover a si mesmo.
-                                    // Essa lógica mais complexa de "único superadmin" pode ser adicionada depois.
-                                    // Por ora, se não for superadmin, não pode mudar o status de ninguém.
-                                    // Se for superadmin e estiver editando a si mesmo, o valor de $is_superadmin_val será usado.
+                                    $params_update[':is_superadmin'] = $is_superadmin_val;
                                 }
-
+                                // Non-superadmins cannot change this status for themselves or others;
+                                // the $is_superadmin_val for them is determined by pre-loaded data or defaults to 0 for 'add',
+                                // and the checkbox is not shown or is disabled.
 
                                 $sql_update = "UPDATE admins SET " . implode(", ", $sql_update_parts) . " WHERE id = :id";
                                 $stmt_update = $pdo->prepare($sql_update);
@@ -281,9 +308,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_admin'])) {
                                     $error_message = "Erro ao atualizar administrador no banco de dados. Detalhe: " . ($pdo_error_info[2] ?? 'Sem detalhes');
                                     error_log("Admin Update Failed (ID: {$admin_id_being_edited}): Query: {$sql_update} Params: " . json_encode($params_update) . " PDO Error: " . ($pdo_error_info[2] ?? 'N/A'));
                                 }
-                            }
+                            } // Closing the re-checked if(empty($error_message))
                         } // Fim da verificação de duplicidade
-                    } catch (PDOException $e) { // Catch para a verificação de duplicidade e outras exceções PDO
+                    } catch (PDOException $e) { // Catch para a verificação de duplicidade, self-demotion checks, e outras exceções PDO
                         $error_message = "Erro de banco de dados (update): " . $e->getMessage();
                          error_log("Admin Update PDOException (ID: {$admin_id_being_edited}): " . $e->getMessage());
                     }

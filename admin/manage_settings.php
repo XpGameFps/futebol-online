@@ -2,6 +2,11 @@
 require_once 'auth_check.php'; // Ensures admin is logged in
 require_once '../config.php'; // Database connection
 
+if (!function_exists('generate_csrf_token')) {
+    require_once 'csrf_utils.php';
+}
+$csrf_token = generate_csrf_token(true); // Regenerate on each load for fresh forms
+
 define('SITE_LOGO_UPLOAD_DIR', '../uploads/site/');
 define('MAX_LOGO_FILE_SIZE', 1024 * 512); // 512KB
 $allowed_logo_mime_types = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml'];
@@ -22,8 +27,15 @@ $current_site_display_format = 'text'; // Default
 
 // Handle form submission to update settings
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    if (isset($_POST['save_cookie_banner'])) {
-        $new_text = $_POST['cookie_banner_text'] ?? '';
+    if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
+        $message = '<p style="color:red;">Falha na verificação de segurança (CSRF). Por favor, tente novamente.</p>';
+        $csrf_token = generate_csrf_token(true); // Regenerate for form re-display
+        // Allow to fall through to re-display the page with the message and new token
+    } else {
+        // Nest the existing 'if (isset($_POST['save_cookie_banner']))'
+        // and 'elseif (isset($_POST['save_site_identity']))' blocks inside this else.
+        if (isset($_POST['save_cookie_banner'])) {
+            $new_text = $_POST['cookie_banner_text'] ?? '';
 
         try {
             $sql = "INSERT INTO site_settings (setting_key, setting_value) VALUES (:key, :value)
@@ -43,7 +55,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     } elseif (isset($_POST['save_site_identity'])) {
         $new_site_name = trim($_POST['site_name'] ?? 'FutOnline');
         $new_site_display_format = $_POST['site_display_format'] ?? 'text';
-        $new_logo_filename_to_save = $current_site_logo_filename; // Assume current logo initially
+
+        // Initialize $new_logo_filename_to_save with the value fetched at the start of the script
+        // (which is $current_site_logo_filename, but let's use the more specific DB one for comparison later)
+        $stmt_get_current_logo_for_init = $pdo->prepare("SELECT setting_value FROM site_settings WHERE setting_key = :key");
+        $stmt_get_current_logo_for_init->bindParam(':key', $site_logo_key, PDO::PARAM_STR);
+        $stmt_get_current_logo_for_init->execute();
+        $initial_logo_result = $stmt_get_current_logo_for_init->fetch(PDO::FETCH_ASSOC);
+        $initial_db_logo_filename = $initial_logo_result ? $initial_logo_result['setting_value'] : null;
+        $new_logo_filename_to_save = $initial_db_logo_filename; // Start with current DB value
+
+        $file_was_moved_for_site_logo = false; // Flag for site logo
 
         // Fetch current logo filename before attempting to save new one, for deletion logic
         $stmt_get_current_logo = $pdo->prepare("SELECT setting_value FROM site_settings WHERE setting_key = :key");
@@ -70,21 +92,34 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             } elseif (!in_array($file_type, $allowed_logo_mime_types)) {
                 $message .= '<p style="color:red;">Tipo de arquivo inválido para logo (aceito: JPG, PNG, GIF, SVG).</p>';
             } else {
-                $new_uploaded_filename = uniqid('site_logo_', true) . '.' . $file_extension;
-                $destination_path = SITE_LOGO_UPLOAD_DIR . $new_uploaded_filename;
-                if (!is_dir(SITE_LOGO_UPLOAD_DIR)) {
-                    if (!@mkdir(SITE_LOGO_UPLOAD_DIR, 0755, true)) {
-                        $message .= '<p style="color:red;">Falha ao criar diretório de logo do site.</p>';
-                    }
+                // getimagesize check
+                $image_info = @getimagesize($file_tmp_path);
+                if ($image_info === false) {
+                    $message .= '<p style="color:red;">Arquivo inválido. Conteúdo não reconhecido como imagem para o logo.</p>';
                 }
-                if (empty($message) && move_uploaded_file($file_tmp_path, $destination_path)) {
-                    // Delete old logo if a new one is successfully uploaded AND old logo existed
-                    if ($current_site_logo_filename_db && file_exists(SITE_LOGO_UPLOAD_DIR . $current_site_logo_filename_db)) {
-                        @unlink(SITE_LOGO_UPLOAD_DIR . $current_site_logo_filename_db);
+
+                // Proceed only if no errors so far (including getimagesize)
+                if (empty($message)) {
+                    $new_uploaded_filename = uniqid('site_logo_', true) . '.' . $file_extension;
+                    $destination_path = SITE_LOGO_UPLOAD_DIR . $new_uploaded_filename;
+                    if (!is_dir(SITE_LOGO_UPLOAD_DIR)) {
+                        if (!@mkdir(SITE_LOGO_UPLOAD_DIR, 0755, true)) {
+                            $message .= '<p style="color:red;">Falha ao criar diretório de logo do site.</p>';
+                        }
                     }
-                    $new_logo_filename_to_save = $new_uploaded_filename;
-                } elseif(empty($message)) {
-                    $message .= '<p style="color:red;">Falha ao mover arquivo de logo do site.</p>';
+                    // Re-check $message after directory creation attempt
+                    if (empty($message) && move_uploaded_file($file_tmp_path, $destination_path)) {
+                        // Delete old logo if a new one is successfully uploaded AND old logo existed
+                        if ($current_site_logo_filename_db && file_exists(SITE_LOGO_UPLOAD_DIR . $current_site_logo_filename_db)) {
+                             if ($current_site_logo_filename_db != $new_uploaded_filename) {
+                                @unlink(SITE_LOGO_UPLOAD_DIR . $current_site_logo_filename_db);
+                            }
+                        }
+                        $new_logo_filename_to_save = $new_uploaded_filename; // This is the new file's name
+                        $file_was_moved_for_site_logo = true;    // Mark that a new file was physically moved
+                    } elseif(empty($message)) { // Only set move error if no prior error (like directory creation or getimagesize)
+                        $message .= '<p style="color:red;">Falha ao mover arquivo de logo do site.</p>';
+                    }
                 }
             }
         } elseif (isset($_FILES['site_logo_file']) && $_FILES['site_logo_file']['error'] != UPLOAD_ERR_NO_FILE && $_FILES['site_logo_file']['error'] != UPLOAD_ERR_OK) {
@@ -117,7 +152,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $message = '<p style="color:green;">Configurações de identidade do site atualizadas com sucesso!</p>';
             } catch (PDOException $e) {
                 $message = '<p style="color:red;">Erro de banco de dados ao salvar identidade do site: ' . $e->getMessage() . '</p>';
+                // Cleanup uploaded site logo on PDOException if a new one was moved
+                if ($file_was_moved_for_site_logo && $new_logo_filename_to_save && $new_logo_filename_to_save !== $initial_db_logo_filename) {
+                    $filePathToDelete = SITE_LOGO_UPLOAD_DIR . $new_logo_filename_to_save;
+                    if (file_exists($filePathToDelete)) {
+                        @unlink($filePathToDelete);
+                    }
+                }
             }
+        }
+        // If an action was processed, a redirect usually happens.
+        // If not (e.g. only a message is set due to an internal error after CSRF pass),
+        // the $csrf_token should be regenerated if the form is to be displayed again with an error from DB etc.
+        // The current structure sets $message and re-displays.
+        // If $message was set due to a processing error (not CSRF), regenerate token for the redisplayed form.
+        if (!empty($message) && strpos($message, 'sucesso') === false) { // If message is an error
+             $csrf_token = generate_csrf_token(true);
         }
     }
 }
@@ -178,6 +228,7 @@ try {
         <section id="cookie-banner-settings">
             <h2>Texto do Banner de Consentimento de Cookies</h2>
             <form action="manage_settings.php" method="POST">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
                 <div>
                     <label for="cookie_banner_text">Texto do Banner:</label>
                     <textarea id="cookie_banner_text" name="cookie_banner_text" rows="4"><?php echo htmlspecialchars($current_cookie_banner_text); ?></textarea>
@@ -194,6 +245,7 @@ try {
         <section id="site-identity-settings">
             <h2>Identidade do Site</h2>
             <form action="manage_settings.php" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
                 <div>
                     <label for="site_name">Nome do Site:</label>
                     <input type="text" id="site_name" name="site_name" value="<?php echo htmlspecialchars($current_site_name); ?>">

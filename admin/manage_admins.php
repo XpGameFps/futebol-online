@@ -2,6 +2,11 @@
 require_once 'auth_check.php';
 require_once '../config.php';
 
+if (!function_exists('generate_csrf_token')) {
+    require_once 'csrf_utils.php';
+}
+$csrf_token = generate_csrf_token(); // Generate once for all delete forms on this page load
+
 $page_title = "Gerenciar Administradores";
 $message = ''; // For status messages
 $error_message = ''; // For error messages
@@ -108,6 +113,7 @@ try {
                                 ?>
                                 <?php if (($_SESSION['admin_is_superadmin'] ?? false) && ($_SESSION['admin_id'] ?? null) != $admin_user['id']): ?>
                                     <form action="delete_admin.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este administrador?');" style="display:inline; margin-left:5px;">
+                                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
                                         <input type="hidden" name="admin_id_to_delete" value="<?php echo $admin_user['id']; ?>">
                                         <button type="submit" class="delete-button">Excluir</button>
                                     </form>

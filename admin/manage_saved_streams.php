@@ -2,6 +2,11 @@
 require_once 'auth_check.php'; // Handles session_start()
 require_once '../config.php';
 
+if (!function_exists('generate_csrf_token')) {
+    require_once 'csrf_utils.php';
+}
+$csrf_token = generate_csrf_token(); // Generate once for all forms on this page load
+
 $page_title = "Biblioteca de Streams";
 $message = ''; // For general status messages (e.g., from delete/edit redirects)
 $form_error_message = ''; // For add form specific errors
@@ -26,6 +31,12 @@ if (isset($_GET['status'])) {
 
 // Handle Add Saved Stream form submission (from this page itself)
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_saved_stream'])) {
+    if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
+        $_SESSION['form_error_message']['add_saved_stream'] = "Falha na verificação de segurança (CSRF). Por favor, tente novamente.";
+        header("Location: manage_saved_streams.php#add-saved-stream-form"); // Reloads page, new token generated
+        exit;
+    }
+    // ... rest of add_saved_stream processing logic
     $_SESSION['form_data']['add_saved_stream'] = $_POST; // Store for repopulation on error
 
     $stream_name = trim($_POST['stream_name'] ?? '');
@@ -122,6 +133,7 @@ try {
 
         <h2 id="add-saved-stream-form">Adicionar Novo Stream à Biblioteca</h2>
         <form action="manage_saved_streams.php" method="POST">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
             <div>
                 <label for="stream_name">Nome do Stream (Identificador):</label>
                 <input type="text" id="stream_name" name="stream_name" value="<?php echo htmlspecialchars($form_data['stream_name'] ?? ''); ?>" required>
@@ -162,6 +174,7 @@ try {
                             <td>
                                 <a href="edit_saved_stream.php?id=<?php echo $ss_item['id']; ?>" class="edit-button" style="margin-right: 5px;">Editar</a>
                                 <form action="delete_saved_stream.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este stream salvo da biblioteca?');" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
                                     <input type="hidden" name="saved_stream_id" value="<?php echo $ss_item['id']; ?>">
                                     <button type="submit" class="delete-button">Excluir</button>
                                 </form>

@@ -8,6 +8,16 @@ define('MAX_FILE_SIZE', 1024 * 1024); // 1MB
 $allowed_mime_types = ['image/jpeg', 'image/png', 'image/gif'];
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    // CSRF token validation
+    if (!function_exists('validate_csrf_token')) {
+        require_once 'csrf_utils.php';
+    }
+    if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
+        $_SESSION['form_error_message']['add_channel'] = "Falha na verificação de segurança (CSRF). Por favor, tente novamente.";
+        header("Location: manage_channels.php#add-channel-form");
+        exit;
+    }
+
     $_SESSION['form_data']['add_channel'] = $_POST;
     if (isset($_FILES['logo_file']) && !empty($_FILES['logo_file']['name'])) {
         $_SESSION['form_data']['add_channel']['logo_filename_tmp'] = $_FILES['logo_file']['name'];
@@ -100,15 +110,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if ($file_size > MAX_FILE_SIZE) { $upload_error_message = 'Arquivo muito grande (max 1MB).'; }
         elseif (!in_array($file_type, $allowed_mime_types)) { $upload_error_message = 'Tipo de arquivo inválido (PNG, JPG, GIF).'; }
         else {
-            $new_file_name = uniqid('channel_', true) . '.' . $file_extension;
-            $destination_path = CHANNEL_LOGO_UPLOAD_DIR . $new_file_name;
-            if (!is_dir(CHANNEL_LOGO_UPLOAD_DIR)) { @mkdir(CHANNEL_LOGO_UPLOAD_DIR, 0755, true); }
-            if (move_uploaded_file($file_tmp_path, $destination_path)) {
-                $logo_filename_to_save = $new_file_name;
-                if(isset($_SESSION['form_data']['add_channel']['logo_filename_tmp'])) {
-                    unset($_SESSION['form_data']['add_channel']['logo_filename_tmp']);
-                }
-            } else { $upload_error_message = 'Falha ao mover arquivo de logo do canal.'; }
+            // getimagesize check
+            $image_info = @getimagesize($file_tmp_path);
+            if ($image_info === false) {
+                $upload_error_message = 'Arquivo inválido. Conteúdo não reconhecido como imagem.';
+            } else {
+                // Proceed with move_uploaded_file only if getimagesize passed
+                $new_file_name = uniqid('channel_', true) . '.' . $file_extension;
+                $destination_path = CHANNEL_LOGO_UPLOAD_DIR . $new_file_name;
+                if (!is_dir(CHANNEL_LOGO_UPLOAD_DIR)) { @mkdir(CHANNEL_LOGO_UPLOAD_DIR, 0755, true); }
+                if (move_uploaded_file($file_tmp_path, $destination_path)) {
+                    $logo_filename_to_save = $new_file_name;
+                    if(isset($_SESSION['form_data']['add_channel']['logo_filename_tmp'])) {
+                        unset($_SESSION['form_data']['add_channel']['logo_filename_tmp']);
+                    }
+                } else { $upload_error_message = 'Falha ao mover arquivo de logo do canal.'; }
+            }
         }
     } elseif (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] != UPLOAD_ERR_NO_FILE && $_FILES['logo_file']['error'] != UPLOAD_ERR_OK) {
         $upload_error_message = 'Erro no upload do logo do canal. Código: ' . $_FILES['logo_file']['error'];

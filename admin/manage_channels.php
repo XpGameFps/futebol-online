@@ -3,6 +3,11 @@
 require_once 'auth_check.php'; // Handles session_start()
 require_once '../config.php';
 
+if (!function_exists('generate_csrf_token')) {
+    require_once 'csrf_utils.php';
+}
+$csrf_token = generate_csrf_token();
+
 define('CHANNELS_LOGO_BASE_PATH_RELATIVE_TO_ADMIN', '../uploads/logos/channels/');
 
 // Handle general status messages from GET
@@ -93,6 +98,7 @@ try {
 
         <h2 id="add-channel-form">Adicionar Novo Canal de TV</h2>
         <form action="add_channel.php" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
             <div>
                 <label for="name">Nome do Canal:</label>
                 <input type="text" id="name" name="name" value="<?php echo htmlspecialchars($form_data_add_channel['name'] ?? ''); ?>" required>
@@ -165,6 +171,7 @@ try {
                             <td>
                                 <a href="edit_channel.php?id=<?php echo $channel_item['id']; ?>" class="edit-button" style="margin-right: 5px;">Editar</a>
                                 <form action="delete_channel.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este canal de TV?');" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
                                     <input type="hidden" name="channel_id" value="<?php echo $channel_item['id']; ?>">
                                     <button type="submit" class="delete-button">Excluir</button>
                                 </form>

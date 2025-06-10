@@ -13,6 +13,17 @@ $message_type = 'error'; // Default message type for flash
 $message_text = 'Ocorreu um erro desconhecido.';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['admin_id_to_delete'])) {
+    // Ensure csrf_utils.php is available (auth_check.php should load it)
+    if (!function_exists('validate_csrf_token')) {
+        require_once 'csrf_utils.php';
+    }
+
+    if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
+        $_SESSION['admin_flash_message'] = ['type' => 'error', 'text' => 'Falha na verificação de segurança (CSRF). Ação de exclusão não permitida.'];
+        header("Location: manage_admins.php");
+        exit;
+    }
+    // ... rest of the existing admin deletion logic (permission checks, etc.)
     $admin_id_to_delete = (int)$_POST['admin_id_to_delete'];
 
     if ($admin_id_to_delete <= 0) {

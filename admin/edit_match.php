@@ -106,6 +106,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_match'])) {
     $meta_description = $new_meta_description;
     $meta_keywords = $new_meta_keywords;
     // $current_cover_filename is handled by upload logic below
+    $file_was_moved_in_this_request = false; // Flag to track if a new file was moved
 
     // Re-fetch current_cover_filename if it wasn't set (e.g. direct POST or error on previous GET)
     if ($current_cover_filename === null && $match_id) {
@@ -138,15 +139,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_match'])) {
                 if ($file_size > MAX_COVER_FILE_SIZE) { $upload_error_message = 'Arquivo de capa muito grande (max 2MB).'; }
                 elseif (!in_array($file_type, $allowed_cover_mime_types)) { $upload_error_message = 'Tipo de arquivo de capa inválido (PNG, JPG, GIF).'; }
                 else {
-                    $new_uploaded_filename = uniqid('match_cover_', true) . '.' . $file_extension;
-                    $destination_path = MATCH_COVER_UPLOAD_DIR . $new_uploaded_filename;
-                    if (!is_dir(MATCH_COVER_UPLOAD_DIR)) { @mkdir(MATCH_COVER_UPLOAD_DIR, 0755, true); }
-                    if (move_uploaded_file($file_tmp_path, $destination_path)) {
-                        if ($current_cover_filename && file_exists(MATCH_COVER_UPLOAD_DIR . $current_cover_filename)) {
-                            @unlink(MATCH_COVER_UPLOAD_DIR . $current_cover_filename);
-                        }
-                        $new_cover_filename_to_save = $new_uploaded_filename;
-                    } else { $upload_error_message = 'Falha ao mover novo arquivo de capa.'; }
+                    // getimagesize check
+                    $image_info = @getimagesize($file_tmp_path);
+                    if ($image_info === false) {
+                        $upload_error_message = 'Arquivo de capa inválido. Conteúdo não reconhecido como imagem.';
+                    } else {
+                        // Proceed with move_uploaded_file only if getimagesize passed
+                        $new_uploaded_filename = uniqid('match_cover_', true) . '.' . $file_extension;
+                        $destination_path = MATCH_COVER_UPLOAD_DIR . $new_uploaded_filename;
+                        if (!is_dir(MATCH_COVER_UPLOAD_DIR)) { @mkdir(MATCH_COVER_UPLOAD_DIR, 0755, true); }
+                        if (move_uploaded_file($file_tmp_path, $destination_path)) {
+                            if ($current_cover_filename && file_exists(MATCH_COVER_UPLOAD_DIR . $current_cover_filename)) {
+                            if ($current_cover_filename != $new_uploaded_filename) { // Ensure not deleting the same file if names matched (highly unlikely with uniqid)
+                                @unlink(MATCH_COVER_UPLOAD_DIR . $current_cover_filename);
+                            }
+                            }
+                            $new_cover_filename_to_save = $new_uploaded_filename;
+                        $file_was_moved_in_this_request = true; // Mark that a new file was physically moved
+                        } else { $upload_error_message = 'Falha ao mover novo arquivo de capa.'; }
+                    }
                 }
                 if (!empty($upload_error_message)) { $message = '<p style="color:red;">Erro no upload da capa: ' . $upload_error_message . '</p>'; }
             } elseif (isset($_FILES['cover_image_file']) && $_FILES['cover_image_file']['error'] != UPLOAD_ERR_NO_FILE && $_FILES['cover_image_file']['error'] != UPLOAD_ERR_OK) {
@@ -187,11 +198,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_match'])) {
                         $_SESSION['general_message']['admin_index'] = '<p style="color:green;">Jogo atualizado com sucesso!</p>';
                         header("Location: index.php?status=match_updated#match-" . $match_id);
                         exit;
-                    } else { $message = '<p style="color:red;">Erro ao atualizar jogo no banco de dados.</p>'; }
+                    } else {
+                        $message = '<p style="color:red;">Erro ao atualizar jogo no banco de dados.</p>';
+                        if ($file_was_moved_in_this_request && $new_cover_filename_to_save) {
+                            $filePathToDelete = MATCH_COVER_UPLOAD_DIR . $new_cover_filename_to_save;
+                            if (file_exists($filePathToDelete)) {
+                                @unlink($filePathToDelete);
+                            }
+                        }
+                    }
                 } catch (PDOException $e) {
                     if (strpos($e->getMessage(), "FOREIGN KEY (`league_id`)") !== false) { $message = '<p style="color:red;">Erro: ID da liga inválido.</p>'; }
                     elseif (strpos($e->getMessage(), "FOREIGN KEY (`home_team_id`)") !== false || strpos($e->getMessage(), "FOREIGN KEY (`away_team_id`)") !== false) { $message = '<p style="color:red;">Erro: ID do time inválido.</p>';}
                     else { $message = '<p style="color:red;">Erro de BD: ' . $e->getMessage() . '</p>'; }
+
+                    if ($file_was_moved_in_this_request && $new_cover_filename_to_save) {
+                        $filePathToDelete = MATCH_COVER_UPLOAD_DIR . $new_cover_filename_to_save;
+                        if (file_exists($filePathToDelete)) {
+                            @unlink($filePathToDelete);
+                        }
+                    }
                 }
             }
         }

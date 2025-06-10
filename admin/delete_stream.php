@@ -8,6 +8,26 @@ $status_message_type = 'stream_delete_error'; // Default to error
 $status_reason = 'unknown_error';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    if (!function_exists('validate_csrf_token')) { // Should be loaded by auth_check.php
+        require_once 'csrf_utils.php';
+    }
+    // The form on index.php includes a csrf_token field.
+    if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
+        $status_message_type = 'stream_delete_error';
+        $status_reason = 'csrf_failure';
+        $match_id_for_redirect_csrf_err = null;
+        if (isset($_POST['match_id']) && filter_var($_POST['match_id'], FILTER_VALIDATE_INT)) {
+            $match_id_for_redirect_csrf_err = (int)$_POST['match_id'];
+        }
+        $redirect_url_csrf_err = "index.php?status=" . $status_message_type . "&reason=" . $status_reason;
+        if ($match_id_for_redirect_csrf_err !== null) {
+            $redirect_url_csrf_err .= "#match-" . $match_id_for_redirect_csrf_err;
+        }
+        header("Location: " . $redirect_url_csrf_err);
+        exit;
+    }
+    // ... rest of the existing POST processing logic
+
     if (isset($_POST['stream_id']) && filter_var($_POST['stream_id'], FILTER_VALIDATE_INT)) {
         $stream_id_to_delete = (int)$_POST['stream_id'];
     } else {

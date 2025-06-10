@@ -10,6 +10,17 @@ $status_message_type = 'league_delete_error';
 $status_reason = 'unknown_error';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    // CSRF token validation
+    if (!function_exists('validate_csrf_token')) { // Should be loaded by auth_check.php
+        require_once 'csrf_utils.php';
+    }
+    if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
+        $status_message_type = 'league_delete_error';
+        $status_reason = 'csrf_failure';
+        header("Location: manage_leagues.php?status=" . $status_message_type . "&reason=" . $status_reason);
+        exit;
+    }
+
     if (isset($_POST['league_id']) && filter_var($_POST['league_id'], FILTER_VALIDATE_INT)) {
         $league_id = (int)$_POST['league_id'];
     } else {

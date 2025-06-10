@@ -2,6 +2,14 @@
 require_once 'auth_check.php';
 require_once '../config.php';
 
+// Ensure csrf_utils.php is loaded (auth_check.php should have already included it)
+if (!function_exists('generate_csrf_token')) {
+    require_once 'csrf_utils.php';
+}
+// Generate a token. If form processing below fails and form is re-displayed,
+// a new token will be generated for the redisplayed form.
+$csrf_token = generate_csrf_token(true); // Force regenerate for fresh form display or re-display
+
 define('TEAM_LOGO_UPLOAD_DIR', '../uploads/logos/teams/');
 define('MAX_FILE_SIZE_TEAM_LOGO', 1024 * 1024);
 $allowed_mime_types_team_logo = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml'];
@@ -55,15 +63,23 @@ if ($_SERVER["REQUEST_METHOD"] != "POST" || !isset($_POST['update_team']) || !em
 
 // Handle form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_team'])) {
-    $new_team_name = trim($_POST['team_name'] ?? '');
-    $new_primary_color_hex = trim($_POST['primary_color_hex'] ?? '');
+    if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
+        $message = '<p style="color:red;">Falha na verificação de segurança (CSRF). Por favor, tente novamente.</p>';
+        // Regenerate token for the form if it's redisplayed with this error
+        $csrf_token = generate_csrf_token(true);
+        // Do NOT proceed with processing, allow the script to fall through to re-display the form with the error and new token.
+    } else {
+        // ... (rest of the existing POST processing logic)
+        $new_team_name = trim($_POST['team_name'] ?? '');
+        $new_primary_color_hex = trim($_POST['primary_color_hex'] ?? '');
 
     // Repopulate form vars with POSTed data for sticky form
     $team_name = $new_team_name;
     $primary_color_hex = $new_primary_color_hex;
     // $current_logo_filename is handled by upload logic below
 
-    $new_logo_filename_to_save = $current_logo_filename;
+    $new_logo_filename_to_save = $current_logo_filename; // Initialize with current, might change if new file uploaded
+    $file_was_moved_in_this_request = false; // Flag to track if a new file was moved
     $upload_error_message = '';
 
     if (empty($new_team_name)) {
@@ -83,17 +99,27 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_team'])) {
             if ($file_size > MAX_FILE_SIZE_TEAM_LOGO) { $upload_error_message = 'Logo muito grande (max 1MB).'; }
             elseif (!in_array($file_type, $allowed_mime_types_team_logo)) { $upload_error_message = 'Tipo de arquivo inválido para logo (JPG, PNG, GIF, SVG).'; }
             else {
-                $new_uploaded_filename = uniqid('team_logo_', true) . '.' . $file_extension;
-                $destination_path = TEAM_LOGO_UPLOAD_DIR . $new_uploaded_filename;
-                if (!is_dir(TEAM_LOGO_UPLOAD_DIR)) { if(!@mkdir(TEAM_LOGO_UPLOAD_DIR, 0755, true)) {$upload_error_message = 'Falha ao criar diretório de logos.';} }
+                // getimagesize check
+                $image_info = @getimagesize($file_tmp_path);
+                if ($image_info === false) {
+                    $upload_error_message = 'Arquivo inválido. Conteúdo não reconhecido como imagem.';
+                } else {
+                    // Proceed with move_uploaded_file only if getimagesize passed
+                    $new_uploaded_filename = uniqid('team_logo_', true) . '.' . $file_extension;
+                    $destination_path = TEAM_LOGO_UPLOAD_DIR . $new_uploaded_filename;
+                    if (!is_dir(TEAM_LOGO_UPLOAD_DIR)) { if(!@mkdir(TEAM_LOGO_UPLOAD_DIR, 0755, true)) {$upload_error_message = 'Falha ao criar diretório de logos.';} }
 
-                if(empty($upload_error_message) && move_uploaded_file($file_tmp_path, $destination_path)) {
-                    // Delete old logo if a new one is successfully uploaded
-                    if ($current_logo_filename && file_exists(TEAM_LOGO_UPLOAD_DIR . $current_logo_filename)) {
-                        @unlink(TEAM_LOGO_UPLOAD_DIR . $current_logo_filename);
-                    }
-                    $new_logo_filename_to_save = $new_uploaded_filename;
-                } else { if(empty($upload_error_message)) $upload_error_message = 'Falha ao mover novo logo.'; }
+                    if(empty($upload_error_message) && move_uploaded_file($file_tmp_path, $destination_path)) {
+                        // Delete old logo if a new one is successfully uploaded
+                        if ($current_logo_filename && file_exists(TEAM_LOGO_UPLOAD_DIR . $current_logo_filename)) {
+                            if ($current_logo_filename != $new_uploaded_filename) { // Ensure not deleting the same file if names matched
+                                @unlink(TEAM_LOGO_UPLOAD_DIR . $current_logo_filename);
+                            }
+                        }
+                        $new_logo_filename_to_save = $new_uploaded_filename;
+                        $file_was_moved_in_this_request = true; // Mark that a new file was physically moved
+                    } else { if(empty($upload_error_message)) $upload_error_message = 'Falha ao mover novo logo.'; }
+                }
             }
             if(!empty($upload_error_message)) $message = '<p style="color:red;">Erro no Upload: '.$upload_error_message.'</p>';
         } elseif (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] != UPLOAD_ERR_NO_FILE && $_FILES['logo_file']['error'] != UPLOAD_ERR_OK) {
@@ -129,6 +155,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_team'])) {
                         exit;
                     } else {
                         $message = '<p style="color:red;">Erro ao atualizar time no banco de dados.</p>';
+                        if ($file_was_moved_in_this_request && $new_logo_filename_to_save) {
+                            $filePathToDelete = TEAM_LOGO_UPLOAD_DIR . $new_logo_filename_to_save;
+                            if (file_exists($filePathToDelete)) {
+                                @unlink($filePathToDelete);
+                            }
+                        }
                     }
                 }
             } catch (PDOException $e) {
@@ -136,6 +168,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_team'])) {
                     $message = '<p style="color:red;">Erro: O nome do time já existe.</p>';
                 } else {
                     $message = '<p style="color:red;">Erro de BD: ' . $e->getMessage() . '</p>';
+                }
+                if ($file_was_moved_in_this_request && $new_logo_filename_to_save) {
+                    $filePathToDelete = TEAM_LOGO_UPLOAD_DIR . $new_logo_filename_to_save;
+                    if (file_exists($filePathToDelete)) {
+                        @unlink($filePathToDelete);
+                    }
                 }
             }
         }
@@ -172,6 +210,7 @@ if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_SESSION['general_message']['m
 
     <?php if ($team_id && ($team_data_loaded || $_SERVER["REQUEST_METHOD"] == "POST")): ?>
     <form action="edit_team.php?id=<?php echo $team_id; ?>" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
         <input type="hidden" name="team_id" value="<?php echo $team_id; ?>">
         <div><label for="team_name">Nome do Time:</label><input type="text" id="team_name" name="team_name" value="<?php echo htmlspecialchars($team_name); ?>" required></div>
         <div>
