@@ -6,9 +6,6 @@ require_once '../config.php';
 if (!function_exists('generate_csrf_token')) {
     require_once 'csrf_utils.php';
 }
-// Generate a token. If form processing below fails and form is re-displayed,
-// a new token will be generated for the redisplayed form.
-$csrf_token = generate_csrf_token(true); // Force regenerate for fresh form display or re-display
 
 define('TEAM_LOGO_UPLOAD_DIR', '../uploads/logos/teams/');
 define('MAX_FILE_SIZE_TEAM_LOGO', 1024 * 1024);
@@ -17,6 +14,7 @@ $allowed_mime_types_team_logo = ['image/jpeg', 'image/png', 'image/gif', 'image/
 $page_title = "Editar Time"; $message = ''; $team_id = null;
 $team_name = ''; $current_logo_filename = null; $primary_color_hex = '';
 
+$csrf_token = ''; // Initialize csrf_token
 // Determine team_id from GET or POST
 if (isset($_GET['id']) && filter_var($_GET['id'], FILTER_VALIDATE_INT)) {
     $team_id = (int)$_GET['id'];
@@ -66,8 +64,7 @@ if ($_SERVER["REQUEST_METHOD"] != "POST" || !isset($_POST['update_team']) || !em
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_team'])) {
     if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
         $message = '<p style="color:red;">Falha na verificação de segurança (CSRF). Por favor, tente novamente.</p>';
-        // Regenerate token for the form if it's redisplayed with this error
-        $csrf_token = generate_csrf_token(true);
+        
         // Do NOT proceed with processing, allow the script to fall through to re-display the form with the error and new token.
     } else {
         // Process form data
@@ -183,10 +180,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_team'])) {
     }
 }
 
-// If it's a GET request and there was a session message from a previous redirect (e.g. after successful update)
-if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_SESSION['general_message']['manage_teams'])) {
-    if(empty($message)) { $message = $_SESSION['general_message']['manage_teams']; }
-    unset($_SESSION['general_message']['manage_teams']);
+// Generate or re-generate a CSRF token if the form is to be displayed.
+// This happens on a GET request, or on a POST request if an error occurred ($message is not empty),
+// requiring the form to be re-displayed.
+if ($_SERVER["REQUEST_METHOD"] === "GET" || !empty($message)) {
+    $csrf_token = generate_csrf_token(true); // Force regenerate a new token for the form
 }
 ?>
 <!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title><?php echo htmlspecialchars($page_title); ?> - Painel Admin</title><link rel="stylesheet" href="css/admin_style.css">
