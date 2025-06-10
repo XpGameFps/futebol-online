@@ -3,11 +3,24 @@
 require_once 'auth_check.php'; // Handles session_start()
 require_once '../config.php';
 
+// Ensure csrf_utils.php is loaded (auth_check.php should have already included it)
+if (!function_exists('validate_csrf_token')) {
+    // Fallback if somehow not loaded, though auth_check.php should handle this.
+    require_once 'csrf_utils.php';
+}
+
 define('MATCH_COVER_UPLOAD_DIR', '../uploads/covers/matches/');
 define('MAX_COVER_FILE_SIZE', 2 * 1024 * 1024); // 2MB
 $allowed_cover_mime_types = ['image/jpeg', 'image/png', 'image/gif'];
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
+        $_SESSION['form_error_message']['add_match'] = "Falha na verificação CSRF. Por favor, tente novamente.";
+        // It's good practice to redirect to a neutral page or the form page itself.
+        // Avoid redirecting to index.php?status=... as it might imply a partial success/failure of an operation.
+        header("Location: index.php#add-match-form");
+        exit;
+    }
     $_SESSION['form_data']['add_match'] = $_POST;
     if (isset($_FILES['cover_image_file']) && !empty($_FILES['cover_image_file']['name'])) {
         $_SESSION['form_data']['add_match']['cover_image_filename_tmp'] = $_FILES['cover_image_file']['name'];
@@ -64,18 +77,49 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $file_ext_array = explode('.', $file_name);
         $file_extension = strtolower(end($file_ext_array));
 
-        if ($file_size > MAX_COVER_FILE_SIZE) { $upload_error_message = 'Arquivo de capa muito grande. Máximo 2MB.'; }
-        elseif (!in_array($file_type, $allowed_cover_mime_types)) { $upload_error_message = 'Tipo de arquivo de capa inválido. Apenas PNG, JPG, GIF.'; }
-        else {
-            $new_file_name = uniqid('match_cover_', true) . '.' . $file_extension;
-            $destination_path = MATCH_COVER_UPLOAD_DIR . $new_file_name;
-            if (!is_dir(MATCH_COVER_UPLOAD_DIR)) { @mkdir(MATCH_COVER_UPLOAD_DIR, 0755, true); }
-            if (move_uploaded_file($file_tmp_path, $destination_path)) {
-                $cover_image_filename_to_save = $new_file_name;
-                if(isset($_SESSION['form_data']['add_match']['cover_image_filename_tmp'])) {
-                    unset($_SESSION['form_data']['add_match']['cover_image_filename_tmp']);
+        if ($file_size > MAX_COVER_FILE_SIZE) {
+            $upload_error_message = 'Arquivo de capa muito grande. Máximo 2MB.';
+        } elseif (!in_array($file_type, $allowed_cover_mime_types)) {
+            // Check browser-provided MIME type first
+            $upload_error_message = 'Tipo de arquivo de capa inválido (MIME). Apenas PNG, JPG, GIF.';
+        } else {
+            // Verify if it's actually an image using getimagesize
+            $image_info = @getimagesize($file_tmp_path);
+            if ($image_info === false) {
+                $upload_error_message = 'Arquivo de capa inválido. Conteúdo não reconhecido como imagem.';
+            } else {
+                // Optional: could further check $image_info[2] if specific image types (beyond MIME) are required.
+                // Example: $allowed_image_types = [IMAGETYPE_GIF, IMAGETYPE_JPEG, IMAGETYPE_PNG];
+                // if (!in_array($image_info[2], $allowed_image_types)) {
+                //    $upload_error_message = 'Formato de imagem não suportado após verificação de conteúdo.';
+                // } else {
+
+                // Proceed with generating new filename and moving the file
+                $new_file_name = uniqid('match_cover_', true) . '.' . $file_extension;
+                $destination_path = MATCH_COVER_UPLOAD_DIR . $new_file_name;
+
+                if (!is_dir(MATCH_COVER_UPLOAD_DIR)) {
+                    if (!@mkdir(MATCH_COVER_UPLOAD_DIR, 0755, true)) {
+                        $upload_error_message = 'Falha ao criar diretório de upload.';
+                        // Log this server-side error
+                        error_log("Failed to create upload directory: " . MATCH_COVER_UPLOAD_DIR);
+                    }
                 }
-            } else { $upload_error_message = 'Falha ao mover arquivo de capa upado.'; }
+
+                if (empty($upload_error_message)) { // Check if directory creation was successful
+                    if (move_uploaded_file($file_tmp_path, $destination_path)) {
+                        $cover_image_filename_to_save = $new_file_name;
+                        if (isset($_SESSION['form_data']['add_match']['cover_image_filename_tmp'])) {
+                            unset($_SESSION['form_data']['add_match']['cover_image_filename_tmp']);
+                        }
+                    } else {
+                        $upload_error_message = 'Falha ao mover arquivo de capa upado.';
+                        // Log this server-side error
+                        error_log("Failed to move uploaded file to: " . $destination_path);
+                    }
+                }
+                // } // End of optional stricter image type check
+            }
         }
     } elseif (isset($_FILES['cover_image_file']) && $_FILES['cover_image_file']['error'] != UPLOAD_ERR_NO_FILE && $_FILES['cover_image_file']['error'] != UPLOAD_ERR_OK) {
         $upload_error_message = 'Erro no upload do arquivo de capa. Código: ' . $_FILES['cover_image_file']['error'];

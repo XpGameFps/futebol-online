@@ -1,6 +1,7 @@
 <?php
 // admin/index.php
 require_once 'auth_check.php';
+$csrf_token = generate_csrf_token();
 require_once '../config.php';
 
 // Handle messages
@@ -61,19 +62,9 @@ if (isset($pdo)) {
 
 // Determine view type for matches (upcoming/all or past)
 $view_type = $_GET['view'] ?? 'upcoming';
-$matches_sql_condition = "m.match_time >= NOW()";
-$matches_order_by = "m.match_time ASC";
-$page_subtitle = "Próximos Jogos / Jogos Recentes";
-if ($view_type === 'past') {
-    $matches_sql_condition = "m.match_time < NOW()";
-    $matches_order_by = "m.match_time DESC";
-    $page_subtitle = "Jogos Passados";
-}
+$page_subtitle = "Próximos Jogos / Jogos Recentes"; // Default subtitle
 
-// Fetch existing matches to display
-$matches = [];
-try {
-    $sql_fetch_matches = "SELECT
+$sql_fetch_matches_base = "SELECT
                               m.id,
                               m.match_time,
                               m.description,
@@ -85,11 +76,21 @@ try {
                           FROM matches m
                           LEFT JOIN teams ht ON m.home_team_id = ht.id
                           LEFT JOIN teams at ON m.away_team_id = at.id
-                          LEFT JOIN leagues l ON m.league_id = l.id
-                          WHERE {$matches_sql_condition}
-                          ORDER BY {$matches_order_by}";
-    // Note: $matches_sql_condition and $matches_order_by are derived from $_GET['view'] which is checked.
-    // If they were directly from user input, prepare() would be essential.
+                          LEFT JOIN leagues l ON m.league_id = l.id";
+
+if ($view_type === 'past') {
+    $sql_fetch_matches = $sql_fetch_matches_base . " WHERE m.match_time < NOW() ORDER BY m.match_time DESC";
+    $page_subtitle = "Jogos Passados";
+} else { // Default to 'upcoming'
+    $view_type = 'upcoming'; // Ensure $view_type is explicitly set for the active-view class later
+    $sql_fetch_matches = $sql_fetch_matches_base . " WHERE m.match_time >= NOW() ORDER BY m.match_time ASC";
+    // $page_subtitle remains as default
+}
+
+// Fetch existing matches to display
+$matches = [];
+try {
+    // $sql_fetch_matches is now a complete and safe query string
     $stmt_matches = $pdo->query($sql_fetch_matches);
     $matches = $stmt_matches->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
@@ -176,6 +177,7 @@ if (isset($pdo)) {
         ?>
         <?php if (!empty($add_match_form_error)) echo $add_match_form_error; ?>
         <form action="add_match.php" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
             <div>
                 <label for="home_team_id">Time da Casa:</label>
                 <select id="home_team_id" name="home_team_id" required>
@@ -243,6 +245,7 @@ if (isset($pdo)) {
                     <div style="margin-top:10px;">
                         <a href="edit_match.php?id=<?php echo $match['id']; ?>" class="edit-button" style="margin-right: 5px; margin-bottom:5px; display:inline-block;">Editar Jogo</a>
                         <form action="delete_match.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este jogo? Esta ação não pode ser desfeita e removerá também a capa e todos os streams associados.');" style="display:inline-block;">
+                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
                             <input type="hidden" name="match_id" value="<?php echo $match['id']; ?>">
                             <button type="submit" class="delete-button">Excluir Jogo</button>
                         </form>
@@ -276,6 +279,7 @@ if (isset($pdo)) {
                                     <div class="stream-actions">
                                         <a href="edit_stream.php?id=<?php echo $stream['id']; ?>&match_id=<?php echo $match['id']; ?>" class="edit-button">Editar</a>
                                         <form action="delete_stream.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este stream?');" style="display:inline;">
+                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
                                             <input type="hidden" name="stream_id" value="<?php echo $stream['id']; ?>">
                                             <input type="hidden" name="match_id" value="<?php echo $match['id']; ?>">
                                             <button type="submit" class="delete-button">Excluir</button>
@@ -312,6 +316,7 @@ if (isset($pdo)) {
                         <?php if (!empty($add_stream_form_error)) echo $add_stream_form_error; ?>
 
                         <form action="add_stream.php" method="POST" class="add-stream-form" style="margin-top:10px; padding:10px; border:1px solid #eee; border-radius:4px;">
+                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
                             <input type="hidden" name="match_id" value="<?php echo $match['id']; ?>">
 
                             <div>
