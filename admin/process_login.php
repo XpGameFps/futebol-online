@@ -52,7 +52,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $_SESSION['admin_is_superadmin'] = !empty($admin['is_superadmin']); // Converte para boolean
 
                 // ADD SESSION REGENERATION HERE
-                session_regenerate_id(true); // Destroy old session ID and create a new one
+                //session_regenerate_id(true); // Destroy old session ID and create a new one
 
                 // Redirect to admin dashboard
                 header("Location: index.php");
