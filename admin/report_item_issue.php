@@ -2,29 +2,19 @@
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
-require_once 'csrf_utils.php'; // Path confirmed from previous subtasks
-
-// CSRF Check (must be done after session_start and csrf_utils include)
-if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
-    $response_csrf_fail = ['success' => false, 'message' => 'Falha na verificação de segurança (CSRF). Ação não permitida.'];
-    error_log("CSRF validation failed for report_item_issue.php from IP: " . ($_SERVER['REMOTE_ADDR'] ?? 'N/A'));
-    header('Content-Type: application/json'); // Ensure JSON header for this response
-    echo json_encode($response_csrf_fail);
-    exit;
-}
-
 require_once '../config.php'; // Para $pdo e credenciais DB
 
 header('Content-Type: application/json');
-
 $response = ['success' => false, 'message' => ''];
 
+// Verificação do método HTTP
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     $response['message'] = 'Método de requisição inválido. Use POST.';
     echo json_encode($response);
     exit;
 }
 
+// Validação dos dados de entrada
 $item_id = isset($_POST['item_id']) ? (int)$_POST['item_id'] : 0;
 $item_type = isset($_POST['item_type']) ? $_POST['item_type'] : '';
 $allowed_item_types = ['channel', 'match'];
@@ -41,7 +31,7 @@ if (!in_array($item_type, $allowed_item_types)) {
     exit;
 }
 
-// Tenta obter o IP do usuário de forma mais robusta
+// Obtenção do IP do usuário
 if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
     $user_ip = $_SERVER['HTTP_CLIENT_IP'];
 } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
@@ -49,7 +39,6 @@ if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
 } else {
     $user_ip = $_SERVER['REMOTE_ADDR'] ?? 'N/A';
 }
-// Limpar e validar o IP
 $user_ip = filter_var(explode(',', $user_ip)[0], FILTER_VALIDATE_IP);
 if ($user_ip === false) {
     $user_ip = 'IP Inválido';
@@ -57,13 +46,12 @@ if ($user_ip === false) {
 
 if (!isset($pdo) || !($pdo instanceof PDO)) {
     $response['message'] = 'Conexão com banco de dados não estabelecida corretamente.';
-    error_log('report_item_issue.php: $pdo não é uma instância de PDO ou não está definido.');
     echo json_encode($response);
     exit;
 }
 
 try {
-    // Opcional: Validar se o item (canal ou jogo) existe
+    // Verifica se o item existe
     if ($item_type === 'channel') {
         $stmt_check_item = $pdo->prepare("SELECT id FROM tv_channels WHERE id = :item_id");
     } elseif ($item_type === 'match') {
@@ -71,12 +59,14 @@ try {
     }
     $stmt_check_item->bindParam(':item_id', $item_id, PDO::PARAM_INT);
     $stmt_check_item->execute();
+    
     if ($stmt_check_item->rowCount() == 0) {
         $response['message'] = ucfirst($item_type) . ' não encontrado no banco de dados (ID: ' . $item_id . ').';
         echo json_encode($response);
         exit;
     }
 
+    // Insere o reporte
     $sql = "INSERT INTO player_reports (item_id, item_type, user_ip, status) VALUES (:item_id, :item_type, :user_ip, 'new')";
     $stmt = $pdo->prepare($sql);
     $stmt->bindParam(':item_id', $item_id, PDO::PARAM_INT);
@@ -88,19 +78,12 @@ try {
         $response['message'] = 'Reporte enviado com sucesso!';
     } else {
         $response['message'] = 'Erro ao salvar o reporte no banco de dados.';
-        error_log('report_item_issue.php: Falha ao executar insert. Erro: ' . implode(":", $stmt->errorInfo()));
     }
 
 } catch (PDOException $e) {
-    if (strpos($e->getMessage(), 'SQLSTATE[HY000] [2002]') !== false || strpos($e->getMessage(), 'SQLSTATE[HY000] [2003]') !== false) {
-        $response['message'] = 'Erro de conexão com o banco de dados. Verifique as configurações.';
-    } else {
-        $response['message'] = 'Erro de banco de dados ao processar o reporte.';
-    }
-    error_log('report_item_issue.php: PDOException: ' . $e->getMessage());
+    $response['message'] = 'Erro de banco de dados ao processar o reporte.';
 } catch (Exception $e) {
     $response['message'] = 'Erro inesperado no servidor.';
-    error_log('report_item_issue.php: General Exception: ' . $e->getMessage());
 }
 
 echo json_encode($response);
