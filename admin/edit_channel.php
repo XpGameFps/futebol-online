@@ -68,107 +68,121 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_channel'])) {
         $message = '<p style="color:red;">Falha na verificação de segurança (CSRF). Por favor, tente novamente.</p>';
         // Regenerate token for the form if it's redisplayed with this error
         $csrf_token = generate_csrf_token(true);
-        // Do NOT proceed with processing, allow the script to fall through to re-display the form with the error and new token.
     } else {
-        // ... (rest of the existing POST processing logic)
         $new_channel_name = trim($_POST['name'] ?? '');
         $new_stream_url = trim($_POST['stream_url'] ?? '');
-    $new_sort_order_input = trim($_POST['sort_order'] ?? '0');
-    $new_meta_description = trim($_POST['meta_description'] ?? null);
-    $new_meta_keywords = trim($_POST['meta_keywords'] ?? null);
+        $new_sort_order_input = trim($_POST['sort_order'] ?? '0');
+        $new_meta_description = trim($_POST['meta_description'] ?? null);
+        $new_meta_keywords = trim($_POST['meta_keywords'] ?? null);
 
-    // For form repopulation on error
-    $channel_name = $new_channel_name;
-    $stream_url = $new_stream_url;
-    $sort_order = $new_sort_order_input; // Keep as string for repopulation if invalid
-    $meta_description = $new_meta_description;
-    $meta_keywords = $new_meta_keywords;
+        // For form repopulation on error
+        $channel_name = $new_channel_name;
+        $stream_url = $new_stream_url;
+        $sort_order = $new_sort_order_input; // Keep as string for repopulation if invalid
+        $meta_description = $new_meta_description;
+        $meta_keywords = $new_meta_keywords;
 
-    $new_logo_filename_to_save = $current_logo_filename; // Initialize with current, might change if new file uploaded
-    $file_was_moved_in_this_request = false; // Flag to track if a new file was moved
-    $upload_error_message = '';
+        $new_logo_filename_to_save = $current_logo_filename; // Initialize with current, might change if new file uploaded
+        $file_was_moved_in_this_request = false; // Flag to track if a new file was moved
+        $upload_error_message = '';
 
-    if (empty($new_channel_name) || empty($new_stream_url)) {
-        $message = '<p style="color:red;">Nome do canal e URL do stream são obrigatórios.</p>';
-    } elseif (!filter_var($new_stream_url, FILTER_VALIDATE_URL)) {
-        $message = '<p style="color:red;">URL do stream inválida.</p>';
-    } elseif (!is_numeric($new_sort_order_input)) {
-        $message = '<p style="color:red;">Ordem de classificação deve ser um número.</p>';
-    } else {
-        $new_sort_order = (int)$new_sort_order_input; // Convert to int after validation
+        if (empty($new_channel_name) || empty($new_stream_url)) {
+            $message = '<p style="color:red;">Nome do canal e URL do stream são obrigatórios.</p>';
+        } elseif (!filter_var($new_stream_url, FILTER_VALIDATE_URL)) {
+            $message = '<p style="color:red;">URL do stream inválida.</p>';
+        } elseif (!is_numeric($new_sort_order_input)) {
+            $message = '<p style="color:red;">Ordem de classificação deve ser um número.</p>';
+        } else {
+            $new_sort_order = (int)$new_sort_order_input; // Convert to int after validation
 
-        if (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] == UPLOAD_ERR_OK) {
-            $file_tmp_path = $_FILES['logo_file']['tmp_name'];
-            $file_name = $_FILES['logo_file']['name'];
-            $file_size = $_FILES['logo_file']['size'];
-            $file_type = $_FILES['logo_file']['type'];
-            $file_ext_array = explode('.', $file_name);
-            $file_extension = strtolower(end($file_ext_array));
+            if (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] == UPLOAD_ERR_OK) {
+                $file_tmp_path = $_FILES['logo_file']['tmp_name'];
+                $file_name = $_FILES['logo_file']['name'];
+                $file_size = $_FILES['logo_file']['size'];
+                $file_type = $_FILES['logo_file']['type'];
+                $file_ext_array = explode('.', $file_name);
+                $file_extension = strtolower(end($file_ext_array));
 
-            if ($file_size > MAX_FILE_SIZE) { $upload_error_message = 'Arquivo muito grande (max 1MB).'; }
-            elseif (!in_array($file_type, $allowed_mime_types)) { $upload_error_message = 'Tipo de arquivo inválido (PNG, JPG, GIF).'; }
-            else {
-                // getimagesize check
-                $image_info = @getimagesize($file_tmp_path);
-                if ($image_info === false) {
-                    $upload_error_message = 'Arquivo inválido. Conteúdo não reconhecido como imagem.';
+                if ($file_size > MAX_FILE_SIZE) { 
+                    $upload_error_message = 'Arquivo muito grande (max 1MB).'; 
+                } elseif (!in_array($file_type, $allowed_mime_types)) { 
+                    $upload_error_message = 'Tipo de arquivo inválido (PNG, JPG, GIF).'; 
                 } else {
-                    // Proceed with move_uploaded_file only if getimagesize passed
-                    $new_uploaded_filename = uniqid('channel_', true) . '.' . $file_extension;
-                    $destination_path = CHANNEL_LOGO_UPLOAD_DIR . $new_uploaded_filename;
-                    if (!is_dir(CHANNEL_LOGO_UPLOAD_DIR)) { @mkdir(CHANNEL_LOGO_UPLOAD_DIR, 0755, true); }
-                    if (move_uploaded_file($file_tmp_path, $destination_path)) {
-                        if ($current_logo_filename && file_exists(CHANNEL_LOGO_UPLOAD_DIR . $current_logo_filename)) {
-                             if ($current_logo_filename != $new_uploaded_filename) { // Ensure not deleting the same file if names matched
-                                @unlink(CHANNEL_LOGO_UPLOAD_DIR . $current_logo_filename);
+                    // getimagesize check
+                    $image_info = @getimagesize($file_tmp_path);
+                    if ($image_info === false) {
+                        $upload_error_message = 'Arquivo inválido. Conteúdo não reconhecido como imagem.';
+                    } else {
+                        // Proceed with move_uploaded_file only if getimagesize passed
+                        $new_uploaded_filename = uniqid('channel_', true) . '.' . $file_extension;
+                        $destination_path = CHANNEL_LOGO_UPLOAD_DIR . $new_uploaded_filename;
+                        if (!is_dir(CHANNEL_LOGO_UPLOAD_DIR)) { @mkdir(CHANNEL_LOGO_UPLOAD_DIR, 0755, true); }
+                        if (move_uploaded_file($file_tmp_path, $destination_path)) {
+                            if ($current_logo_filename && file_exists(CHANNEL_LOGO_UPLOAD_DIR . $current_logo_filename)) {
+                                 if ($current_logo_filename != $new_uploaded_filename) { // Ensure not deleting the same file if names matched
+                                    @unlink(CHANNEL_LOGO_UPLOAD_DIR . $current_logo_filename);
+                                }
+                            }
+                            $new_logo_filename_to_save = $new_uploaded_filename;
+                            $file_was_moved_in_this_request = true; // Mark that a new file was physically moved
+                        } else { 
+                            $upload_error_message = 'Falha ao mover novo arquivo de logo.'; 
+                        }
+                    }
+                }
+                if (!empty($upload_error_message)) { 
+                    $message = '<p style="color:red;">Erro no upload: ' . $upload_error_message . '</p>'; 
+                }
+            } elseif (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] != UPLOAD_ERR_NO_FILE && $_FILES['logo_file']['error'] != UPLOAD_ERR_OK) {
+                $message = '<p style="color:red;">Erro no upload. Código: ' . $_FILES['logo_file']['error'] . '</p>';
+            }
+
+            if (empty($message) || (!empty($message) && empty($upload_error_message) && isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] == UPLOAD_ERR_NO_FILE)) {
+                try {
+                    $sql_update = "UPDATE tv_channels SET name = :name, logo_filename = :logo_filename, stream_url = :stream_url, sort_order = :sort_order, meta_description = :meta_description, meta_keywords = :meta_keywords WHERE id = :id";
+                    $stmt_update = $pdo->prepare($sql_update);
+                    $stmt_update->bindParam(':name', $new_channel_name, PDO::PARAM_STR);
+                    $stmt_update->bindParam(':stream_url', $new_stream_url, PDO::PARAM_STR);
+                    $stmt_update->bindParam(':sort_order', $new_sort_order, PDO::PARAM_INT);
+                    $stmt_update->bindParam(':id', $channel_id, PDO::PARAM_INT);
+                    if ($new_logo_filename_to_save === null) { 
+                        $stmt_update->bindValue(':logo_filename', null, PDO::PARAM_NULL); 
+                    } else { 
+                        $stmt_update->bindParam(':logo_filename', $new_logo_filename_to_save, PDO::PARAM_STR); 
+                    }
+                    if ($new_meta_description === null) { 
+                        $stmt_update->bindValue(":meta_description", null, PDO::PARAM_NULL); 
+                    } else { 
+                        $stmt_update->bindParam(":meta_description", $new_meta_description, PDO::PARAM_STR); 
+                    }
+                    if ($new_meta_keywords === null) { 
+                        $stmt_update->bindValue(":meta_keywords", null, PDO::PARAM_NULL); 
+                    } else { 
+                        $stmt_update->bindParam(":meta_keywords", $new_meta_keywords, PDO::PARAM_STR); 
+                    }
+
+                    if ($stmt_update->execute()) {
+                        $current_logo_filename = $new_logo_filename_to_save; // Update for form re-display if needed
+                        $_SESSION['general_message']['manage_channels'] = '<p style="color:green;">Canal de TV atualizado com sucesso!</p>';
+                        header("Location: manage_channels.php?status=saved_channel_updated");
+                        exit;
+                    } else {
+                        $message = '<p style="color:red;">Erro ao atualizar canal no banco de dados.</p>';
+                        if ($file_was_moved_in_this_request && $new_logo_filename_to_save) {
+                            $filePathToDelete = CHANNEL_LOGO_UPLOAD_DIR . $new_logo_filename_to_save;
+                            if (file_exists($filePathToDelete)) {
+                                @unlink($filePathToDelete);
                             }
                         }
-                        $new_logo_filename_to_save = $new_uploaded_filename;
-                        $file_was_moved_in_this_request = true; // Mark that a new file was physically moved
-                    } else { $upload_error_message = 'Falha ao mover novo arquivo de logo.'; }
-                }
-            }
-            if (!empty($upload_error_message)) { $message = '<p style="color:red;">Erro no upload: ' . $upload_error_message . '</p>'; }
-        } elseif (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] != UPLOAD_ERR_NO_FILE && $_FILES['logo_file']['error'] != UPLOAD_ERR_OK) {
-            $message = '<p style="color:red;">Erro no upload. Código: ' . $_FILES['logo_file']['error'] . '</p>';
-        }
-
-        if (empty($message) || (!empty($message) && empty($upload_error_message) && isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] == UPLOAD_ERR_NO_FILE) ) {
-            try {
-                $sql_update = "UPDATE tv_channels SET name = :name, logo_filename = :logo_filename, stream_url = :stream_url, sort_order = :sort_order, meta_description = :meta_description, meta_keywords = :meta_keywords WHERE id = :id";
-                $stmt_update = $pdo->prepare($sql_update);
-                $stmt_update->bindParam(':name', $new_channel_name, PDO::PARAM_STR);
-                $stmt_update->bindParam(':stream_url', $new_stream_url, PDO::PARAM_STR);
-                $stmt_update->bindParam(':sort_order', $new_sort_order, PDO::PARAM_INT);
-                $stmt_update->bindParam(':id', $channel_id, PDO::PARAM_INT);
-                if ($new_logo_filename_to_save === null) { $stmt_update->bindValue(':logo_filename', null, PDO::PARAM_NULL); }
-                else { $stmt_update->bindParam(':logo_filename', $new_logo_filename_to_save, PDO::PARAM_STR); }
-                if ($new_meta_description === null) { $stmt_update->bindValue(":meta_description", null, PDO::PARAM_NULL); }
-                else { $stmt_update->bindParam(":meta_description", $new_meta_description, PDO::PARAM_STR); }
-                if ($new_meta_keywords === null) { $stmt_update->bindValue(":meta_keywords", null, PDO::PARAM_NULL); }
-                else { $stmt_update->bindParam(":meta_keywords", $new_meta_keywords, PDO::PARAM_STR); }
-
-                if ($stmt_update->execute()) {
-                    $current_logo_filename = $new_logo_filename_to_save; // Update for form re-display if needed
-                    $_SESSION['general_message']['manage_channels'] = '<p style="color:green;">Canal de TV atualizado com sucesso!</p>';
-                    header("Location: manage_channels.php?status=saved_channel_updated"); // Use a distinct status if needed
-                    exit;
-                } else {
-                    $message = '<p style="color:red;">Erro ao atualizar canal no banco de dados.</p>'; // This is a generic message already.
+                    }
+                } catch (PDOException $e) {
+                    error_log("PDOException in " . __FILE__ . " (updating channel ID: " . $channel_id . "): " . $e->getMessage());
+                    $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao atualizar o canal. Por favor, tente novamente.</p>';
                     if ($file_was_moved_in_this_request && $new_logo_filename_to_save) {
                         $filePathToDelete = CHANNEL_LOGO_UPLOAD_DIR . $new_logo_filename_to_save;
                         if (file_exists($filePathToDelete)) {
                             @unlink($filePathToDelete);
                         }
-                    }
-                }
-            } catch (PDOException $e) {
-                error_log("PDOException in " . __FILE__ . " (updating channel ID: " . $channel_id . "): " . $e->getMessage());
-                $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao atualizar o canal. Por favor, tente novamente.</p>';
-                if ($file_was_moved_in_this_request && $new_logo_filename_to_save) {
-                    $filePathToDelete = CHANNEL_LOGO_UPLOAD_DIR . $new_logo_filename_to_save;
-                    if (file_exists($filePathToDelete)) {
-                        @unlink($filePathToDelete);
                     }
                 }
             }
@@ -177,7 +191,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_channel'])) {
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_SESSION['general_message']['manage_channels'])) {
-    if(empty($message)) { $message = $_SESSION['general_message']['manage_channels']; }
+    if(empty($message)) { 
+        $message = $_SESSION['general_message']['manage_channels']; 
+    }
     unset($_SESSION['general_message']['manage_channels']);
 }
 ?>
@@ -221,9 +237,9 @@ if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_SESSION['general_message']['m
             echo '<p style="color:red;">Não foi possível carregar os dados do canal para edição.</p>';
             echo '<p><a href="manage_channels.php">Voltar para Canais</a></p>';
         endif; ?>
-            </div> <!-- end main-content -->
-        </div> <!-- end admin-layout -->
-    </div> <!-- end container -->
+            </div>
+        </div>
+    </div>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const onlineUsersCountElement = document.getElementById('online-users-count');
