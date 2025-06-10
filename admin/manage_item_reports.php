@@ -34,7 +34,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['report_id']) && isset
                     $error_message = "Erro ao atualizar status do reporte.";
                 }
             } catch (PDOException $e) {
-                $error_message = "Erro de banco de dados: " . $e->getMessage();
+                error_log("PDOException in " . __FILE__ . " (updating report status for report ID " . $report_id . "): " . $e->getMessage());
+                $error_message = "Ocorreu um erro no banco de dados ao atualizar o status do reporte. Por favor, tente novamente.";
             }
         } else {
             // This else should only trigger if the data is invalid, *after* CSRF passes.
@@ -103,7 +104,8 @@ try {
     $stmt_reports->execute($params); // Passar os parâmetros para execute
     $reports = $stmt_reports->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $error_message = "Erro ao buscar reportes: " . $e->getMessage();
+    error_log("PDOException in " . __FILE__ . " (fetching reports list): " . $e->getMessage());
+    $error_message = "Ocorreu um erro no banco de dados ao buscar os reportes. Por favor, tente novamente.";
 }
 
 ?>

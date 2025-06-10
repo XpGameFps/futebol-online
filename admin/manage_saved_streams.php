@@ -72,9 +72,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_saved_stream'])) {
             }
         } catch (PDOException $e) {
             if ($e->getCode() == '23000' && strpos($e->getMessage(), "unique_stream_name") !== false) { // Check specific unique constraint
-                $_SESSION['form_error_message']['add_saved_stream'] = "Erro: O nome do stream já existe na biblioteca.";
+                $_SESSION['form_error_message']['add_saved_stream'] = "Erro: O nome do stream já existe na biblioteca."; // Specific, user-friendly
             } else {
-                $_SESSION['form_error_message']['add_saved_stream'] = "Erro de BD: " . $e->getMessage();
+                error_log("PDOException in " . __FILE__ . " (adding saved stream): " . $e->getMessage());
+                $_SESSION['form_error_message']['add_saved_stream'] = "Ocorreu um erro no banco de dados ao salvar o stream. Por favor, tente novamente.";
             }
         }
     }
@@ -99,7 +100,8 @@ try {
     $stmt_list = $pdo->query("SELECT id, stream_name, stream_url_value, created_at FROM saved_stream_urls ORDER BY stream_name ASC");
     $saved_streams = $stmt_list->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $message .= '<p style="color:red;">Erro ao buscar streams salvos: ' . $e->getMessage() . '</p>';
+    error_log("PDOException in " . __FILE__ . " (fetching saved_streams list): " . $e->getMessage());
+    $message .= '<p style="color:red;">Ocorreu um erro no banco de dados ao buscar os streams salvos. Por favor, tente novamente.</p>';
 }
 ?>
 <!DOCTYPE html>

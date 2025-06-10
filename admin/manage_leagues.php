@@ -44,7 +44,8 @@ try {
     $stmt = $pdo->query("SELECT id, name, logo_filename FROM leagues ORDER BY name ASC");
     $leagues = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $message .= '<p style="color:red;">Erro ao buscar ligas: ' . $e->getMessage() . '</p>'; // Append to general message
+    error_log("PDOException in " . __FILE__ . " (fetching all leagues): " . $e->getMessage());
+    $message .= '<p style="color:red;">Ocorreu um erro no banco de dados ao buscar as ligas. Por favor, tente novamente.</p>'; // Append to general message
 }
 ?>
 <!DOCTYPE html>

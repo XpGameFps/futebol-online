@@ -63,7 +63,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 header("Location: manage_channels.php#add-channel-form"); exit;
             }
         } catch (PDOException $e) {
-            $_SESSION['form_error_message']['add_channel'] = "Erro ao buscar stream da biblioteca: " . $e->getMessage();
+            error_log("PDOException in " . __FILE__ . " (fetching saved stream for add_channel): " . $e->getMessage());
+            $_SESSION['form_error_message']['add_channel'] = "Ocorreu um erro no banco de dados ao buscar o stream da biblioteca. Por favor, tente novamente.";
             header("Location: manage_channels.php#add-channel-form"); exit;
         }
     } else {
@@ -95,7 +96,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $stmt_save_lib->bindParam(':url', $final_stream_url, PDO::PARAM_STR);
                 $stmt_save_lib->execute();
             } // else: Name conflict, silently don't save or add specific warning
-        } catch (PDOException $e) { /* Silently fail saving to library or add specific error to session message later */ }
+        } catch (PDOException $e) {
+            error_log("PDOException in " . __FILE__ . " (saving stream to library during add_channel): " . $e->getMessage());
+            // Continue execution, but maybe add a non-critical warning to the session message if desired,
+            // or just log it server-side as is happening now.
+        }
     }
 
     // --- Logo File Upload Handling ---
@@ -171,7 +176,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
         exit;
     } catch (PDOException $e) {
-        $_SESSION['form_error_message']['add_channel'] = "Erro de BD: " . $e->getMessage();
+        error_log("PDOException in " . __FILE__ . " (inserting new channel): " . $e->getMessage());
+        $_SESSION['form_error_message']['add_channel'] = "Ocorreu um erro no banco de dados ao adicionar o canal. Por favor, tente novamente.";
         if ($logo_filename_to_save && file_exists(CHANNEL_LOGO_UPLOAD_DIR . $logo_filename_to_save)) {
              @unlink(CHANNEL_LOGO_UPLOAD_DIR . $logo_filename_to_save);
              if(isset($_SESSION['form_data']['add_channel']['logo_filename_tmp'])) unset($_SESSION['form_data']['add_channel']['logo_filename_tmp']);

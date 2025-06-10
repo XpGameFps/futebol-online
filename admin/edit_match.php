@@ -26,7 +26,8 @@ try {
     $stmt_all_leagues = $pdo->query("SELECT id, name FROM leagues ORDER BY name ASC");
     $all_leagues = $stmt_all_leagues->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $message = '<p style="color:red;">Erro ao carregar lista de ligas: ' . $e->getMessage() . '</p>';
+    error_log("PDOException in " . __FILE__ . " (fetching all leagues): " . $e->getMessage());
+    $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao carregar as ligas. Por favor, tente novamente.</p>';
 }
 
 // Fetch all Teams for dropdowns
@@ -35,7 +36,10 @@ if (isset($pdo)) {
     try {
         $stmt_teams_edit = $pdo->query("SELECT id, name FROM teams ORDER BY name ASC");
         $teams_for_dropdown_edit = $stmt_teams_edit->fetchAll(PDO::FETCH_ASSOC);
-    } catch (PDOException $e) { $message .= '<p style="color:red;">Erro ao buscar times: ' . $e->getMessage() . '</p>'; }
+    } catch (PDOException $e) {
+        error_log("PDOException in " . __FILE__ . " (fetching all teams): " . $e->getMessage());
+        $message .= '<p style="color:red;">Ocorreu um erro no banco de dados ao carregar os times. Por favor, tente novamente.</p>';
+    }
 }
 
 
@@ -81,8 +85,9 @@ if ($_SERVER["REQUEST_METHOD"] != "POST" || !isset($_POST['update_match']) || !e
             $meta_keywords = $match['meta_keywords'];
         }
         $match_data_loaded = true;
-    } catch (Exception $e) {
-        $message = '<p style="color:red;">Erro ao buscar dados do jogo: ' . $e->getMessage() . '</p>';
+    } catch (Exception $e) { // This could be PDOException or DateTime exception if date format is wrong from DB
+        error_log("Exception in " . __FILE__ . " (fetching match data for ID: " . $match_id . "): " . $e->getMessage());
+        $message = '<p style="color:red;">Ocorreu um erro ao carregar os dados do jogo. Por favor, tente novamente.</p>';
     }
 }
 
@@ -208,9 +213,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_match'])) {
                         }
                     }
                 } catch (PDOException $e) {
-                    if (strpos($e->getMessage(), "FOREIGN KEY (`league_id`)") !== false) { $message = '<p style="color:red;">Erro: ID da liga inválido.</p>'; }
-                    elseif (strpos($e->getMessage(), "FOREIGN KEY (`home_team_id`)") !== false || strpos($e->getMessage(), "FOREIGN KEY (`away_team_id`)") !== false) { $message = '<p style="color:red;">Erro: ID do time inválido.</p>';}
-                    else { $message = '<p style="color:red;">Erro de BD: ' . $e->getMessage() . '</p>'; }
+                    if (strpos($e->getMessage(), "FOREIGN KEY (`league_id`)") !== false) {
+                        $message = '<p style="color:red;">Erro: ID da liga inválido.</p>'; // Specific, user-friendly error
+                    } elseif (strpos($e->getMessage(), "FOREIGN KEY (`home_team_id`)") !== false || strpos($e->getMessage(), "FOREIGN KEY (`away_team_id`)") !== false) {
+                        $message = '<p style="color:red;">Erro: ID do time inválido.</p>'; // Specific, user-friendly error
+                    } else {
+                        error_log("PDOException in " . __FILE__ . " (updating match ID: " . $match_id . "): " . $e->getMessage());
+                        $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao atualizar o jogo. Por favor, tente novamente.</p>';
+                    }
 
                     if ($file_was_moved_in_this_request && $new_cover_filename_to_save) {
                         $filePathToDelete = MATCH_COVER_UPLOAD_DIR . $new_cover_filename_to_save;

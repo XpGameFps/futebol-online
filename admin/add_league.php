@@ -112,7 +112,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
         exit;
     } catch (PDOException $e) {
-        $_SESSION['form_error_message']['add_league'] = "Erro de BD: " . $e->getMessage();
+        error_log("PDOException in " . __FILE__ . " (adding league): " . $e->getMessage());
+        $_SESSION['form_error_message']['add_league'] = "Ocorreu um erro no banco de dados ao adicionar a liga. Por favor, tente novamente.";
         if ($logo_filename_to_save && file_exists(LEAGUE_LOGO_UPLOAD_DIR . $logo_filename_to_save)) {
              @unlink(LEAGUE_LOGO_UPLOAD_DIR . $logo_filename_to_save);
         }

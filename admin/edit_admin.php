@@ -54,7 +54,8 @@ if ($action === 'edit') {
             $is_superadmin_val = $admin_data['is_superadmin'] ?? 0;
 
         } catch (PDOException $e) {
-            $error_message = "Erro ao carregar dados do administrador (ID: {$admin_id_to_edit}): " . $e->getMessage();
+            error_log("PDOException in " . __FILE__ . " (loading admin data for edit, ID: {$admin_id_to_edit}): " . $e->getMessage());
+            $error_message = "Ocorreu um erro no banco de dados ao carregar os dados do administrador. Por favor, tente novamente.";
         }
         // Permissão
         if (!($_SESSION['admin_is_superadmin'] ?? false) && ($_SESSION['admin_id'] ?? null) != $admin_id_to_edit) {
@@ -169,8 +170,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_admin'])) {
                         }
                     }
                 } catch (PDOException $e) {
-                    $error_message = "Erro de banco de dados: " . $e->getMessage();
-                    // Logar $e->getMessage()
+                    error_log("PDOException in " . __FILE__ . " (add admin - check existing or insert): " . $e->getMessage());
+                    $error_message = "Ocorreu um erro no banco de dados ao adicionar o administrador. Por favor, tente novamente.";
+                    // Logar $e->getMessage() // Original comment noted to log, which we are now doing with error_log
                 }
             }
         } elseif ($current_action === 'update') {
@@ -311,8 +313,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_admin'])) {
                             } // Closing the re-checked if(empty($error_message))
                         } // Fim da verificação de duplicidade
                     } catch (PDOException $e) { // Catch para a verificação de duplicidade, self-demotion checks, e outras exceções PDO
-                        $error_message = "Erro de banco de dados (update): " . $e->getMessage();
-                         error_log("Admin Update PDOException (ID: {$admin_id_being_edited}): " . $e->getMessage());
+                        error_log("PDOException in " . __FILE__ . " (update admin ID: {$admin_id_being_edited}): " . $e->getMessage());
+                        $error_message = "Ocorreu um erro no banco de dados ao atualizar o administrador. Por favor, tente novamente.";
+                         error_log("Admin Update PDOException (ID: {$admin_id_being_edited}): " . $e->getMessage()); // This duplicate log can be removed if the one above is sufficient
                     }
                 } // Fim da validação de username e email
             } // Fim da validação de ID e permissão

@@ -57,7 +57,8 @@ if ($_SERVER["REQUEST_METHOD"] != "POST" || !isset($_POST['update_team']) || !em
         }
         $team_data_loaded = true;
     } catch (PDOException $e) {
-        $message = '<p style="color:red;">Erro ao buscar dados do time: ' . $e->getMessage() . '</p>';
+        error_log("PDOException in " . __FILE__ . " (fetching team data for ID: " . $team_id . "): " . $e->getMessage());
+        $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao carregar os dados do time. Por favor, tente novamente.</p>';
     }
 }
 
@@ -165,9 +166,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_team'])) {
                 }
             } catch (PDOException $e) {
                  if ($e->getCode() == '23000' && strpos($e->getMessage(), "unique_team_name") !== false) {
-                    $message = '<p style="color:red;">Erro: O nome do time já existe.</p>';
+                    $message = '<p style="color:red;">Erro: O nome do time já existe.</p>'; // Specific, user-friendly
                 } else {
-                    $message = '<p style="color:red;">Erro de BD: ' . $e->getMessage() . '</p>';
+                    error_log("PDOException in " . __FILE__ . " (updating team ID: " . $team_id . "): " . $e->getMessage());
+                    $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao atualizar o time. Por favor, tente novamente.</p>';
                 }
                 if ($file_was_moved_in_this_request && $new_logo_filename_to_save) {
                     $filePathToDelete = TEAM_LOGO_UPLOAD_DIR . $new_logo_filename_to_save;

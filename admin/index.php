@@ -45,7 +45,8 @@ try {
     $stmt_leagues = $pdo->query("SELECT id, name FROM leagues ORDER BY name ASC");
     $leagues_for_dropdown = $stmt_leagues->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $message .= '<p style="color:red;">Erro ao buscar ligas para o formulário: ' . $e->getMessage() . '</p>';
+    error_log("PDOException in " . __FILE__ . " (fetching leagues): " . $e->getMessage());
+    $message .= '<p style="color:red;">Ocorreu um erro no banco de dados ao buscar ligas. Por favor, tente novamente mais tarde.</p>';
 }
 
 // Fetch Teams for dropdowns
@@ -55,7 +56,8 @@ if (isset($pdo)) {
         $stmt_teams = $pdo->query("SELECT id, name FROM teams ORDER BY name ASC");
         $teams_for_dropdown = $stmt_teams->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
-        $message .= '<p style="color:red;">Erro ao buscar times para formulário: ' . $e->getMessage() . '</p>';
+        error_log("PDOException in " . __FILE__ . " (fetching teams): " . $e->getMessage());
+        $message .= '<p style="color:red;">Ocorreu um erro no banco de dados ao buscar times. Por favor, tente novamente mais tarde.</p>';
     }
 }
 
@@ -94,7 +96,8 @@ try {
     $stmt_matches = $pdo->query($sql_fetch_matches);
     $matches = $stmt_matches->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $message .= '<p style="color:red;">Erro ao buscar jogos: ' . $e->getMessage() . '</p>';
+    error_log("PDOException in " . __FILE__ . " (fetching matches, view: " . $view_type . "): " . $e->getMessage());
+    $message .= '<p style="color:red;">Ocorreu um erro no banco de dados ao buscar jogos. Por favor, tente novamente mais tarde.</p>';
     $matches = []; // Ensure matches is empty on error
 }
 
@@ -110,7 +113,8 @@ if (isset($pdo)) {
         }, $saved_stream_urls_list);
         $saved_streams_json = json_encode($js_friendly_streams);
     } catch (PDOException $e) {
-        $message .= '<p style="color:red;">Erro ao buscar biblioteca de streams: ' . $e->getMessage() . '</p>';
+        error_log("PDOException in " . __FILE__ . " (fetching saved streams): " . $e->getMessage());
+        $message .= '<p style="color:red;">Ocorreu um erro no banco de dados ao buscar a biblioteca de streams. Por favor, tente novamente mais tarde.</p>';
     }
 }
 ?>
@@ -262,7 +266,8 @@ if (isset($pdo)) {
                             $stmt_streams->execute();
                             $match_streams = $stmt_streams->fetchAll(PDO::FETCH_ASSOC);
                         } catch (PDOException $e) {
-                            echo '<p style="color:red;">Erro ao buscar streams.</p>';
+                            error_log("PDOException in " . __FILE__ . " (fetching streams for match ID " . $match['id'] . "): " . $e->getMessage());
+                            echo '<p style="color:red;">Erro ao buscar streams para este jogo.</p>'; // User-facing, but less critical than form-wide errors
                         }
                     }
                     ?>
