@@ -1,4 +1,18 @@
 <?php
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+require_once 'csrf_utils.php'; // Path confirmed from previous subtasks
+
+// CSRF Check (must be done after session_start and csrf_utils include)
+if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
+    $response_csrf_fail = ['success' => false, 'message' => 'Falha na verificação de segurança (CSRF). Ação não permitida.'];
+    error_log("CSRF validation failed for report_item_issue.php from IP: " . ($_SERVER['REMOTE_ADDR'] ?? 'N/A'));
+    header('Content-Type: application/json'); // Ensure JSON header for this response
+    echo json_encode($response_csrf_fail);
+    exit;
+}
+
 require_once '../config.php'; // Para $pdo e credenciais DB
 
 header('Content-Type: application/json');
