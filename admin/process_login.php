@@ -1,4 +1,29 @@
 <?php
+// admin/process_login.php
+
+// Set secure session cookie parameters
+// Ensure this is called BEFORE session_start()
+$cookie_params = [
+    'lifetime' => 0, // Expires when browser closes
+    'path' => '/admin/', // Restrict cookie to /admin/ path
+    'domain' => $_SERVER['HTTP_HOST'], // Current domain
+    'secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on', // Only send over HTTPS
+    'httponly' => true, // Prevent JavaScript access to the session cookie
+    'samesite' => 'Lax' // CSRF protection measure
+];
+// For PHP versions < 7.3, session_set_cookie_params must be called differently
+if (PHP_VERSION_ID < 70300) {
+    session_set_cookie_params(
+        $cookie_params['lifetime'],
+        $cookie_params['path'],
+        $cookie_params['domain'],
+        $cookie_params['secure'],
+        $cookie_params['httponly']
+    );
+} else {
+    session_set_cookie_params($cookie_params);
+}
+
 session_start();
 require_once '../config.php'; // Database connection
 
@@ -25,6 +50,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $_SESSION['admin_id'] = $admin['id'];
                 $_SESSION['admin_username'] = $admin['username'];
                 $_SESSION['admin_is_superadmin'] = !empty($admin['is_superadmin']); // Converte para boolean
+
+                // ADD SESSION REGENERATION HERE
+                session_regenerate_id(true); // Destroy old session ID and create a new one
 
                 // Redirect to admin dashboard
                 header("Location: index.php");
