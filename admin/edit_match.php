@@ -2,6 +2,11 @@
 require_once 'auth_check.php';
 require_once '../config.php';
 
+// Fallback for CSRF utility functions if not already included by auth_check.php
+if (!function_exists('generate_csrf_token')) {
+    require_once 'csrf_utils.php'; // Corrected path
+}
+
 define('MATCH_COVER_UPLOAD_DIR', '../uploads/covers/matches/');
 define('MAX_COVER_FILE_SIZE', 2 * 1024 * 1024); // 2MB
 $allowed_cover_mime_types = ['image/jpeg', 'image/png', 'image/gif'];
@@ -94,7 +99,15 @@ if ($_SERVER["REQUEST_METHOD"] != "POST" || !isset($_POST['update_match']) || !e
 
 // Handle form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_match'])) {
-    $new_home_team_id = trim($_POST['home_team_id'] ?? '');
+    // CSRF Check
+    if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
+        $message = '<p style="color:red;">Falha na verificação de segurança (CSRF). Por favor, tente novamente.</p>';
+        // Regenerate token for the form if it's redisplayed with this error
+        $csrf_token = generate_csrf_token(true);
+        // Fall through to re-display the form with the message
+    } else {
+        // Existing POST processing logic starts here
+        $new_home_team_id = trim($_POST['home_team_id'] ?? '');
     $new_away_team_id = trim($_POST['away_team_id'] ?? '');
     $match_time_input = trim($_POST['match_time'] ?? '');
     $description_val = trim($_POST['description'] ?? null); // Use _val to avoid conflict
@@ -238,6 +251,14 @@ if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_SESSION['general_message']['a
     if(empty($message)) { $message = $_SESSION['general_message']['admin_index']; }
     unset($_SESSION['general_message']['admin_index']);
 }
+
+// Generate CSRF token for the form
+// This should be done before any HTML output for the form.
+// If the form is re-displayed due to an error (including CSRF error),
+// $csrf_token might already be set by the POST handling block.
+if (empty($csrf_token)) { // Generate only if not already set (e.g., by CSRF error handling)
+    $csrf_token = generate_csrf_token(true);
+}
 ?>
 <!DOCTYPE html>
 <html lang="pt-br">
@@ -257,6 +278,7 @@ if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_SESSION['general_message']['a
         <?php if ($match_id && ($match_data_loaded || $_SERVER["REQUEST_METHOD"] == "POST")): ?>
         <form action="edit_match.php?id=<?php echo $match_id; ?>" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="match_id" value="<?php echo $match_id; ?>">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
 
             <div>
                 <label for="home_team_id_edit">Time da Casa:</label>

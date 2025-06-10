@@ -2,6 +2,11 @@
 require_once 'auth_check.php';
 require_once '../config.php';
 
+// Fallback for CSRF utility functions if not already included by auth_check.php
+if (!function_exists('generate_csrf_token')) {
+    require_once 'csrf_utils.php'; // Path confirmed from previous subtask
+}
+
 $page_title = "Editar Stream";
 $message = '';
 $stream_id = null;
@@ -50,16 +55,24 @@ if ($_SERVER["REQUEST_METHOD"] != "POST" || !empty($message)) {
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_stream'])) {
-    $stream_label = trim($_POST['stream_label'] ?? '');
-    $stream_url = trim($_POST['stream_url'] ?? '');
-
-    if (empty($stream_label) || empty($stream_url)) {
-        $message = '<p style="color:red;">Rótulo do Stream e URL são obrigatórios.</p>';
-    } elseif (!filter_var($stream_url, FILTER_VALIDATE_URL)) {
-        $message = '<p style="color:red;">URL do Stream inválida.</p>';
+    // CSRF Check
+    if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
+        $message = '<p style="color:red;">Falha na verificação de segurança (CSRF). Por favor, tente novamente.</p>';
+        // Regenerate token for the form if it's redisplayed with this error
+        $csrf_token = generate_csrf_token(true);
+        // Fall through to re-display the form with the message
     } else {
-        try {
-            $sql_update = "UPDATE streams SET stream_label = :stream_label, stream_url = :stream_url WHERE id = :id";
+        // Existing POST processing logic starts here
+        $stream_label = trim($_POST['stream_label'] ?? '');
+        $stream_url = trim($_POST['stream_url'] ?? '');
+
+        if (empty($stream_label) || empty($stream_url)) {
+            $message = '<p style="color:red;">Rótulo do Stream e URL são obrigatórios.</p>';
+        } elseif (!filter_var($stream_url, FILTER_VALIDATE_URL)) {
+            $message = '<p style="color:red;">URL do Stream inválida.</p>';
+        } else {
+            try {
+                $sql_update = "UPDATE streams SET stream_label = :stream_label, stream_url = :stream_url WHERE id = :id";
             $stmt_update = $pdo->prepare($sql_update);
             $stmt_update->bindParam(':stream_label', $stream_label, PDO::PARAM_STR);
             $stmt_update->bindParam(':stream_url', $stream_url, PDO::PARAM_STR);
@@ -72,13 +85,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_stream'])) {
                 header("Location: index.php?status=stream_updated" . $redirect_anchor);
                 exit;
             } else { $message = '<p style="color:red;">Erro ao atualizar stream no banco de dados.</p>'; }
-        } catch (PDOException $e) { $message = '<p style="color:red;">Erro de banco de dados: ' . $e->getMessage() . '</p>'; }
-    }
+            } catch (PDOException $e) { $message = '<p style="color:red;">Erro de banco de dados: ' . $e->getMessage() . '</p>'; }
+        }
+    } // End of the new "else" block for CSRF validation
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_SESSION['general_message']['admin_index'])) {
     if(empty($message)) { $message = $_SESSION['general_message']['admin_index']; }
     unset($_SESSION['general_message']['admin_index']);
+}
+
+// Generate CSRF token for the form
+// This should be done before any HTML output for the form.
+// If the form is re-displayed due to an error (including CSRF error),
+// $csrf_token might already be set by the POST handling block.
+if (empty($csrf_token)) { // Generate only if not already set
+    $csrf_token = generate_csrf_token(true);
 }
 ?>
 <!DOCTYPE html>
@@ -102,6 +124,7 @@ if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_SESSION['general_message']['a
         <?php if ($stream_id && ($stream_data_fetched || $_SERVER["REQUEST_METHOD"] == "POST") ): ?>
         <form action="edit_stream.php?id=<?php echo $stream_id; ?><?php echo $match_id_for_redirect ? '&match_id=' . $match_id_for_redirect : ''; ?>" method="POST">
             <input type="hidden" name="stream_id" value="<?php echo $stream_id; ?>">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
             <?php if ($match_id_for_redirect): ?>
                 <input type="hidden" name="match_id_for_redirect" value="<?php echo $match_id_for_redirect; ?>">
             <?php endif; ?>
