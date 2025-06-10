@@ -1,56 +1,41 @@
 <?php
 // admin/csrf_utils.php
 if (session_status() == PHP_SESSION_NONE) {
-    // It's generally expected that session_start() is called before this,
-    // but as a fallback for direct script access or testing.
     session_start();
 }
 
-/**
- * Generates a CSRF token, stores it in the session, and returns it.
- * If a token already exists in the session, it returns that token
- * unless $force_regenerate is true.
- *
- * @param bool $force_regenerate If true, a new token will be generated even if one exists.
- * @return string The CSRF token.
- */
 function generate_csrf_token(bool $force_regenerate = false): string {
-    if (!$force_regenerate && isset($_SESSION['csrf_token'])) {
-        return $_SESSION['csrf_token'];
+    if (!isset($_SESSION['csrf_tokens'])) {
+        $_SESSION['csrf_tokens'] = [];
     }
+    
+    if (!$force_regenerate && !empty($_SESSION['csrf_tokens'])) {
+        return end($_SESSION['csrf_tokens']);
+    }
+    
     $token = bin2hex(random_bytes(32));
-    $_SESSION['csrf_token'] = $token;
+    $_SESSION['csrf_tokens'][] = $token;
+    
+    // Mantém apenas os 5 tokens mais recentes
+    if (count($_SESSION['csrf_tokens']) > 5) {
+        array_shift($_SESSION['csrf_tokens']);
+    }
+    
     return $token;
 }
 
-/**
- * Validates the submitted CSRF token against the one stored in the session.
- * To prevent replay attacks, the token in the session is cleared after successful validation.
- *
- * @param string|null $token_from_form The token submitted with the form.
- * @return bool True if the token is valid, false otherwise.
- */
 function validate_csrf_token(?string $token_from_form): bool {
-    if (empty($token_from_form)) {
+    if (empty($token_from_form) || !isset($_SESSION['csrf_tokens'])) {
         return false;
     }
 
-    if (!isset($_SESSION['csrf_token'])) {
-        // No token in session, so validation fails
-        return false;
-    }
-
-    $session_token = $_SESSION['csrf_token'];
-
-    if (hash_equals($session_token, $token_from_form)) {
-        // Token matches. Clear it to prevent reuse for this session's token.
-        // For some scenarios, you might want to regenerate it instead of just unsetting,
-        // especially if the user is expected to perform multiple protected actions
-        // on the same page load without reloading. For simplicity here, we unset.
-        // A more robust approach for multi-action pages might involve multiple tokens
-        // or AJAX-refreshed tokens.
-        unset($_SESSION['csrf_token']);
-        return true;
+    // Verifica contra todos os tokens válidos
+    foreach ($_SESSION['csrf_tokens'] as $key => $session_token) {
+        if (hash_equals($session_token, $token_from_form)) {
+            // Remove apenas o token usado
+            unset($_SESSION['csrf_tokens'][$key]);
+            return true;
+        }
     }
 
     return false;
