@@ -2,6 +2,13 @@
 require_once 'auth_check.php'; // Auth check primeiro
 require_once '../config.php'; // Depois config
 
+// Ensure csrf_utils.php is loaded (auth_check.php should have already included it)
+if (!function_exists('generate_csrf_token')) {
+    // This should ideally not be needed if auth_check.php is always first and correct.
+    require_once 'csrf_utils.php';
+}
+$csrf_token = generate_csrf_token();
+
 // error_reporting(E_ALL); // Tentar habilitar todos os erros
 // ini_set('display_errors', 1); // Tentar exibir erros
 
@@ -29,7 +36,7 @@ if ($action === 'edit') {
     $page_title = "Editar Administrador"; // Mantenha isso
 
     // --- INÍCIO DO BLOCO A COMENTAR PARA TESTE ---
-    /*
+
     if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($error_message)) {
         try {
             $stmt_fetch = $pdo->prepare("SELECT username, email, is_superadmin FROM admins WHERE id = :id");
@@ -56,16 +63,8 @@ if ($action === 'edit') {
             exit;
        }
     }
-    */
-    // --- FIM DO BLOCO A COMENTAR PARA TESTE ---
 
-    // Para o teste, defina valores mock para que o formulário não quebre:
-    $username_val = "TesteUsername (ID: {$admin_id_to_edit})";
-    $email_val = "teste@example.com";
-    $is_superadmin_val = 0;
-    if (empty($error_message)) { // Adiciona uma mensagem para sabermos que este bloco foi atingido
-         $message = "Modo de depuração: Carregamento para edição do ID {$admin_id_to_edit}. Lógica de busca comentada.";
-    }
+    // --- FIM DO BLOCO A COMENTAR PARA TESTE ---
 
 } elseif ($action === 'add') {
     $page_title = "Adicionar Novo Administrador";
@@ -77,176 +76,210 @@ if ($action === 'edit') {
 
 // Lógica de Processamento do Formulário (Adicionar)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_admin'])) {
-    $current_action = $_POST['action_type'] ?? 'add'; // 'add' or 'update'
-
-    $username_val = trim($_POST['username'] ?? '');
-    $email_val = trim($_POST['email'] ?? null); // Email é opcional
-    $password_val = $_POST['password'] ?? '';
-    $password_confirm_val = $_POST['password_confirm'] ?? '';
-    // Só permitir definir is_superadmin na criação se o usuário logado for superadmin
-    $is_superadmin_val = (isset($_POST['is_superadmin']) && ($_SESSION['admin_is_superadmin'] ?? false)) ? 1 : 0;
-
-    if ($current_action === 'add') {
-        if (empty($username_val)) {
-            $error_message = "Nome de usuário é obrigatório.";
-        } elseif (empty($password_val)) {
-            $error_message = "Senha é obrigatória.";
-        } elseif ($password_val !== $password_confirm_val) {
-            $error_message = "As senhas não coincidem.";
-        } elseif (!empty($email_val) && !filter_var($email_val, FILTER_VALIDATE_EMAIL)) {
-            $error_message = "Formato de email inválido.";
+    if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
+        $error_message = "Falha na verificação de segurança (CSRF). Por favor, tente submeter o formulário novamente.";
+        // Values might need to be repopulated if the form is redisplayed with this error
+        $username_val = trim($_POST['username'] ?? $username_val); // Keep submitted value or original if POST['username'] not set
+        $email_val = trim($_POST['email'] ?? $email_val);
+        if (isset($_POST['is_superadmin']) && ($_SESSION['admin_is_superadmin'] ?? false)) {
+            $is_superadmin_val = 1;
+        } elseif ($action === 'edit' && $admin_id_to_edit) {
+            // Keep existing $is_superadmin_val if not changeable by user
+            // This part is tricky as $is_superadmin_val is loaded before this POST check for 'edit' action
+            // If CSRF fails, we need to ensure $is_superadmin_val is what it should be for the form display
         } else {
-            try {
-                // Verificar se username ou email já existem
-                $stmt_check = $pdo->prepare("SELECT id FROM admins WHERE username = :username OR (email IS NOT NULL AND email = :email)");
-                $stmt_check->bindParam(':username', $username_val, PDO::PARAM_STR);
-                $stmt_check->bindParam(':email', $email_val, PDO::PARAM_STR); // PDO::PARAM_NULL se email for vazio? Melhor tratar string vazia.
-                $stmt_check->execute();
-
-                if ($stmt_check->rowCount() > 0) {
-                    $existing_admin = $stmt_check->fetch();
-                    if (strtolower($existing_admin['username']) === strtolower($username_val)) {
-                         $error_message = "Este nome de usuário já está em uso.";
-                    } elseif (!empty($email_val) && strtolower($existing_admin['email'] ?? '') === strtolower($email_val)) {
-                         $error_message = "Este email já está em uso.";
-                    } else {
-                        $error_message = "Nome de usuário ou email já cadastrado."; // Genérico
-                    }
-                } else {
-                    // Tudo OK para inserir
-                    $password_hash = password_hash($password_val, PASSWORD_DEFAULT);
-
-                    $sql_insert = "INSERT INTO admins (username, password_hash, email, is_superadmin)
-                                   VALUES (:username, :password_hash, :email, :is_superadmin)";
-                    $stmt_insert = $pdo->prepare($sql_insert);
-                    $stmt_insert->bindParam(':username', $username_val, PDO::PARAM_STR);
-                    $stmt_insert->bindParam(':password_hash', $password_hash, PDO::PARAM_STR);
-
-                    if (empty($email_val)) {
-                        $stmt_insert->bindValue(':email', null, PDO::PARAM_NULL);
-                    } else {
-                        $stmt_insert->bindParam(':email', $email_val, PDO::PARAM_STR);
-                    }
-                    $stmt_insert->bindParam(':is_superadmin', $is_superadmin_val, PDO::PARAM_INT);
-
-                    if ($stmt_insert->execute()) {
-                        $_SESSION['admin_flash_message'] = ['type' => 'success', 'text' => 'Administrador adicionado com sucesso!'];
-                        header("Location: manage_admins.php");
-                        exit;
-                    } else {
-                        $error_message = "Erro ao salvar administrador no banco de dados.";
-                    }
-                }
-            } catch (PDOException $e) {
-                $error_message = "Erro de banco de dados: " . $e->getMessage();
-                // Logar $e->getMessage()
-            }
+            $is_superadmin_val = 0;
         }
-    } elseif ($current_action === 'update') {
-        $admin_id_being_edited = (int)($_POST['admin_id'] ?? 0); // ID do admin sendo editado
-        if ($admin_id_being_edited <= 0) {
-            $error_message = "ID de administrador inválido para atualização.";
-        } // Validação de permissão (repetida para segurança, caso o formulário seja manipulado)
-        elseif (!($_SESSION['admin_is_superadmin'] ?? false) && ($_SESSION['admin_id'] ?? null) != $admin_id_being_edited) {
-            $error_message = "Você não tem permissão para editar este administrador.";
+
+    } else {
+        // **Start of existing processing logic**
+        $current_action = $_POST['action_type'] ?? 'add'; // 'add' or 'update'
+
+        $username_val = trim($_POST['username'] ?? '');
+        $email_val = trim($_POST['email'] ?? null);
+        $password_val = $_POST['password'] ?? '';
+        $password_confirm_val = $_POST['password_confirm'] ?? '';
+
+        if (($_SESSION['admin_is_superadmin'] ?? false)) {
+            $is_superadmin_val = isset($_POST['is_superadmin']) ? 1 : 0;
         } else {
-            // Validação de username e email (semelhante ao 'add', mas excluindo o próprio ID da verificação de duplicidade)
+            // If not a superadmin, $is_superadmin_val should not be taken from POST for other users.
+            // For editing oneself, it's not changeable via checkbox if not superadmin.
+            // If adding, it defaults to 0.
+            // This means $is_superadmin_val loaded at the start of the script for 'edit' action should be preserved
+            // if the current user is not a superadmin.
+            // The previously loaded $is_superadmin_val is used if not a superadmin.
+            // If it's an 'add' action by a non-superadmin, it will be 0.
+            if ($current_action === 'add') $is_superadmin_val = 0;
+            // If 'edit' by non-superadmin, $is_superadmin_val is what was loaded or from hidden field.
+            // This part needs care to ensure non-superadmins cannot escalate privileges.
+            // The hidden field for 'is_superadmin' or checkbox logic already handles this.
+        }
+
+
+        if ($current_action === 'add') {
             if (empty($username_val)) {
                 $error_message = "Nome de usuário é obrigatório.";
+            } elseif (empty($password_val)) {
+                $error_message = "Senha é obrigatória.";
+            } elseif ($password_val !== $password_confirm_val) {
+                $error_message = "As senhas não coincidem.";
             } elseif (!empty($email_val) && !filter_var($email_val, FILTER_VALIDATE_EMAIL)) {
                 $error_message = "Formato de email inválido.";
             } else {
                 try {
-                    $stmt_check_dupe = $pdo->prepare(
-                        "SELECT id FROM admins WHERE (username = :username OR (email IS NOT NULL AND email != '' AND email = :email)) AND id != :id"
-                    );
-                    $stmt_check_dupe->bindParam(':username', $username_val, PDO::PARAM_STR);
-                    $stmt_check_dupe->bindParam(':email', $email_val, PDO::PARAM_STR);
-                    $stmt_check_dupe->bindParam(':id', $admin_id_being_edited, PDO::PARAM_INT);
-                    $stmt_check_dupe->execute();
+                    // Verificar se username ou email já existem
+                    $stmt_check = $pdo->prepare("SELECT id FROM admins WHERE username = :username OR (email IS NOT NULL AND email = :email)");
+                    $stmt_check->bindParam(':username', $username_val, PDO::PARAM_STR);
+                    $stmt_check->bindParam(':email', $email_val, PDO::PARAM_STR); // PDO::PARAM_NULL se email for vazio? Melhor tratar string vazia.
+                    $stmt_check->execute();
 
-                    if ($stmt_check_dupe->rowCount() > 0) {
-                         $error_message = "Nome de usuário ou email já em uso por outro administrador.";
+                    if ($stmt_check->rowCount() > 0) {
+                        $existing_admin = $stmt_check->fetch();
+                        if (strtolower($existing_admin['username']) === strtolower($username_val)) {
+                             $error_message = "Este nome de usuário já está em uso.";
+                        } elseif (!empty($email_val) && strtolower($existing_admin['email'] ?? '') === strtolower($email_val)) {
+                             $error_message = "Este email já está em uso.";
+                        } else {
+                            $error_message = "Nome de usuário ou email já cadastrado."; // Genérico
+                        }
                     } else {
-                        // Lógica de atualização da senha
-                        $new_password_hash = null;
-                        if (!empty($password_val)) { // Se uma nova senha foi fornecida
-                            if ($password_val !== $password_confirm_val) {
-                                $error_message = "As novas senhas não coincidem.";
-                            } else {
-                                // Se admin está editando a si mesmo, e não é um superadmin editando outro, verificar senha atual
-                                if (($_SESSION['admin_id'] ?? null) == $admin_id_being_edited) {
-                                    $current_password_val = $_POST['current_password'] ?? '';
-                                    if (empty($current_password_val)) {
-                                        $error_message = "Senha atual é obrigatória para alterar a senha.";
-                                    } else {
-                                        $stmt_curr_pass = $pdo->prepare("SELECT password_hash FROM admins WHERE id = :id");
-                                        $stmt_curr_pass->bindParam(':id', $admin_id_being_edited, PDO::PARAM_INT);
-                                        $stmt_curr_pass->execute();
-                                        $admin_curr_data = $stmt_curr_pass->fetch();
-                                        if (!$admin_curr_data || !password_verify($current_password_val, $admin_curr_data['password_hash'])) {
-                                            $error_message = "Senha atual incorreta.";
+                        // Tudo OK para inserir
+                        $password_hash = password_hash($password_val, PASSWORD_DEFAULT);
+
+                        $sql_insert = "INSERT INTO admins (username, password_hash, email, is_superadmin)
+                                       VALUES (:username, :password_hash, :email, :is_superadmin)";
+                        $stmt_insert = $pdo->prepare($sql_insert);
+                        $stmt_insert->bindParam(':username', $username_val, PDO::PARAM_STR);
+                        $stmt_insert->bindParam(':password_hash', $password_hash, PDO::PARAM_STR);
+
+                        if (empty($email_val)) {
+                            $stmt_insert->bindValue(':email', null, PDO::PARAM_NULL);
+                        } else {
+                            $stmt_insert->bindParam(':email', $email_val, PDO::PARAM_STR);
+                        }
+                        $stmt_insert->bindParam(':is_superadmin', $is_superadmin_val, PDO::PARAM_INT);
+
+                        if ($stmt_insert->execute()) {
+                            $_SESSION['admin_flash_message'] = ['type' => 'success', 'text' => 'Administrador adicionado com sucesso!'];
+                            header("Location: manage_admins.php");
+                            exit;
+                        } else {
+                            $error_message = "Erro ao salvar administrador no banco de dados.";
+                        }
+                    }
+                } catch (PDOException $e) {
+                    $error_message = "Erro de banco de dados: " . $e->getMessage();
+                    // Logar $e->getMessage()
+                }
+            }
+        } elseif ($current_action === 'update') {
+            $admin_id_being_edited = (int)($_POST['admin_id'] ?? 0); // ID do admin sendo editado
+            if ($admin_id_being_edited <= 0) {
+                $error_message = "ID de administrador inválido para atualização.";
+            } // Validação de permissão (repetida para segurança, caso o formulário seja manipulado)
+            elseif (!($_SESSION['admin_is_superadmin'] ?? false) && ($_SESSION['admin_id'] ?? null) != $admin_id_being_edited) {
+                $error_message = "Você não tem permissão para editar este administrador.";
+            } else {
+                // Validação de username e email (semelhante ao 'add', mas excluindo o próprio ID da verificação de duplicidade)
+                if (empty($username_val)) {
+                    $error_message = "Nome de usuário é obrigatório.";
+                } elseif (!empty($email_val) && !filter_var($email_val, FILTER_VALIDATE_EMAIL)) {
+                    $error_message = "Formato de email inválido.";
+                } else {
+                    try {
+                        $stmt_check_dupe = $pdo->prepare(
+                            "SELECT id FROM admins WHERE (username = :username OR (email IS NOT NULL AND email != '' AND email = :email)) AND id != :id"
+                        );
+                        $stmt_check_dupe->bindParam(':username', $username_val, PDO::PARAM_STR);
+                        $stmt_check_dupe->bindParam(':email', $email_val, PDO::PARAM_STR);
+                        $stmt_check_dupe->bindParam(':id', $admin_id_being_edited, PDO::PARAM_INT);
+                        $stmt_check_dupe->execute();
+
+                        if ($stmt_check_dupe->rowCount() > 0) {
+                             $error_message = "Nome de usuário ou email já em uso por outro administrador.";
+                        } else {
+                            // Lógica de atualização da senha
+                            $new_password_hash = null;
+                            if (!empty($password_val)) { // Se uma nova senha foi fornecida
+                                if ($password_val !== $password_confirm_val) {
+                                    $error_message = "As novas senhas não coincidem.";
+                                } else {
+                                    // Se admin está editando a si mesmo, e não é um superadmin editando outro, verificar senha atual
+                                    if (($_SESSION['admin_id'] ?? null) == $admin_id_being_edited) {
+                                        $current_password_val = $_POST['current_password'] ?? '';
+                                        if (empty($current_password_val)) {
+                                            $error_message = "Senha atual é obrigatória para alterar a senha.";
+                                        } else {
+                                            $stmt_curr_pass = $pdo->prepare("SELECT password_hash FROM admins WHERE id = :id");
+                                            $stmt_curr_pass->bindParam(':id', $admin_id_being_edited, PDO::PARAM_INT);
+                                            $stmt_curr_pass->execute();
+                                            $admin_curr_data = $stmt_curr_pass->fetch();
+                                            if (!$admin_curr_data || !password_verify($current_password_val, $admin_curr_data['password_hash'])) {
+                                                $error_message = "Senha atual incorreta.";
+                                            }
                                         }
                                     }
+                                    // Se passou nas verificações ou se é superadmin mudando senha de outro, calcula o novo hash
+                                    if (empty($error_message)) {
+                                        $new_password_hash = password_hash($password_val, PASSWORD_DEFAULT);
+                                    }
                                 }
-                                // Se passou nas verificações ou se é superadmin mudando senha de outro, calcula o novo hash
-                                if (empty($error_message)) {
-                                    $new_password_hash = password_hash($password_val, PASSWORD_DEFAULT);
+                            }
+
+                            // Se não houve erro até agora, prosseguir com a atualização
+                            if (empty($error_message)) {
+                                $sql_update_parts = ["username = :username", "email = :email"];
+                                $params_update = [
+                                    ':username' => $username_val,
+                                    ':email' => empty($email_val) ? null : $email_val,
+                                    ':id' => $admin_id_being_edited
+                                ];
+
+                                if ($new_password_hash !== null) {
+                                    $sql_update_parts[] = "password_hash = :password_hash";
+                                    $params_update[':password_hash'] = $new_password_hash;
+                                }
+
+                                // Atualizar is_superadmin apenas se o admin logado for superadmin
+                                if (($_SESSION['admin_is_superadmin'] ?? false)) {
+                                    $sql_update_parts[] = "is_superadmin = :is_superadmin";
+                                    $params_update[':is_superadmin'] = $is_superadmin_val; // $is_superadmin_val já vem do POST
+                                } elseif (isset($_POST['is_superadmin']) && $admin_id_being_edited == ($_SESSION['admin_id'] ?? null)) {
+                                    // Um admin não pode rebaixar a si mesmo se for o único superadmin, ou promover a si mesmo.
+                                    // Essa lógica mais complexa de "único superadmin" pode ser adicionada depois.
+                                    // Por ora, se não for superadmin, não pode mudar o status de ninguém.
+                                    // Se for superadmin e estiver editando a si mesmo, o valor de $is_superadmin_val será usado.
+                                }
+
+
+                                $sql_update = "UPDATE admins SET " . implode(", ", $sql_update_parts) . " WHERE id = :id";
+                                $stmt_update = $pdo->prepare($sql_update);
+
+                                if ($stmt_update->execute($params_update)) {
+                                    $_SESSION['admin_flash_message'] = ['type' => 'success', 'text' => 'Administrador atualizado com sucesso!'];
+                                    // Se o admin atualizou o próprio nome de usuário, atualiza a sessão
+                                    if (($_SESSION['admin_id'] ?? null) == $admin_id_being_edited && isset($_SESSION['admin_username']) && $_SESSION['admin_username'] != $username_val) {
+                                        $_SESSION['admin_username'] = $username_val;
+                                    }
+                                    header("Location: manage_admins.php");
+                                    exit;
+                                } else {
+                                    $pdo_error_info = $stmt_update->errorInfo();
+                                    $error_message = "Erro ao atualizar administrador no banco de dados. Detalhe: " . ($pdo_error_info[2] ?? 'Sem detalhes');
+                                    error_log("Admin Update Failed (ID: {$admin_id_being_edited}): Query: {$sql_update} Params: " . json_encode($params_update) . " PDO Error: " . ($pdo_error_info[2] ?? 'N/A'));
                                 }
                             }
-                        }
-
-                        // Se não houve erro até agora, prosseguir com a atualização
-                        if (empty($error_message)) {
-                            $sql_update_parts = ["username = :username", "email = :email"];
-                            $params_update = [
-                                ':username' => $username_val,
-                                ':email' => empty($email_val) ? null : $email_val,
-                                ':id' => $admin_id_being_edited
-                            ];
-
-                            if ($new_password_hash !== null) {
-                                $sql_update_parts[] = "password_hash = :password_hash";
-                                $params_update[':password_hash'] = $new_password_hash;
-                            }
-
-                            // Atualizar is_superadmin apenas se o admin logado for superadmin
-                            if (($_SESSION['admin_is_superadmin'] ?? false)) {
-                                $sql_update_parts[] = "is_superadmin = :is_superadmin";
-                                $params_update[':is_superadmin'] = $is_superadmin_val; // $is_superadmin_val já vem do POST
-                            } elseif (isset($_POST['is_superadmin']) && $admin_id_being_edited == ($_SESSION['admin_id'] ?? null)) {
-                                // Um admin não pode rebaixar a si mesmo se for o único superadmin, ou promover a si mesmo.
-                                // Essa lógica mais complexa de "único superadmin" pode ser adicionada depois.
-                                // Por ora, se não for superadmin, não pode mudar o status de ninguém.
-                                // Se for superadmin e estiver editando a si mesmo, o valor de $is_superadmin_val será usado.
-                            }
-
-
-                            $sql_update = "UPDATE admins SET " . implode(", ", $sql_update_parts) . " WHERE id = :id";
-                            $stmt_update = $pdo->prepare($sql_update);
-
-                            if ($stmt_update->execute($params_update)) {
-                                $message = 'Administrador atualizado com sucesso!'; // Define $message diretamente
-                                // Se o admin atualizou o próprio nome de usuário, atualiza a sessão
-                                if (($_SESSION['admin_id'] ?? null) == $admin_id_being_edited && isset($_SESSION['admin_username']) && $_SESSION['admin_username'] != $username_val) {
-                                    $_SESSION['admin_username'] = $username_val;
-                                }
-                                // // header("Location: manage_admins.php"); // Comentado
-                                // // exit; // Comentado
-                            } else {
-                                $pdo_error_info = $stmt_update->errorInfo();
-                                $error_message = "Erro ao atualizar administrador no banco de dados. Detalhe: " . ($pdo_error_info[2] ?? 'Sem detalhes');
-                                error_log("Admin Update Failed (ID: {$admin_id_being_edited}): Query: {$sql_update} Params: " . json_encode($params_update) . " PDO Error: " . ($pdo_error_info[2] ?? 'N/A'));
-                            }
-                        }
-                    } // Fim da verificação de duplicidade
-                } catch (PDOException $e) { // Catch para a verificação de duplicidade e outras exceções PDO
-                    $error_message = "Erro de banco de dados (update): " . $e->getMessage();
-                     error_log("Admin Update PDOException (ID: {$admin_id_being_edited}): " . $e->getMessage());
-                }
-            } // Fim da validação de username e email
-        } // Fim da validação de ID e permissão
-    } // Fim do elseif ($current_action === 'update')
+                        } // Fim da verificação de duplicidade
+                    } catch (PDOException $e) { // Catch para a verificação de duplicidade e outras exceções PDO
+                        $error_message = "Erro de banco de dados (update): " . $e->getMessage();
+                         error_log("Admin Update PDOException (ID: {$admin_id_being_edited}): " . $e->getMessage());
+                    }
+                } // Fim da validação de username e email
+            } // Fim da validação de ID e permissão
+        } // Fim do elseif ($current_action === 'update')
+        // **End of existing processing logic**
+    }
 }
 
 
@@ -290,6 +323,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_admin'])) {
         <?php endif; ?>
 
         <form action="edit_admin.php<?php echo $action === 'edit' ? '?id='.$admin_id_to_edit : '?action=add'; ?>" method="POST">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
             <input type="hidden" name="action_type" value="<?php echo $action; ?>">
             <?php if ($action === 'edit' && $admin_id_to_edit): ?>
                 <input type="hidden" name="admin_id" value="<?php echo $admin_id_to_edit; ?>">
