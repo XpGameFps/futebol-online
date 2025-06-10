@@ -26,90 +26,79 @@ $current_site_logo_filename = null;
 $current_site_display_format = 'text'; // Default
 
 // Handle form submission to update settings
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
+if ($_SERVER["REQUEST_METHOD"] == "POST") { // Line 29
     if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
         $message = '<p style="color:red;">Falha na verificação de segurança (CSRF). Por favor, tente novamente.</p>';
         $csrf_token = generate_csrf_token(true); // Regenerate for form re-display
         // Allow to fall through to re-display the page with the message and new token
     } else {
-        // Nest the existing 'if (isset($_POST['save_cookie_banner']))'
-        // and 'elseif (isset($_POST['save_site_identity']))' blocks inside this else.
+        // Valid CSRF block
         if (isset($_POST['save_cookie_banner'])) {
             $new_text = $_POST['cookie_banner_text'] ?? '';
 
-        try {
-            $sql = "INSERT INTO site_settings (setting_key, setting_value) VALUES (:key, :value)
-                    ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)";
-            $stmt = $pdo->prepare($sql);
-            $stmt->bindParam(':key', $cookie_banner_text_key, PDO::PARAM_STR);
-            $stmt->bindParam(':value', $new_text, PDO::PARAM_STR);
+            try {
+                $sql = "INSERT INTO site_settings (setting_key, setting_value) VALUES (:key, :value)
+                        ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)";
+                $stmt = $pdo->prepare($sql);
+                $stmt->bindParam(':key', $cookie_banner_text_key, PDO::PARAM_STR);
+                $stmt->bindParam(':value', $new_text, PDO::PARAM_STR);
 
-            if ($stmt->execute()) {
-                $message = '<p style="color:green;">Texto do banner de cookies atualizado com sucesso!</p>';
-            } else {
-                $message = '<p style="color:red;">Erro ao atualizar o texto do banner de cookies.</p>'; // Generic enough already
+                if ($stmt->execute()) {
+                    $message = '<p style="color:green;">Texto do banner de cookies atualizado com sucesso!</p>';
+                } else {
+                    $message = '<p style="color:red;">Erro ao atualizar o texto do banner de cookies.</p>'; // Generic enough already
+                }
+            } catch (PDOException $e) {
+                error_log("PDOException in " . __FILE__ . " (save_cookie_banner): " . $e->getMessage());
+                $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao salvar as configurações do banner de cookies. Por favor, tente novamente.</p>';
             }
-        } catch (PDOException $e) {
-            error_log("PDOException in " . __FILE__ . " (save_cookie_banner): " . $e->getMessage());
-            $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao salvar as configurações do banner de cookies. Por favor, tente novamente.</p>';
-        }
-    } elseif (isset($_POST['save_site_identity'])) {
-        $new_site_name = trim($_POST['site_name'] ?? 'FutOnline');
-        $new_site_display_format = $_POST['site_display_format'] ?? 'text';
+        } elseif (isset($_POST['save_site_identity'])) {
+            $new_site_name = trim($_POST['site_name'] ?? 'FutOnline');
+            $new_site_display_format = $_POST['site_display_format'] ?? 'text';
 
-        // Initialize $new_logo_filename_to_save with the value fetched at the start of the script
-        // (which is $current_site_logo_filename, but let's use the more specific DB one for comparison later)
-        $stmt_get_current_logo_for_init = $pdo->prepare("SELECT setting_value FROM site_settings WHERE setting_key = :key");
-        $stmt_get_current_logo_for_init->bindParam(':key', $site_logo_key, PDO::PARAM_STR);
-        $stmt_get_current_logo_for_init->execute();
-        $initial_logo_result = $stmt_get_current_logo_for_init->fetch(PDO::FETCH_ASSOC);
-        $initial_db_logo_filename = $initial_logo_result ? $initial_logo_result['setting_value'] : null;
-        $new_logo_filename_to_save = $initial_db_logo_filename; // Start with current DB value
+            // Fetch current logo filename before attempting to save new one, for deletion logic
+            $stmt_get_current_logo = $pdo->prepare("SELECT setting_value FROM site_settings WHERE setting_key = :key");
+            $stmt_get_current_logo->bindParam(':key', $site_logo_key, PDO::PARAM_STR);
+            $stmt_get_current_logo->execute();
+            $logo_result = $stmt_get_current_logo->fetch(PDO::FETCH_ASSOC);
+            $current_site_logo_filename_db = $logo_result ? $logo_result['setting_value'] : null;
 
-        $file_was_moved_for_site_logo = false; // Flag for site logo
+            $new_logo_filename_to_save = $current_site_logo_filename_db; // Start with current DB value
+            $file_was_moved_for_site_logo = false; // Flag for site logo
+            $upload_error_message = ''; // Initialize upload error message
 
-        // Fetch current logo filename before attempting to save new one, for deletion logic
-        $stmt_get_current_logo = $pdo->prepare("SELECT setting_value FROM site_settings WHERE setting_key = :key");
-        $stmt_get_current_logo->bindParam(':key', $site_logo_key, PDO::PARAM_STR);
-        $stmt_get_current_logo->execute();
-        $logo_result = $stmt_get_current_logo->fetch(PDO::FETCH_ASSOC);
-        if ($logo_result) {
-            $current_site_logo_filename_db = $logo_result['setting_value'];
-        } else {
-            $current_site_logo_filename_db = null;
-        }
+            // File Upload Handling for Site Logo
+            if (isset($_FILES['site_logo_file']) && $_FILES['site_logo_file']['error'] == UPLOAD_ERR_OK) {
+                $file_tmp_path = $_FILES['site_logo_file']['tmp_name'];
+                $file_name = $_FILES['site_logo_file']['name'];
+                $file_size = $_FILES['site_logo_file']['size'];
+                $file_type = $_FILES['site_logo_file']['type'];
+                $file_ext_array = explode('.', $file_name);
+                $file_extension = strtolower(end($file_ext_array));
 
-        // File Upload Handling for Site Logo
-        if (isset($_FILES['site_logo_file']) && $_FILES['site_logo_file']['error'] == UPLOAD_ERR_OK) {
-            $file_tmp_path = $_FILES['site_logo_file']['tmp_name'];
-            $file_name = $_FILES['site_logo_file']['name'];
-            $file_size = $_FILES['site_logo_file']['size'];
-            $file_type = $_FILES['site_logo_file']['type'];
-            $file_ext_array = explode('.', $file_name);
-            $file_extension = strtolower(end($file_ext_array));
-
-            if ($file_size > MAX_LOGO_FILE_SIZE) {
-                $message .= '<p style="color:red;">Logo muito grande (max 512KB).</p>';
-            } elseif (!in_array($file_type, $allowed_logo_mime_types)) {
-                $message .= '<p style="color:red;">Tipo de arquivo inválido para logo (aceito: JPG, PNG, GIF, SVG).</p>';
-            } else {
-                // getimagesize check
-                $image_info = @getimagesize($file_tmp_path);
-                if ($image_info === false) {
-                    $message .= '<p style="color:red;">Arquivo inválido. Conteúdo não reconhecido como imagem para o logo.</p>';
+                if ($file_size > MAX_LOGO_FILE_SIZE) {
+                    $upload_error_message = 'Logo muito grande (max 512KB).';
+                } elseif (!in_array($file_type, $allowed_logo_mime_types)) {
+                    $upload_error_message = 'Tipo de arquivo inválido para logo (aceito: JPG, PNG, GIF, SVG).';
+                } else {
+                    // getimagesize check
+                    $image_info = @getimagesize($file_tmp_path);
+                    if ($image_info === false) {
+                        $upload_error_message = 'Arquivo inválido. Conteúdo não reconhecido como imagem para o logo.';
+                    }
                 }
 
-                // Proceed only if no errors so far (including getimagesize)
-                if (empty($message)) {
+                // Proceed only if no upload errors so far (including getimagesize)
+                if (empty($upload_error_message)) {
                     $new_uploaded_filename = uniqid('site_logo_', true) . '.' . $file_extension;
                     $destination_path = SITE_LOGO_UPLOAD_DIR . $new_uploaded_filename;
                     if (!is_dir(SITE_LOGO_UPLOAD_DIR)) {
                         if (!@mkdir(SITE_LOGO_UPLOAD_DIR, 0755, true)) {
-                            $message .= '<p style="color:red;">Falha ao criar diretório de logo do site.</p>';
+                            $upload_error_message = 'Falha ao criar diretório de logo do site.';
                         }
                     }
-                    // Re-check $message after directory creation attempt
-                    if (empty($message) && move_uploaded_file($file_tmp_path, $destination_path)) {
+                    // Re-check $upload_error_message after directory creation attempt
+                    if (empty($upload_error_message) && move_uploaded_file($file_tmp_path, $destination_path)) {
                         // Delete old logo if a new one is successfully uploaded AND old logo existed
                         if ($current_site_logo_filename_db && file_exists(SITE_LOGO_UPLOAD_DIR . $current_site_logo_filename_db)) {
                              if ($current_site_logo_filename_db != $new_uploaded_filename) {
@@ -118,61 +107,64 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         }
                         $new_logo_filename_to_save = $new_uploaded_filename; // This is the new file's name
                         $file_was_moved_for_site_logo = true;    // Mark that a new file was physically moved
-                    } elseif(empty($message)) { // Only set move error if no prior error (like directory creation or getimagesize)
-                        $message .= '<p style="color:red;">Falha ao mover arquivo de logo do site.</p>';
+                    } elseif(empty($upload_error_message)) { // Only set move error if no prior error (like directory creation or getimagesize)
+                        $upload_error_message = 'Falha ao mover arquivo de logo do site.';
+                    }
+                }
+            } elseif (isset($_FILES['site_logo_file']) && $_FILES['site_logo_file']['error'] != UPLOAD_ERR_NO_FILE && $_FILES['site_logo_file']['error'] != UPLOAD_ERR_OK) {
+                $upload_error_message = 'Erro no upload do logo. Código: ' . $_FILES['site_logo_file']['error'];
+            }
+
+            // Add upload error message to the main message if it exists
+            if (!empty($upload_error_message)) {
+                 $message .= '<p style="color:red;">' . $upload_error_message . '</p>';
+            }
+
+
+            if (empty($message)) { // Proceed only if no upload errors or other critical errors
+                try {
+                    $settings_to_save = [
+                        $site_name_key => $new_site_name,
+                        $site_display_format_key => $new_site_display_format,
+                        // Only update logo filename if a new one was uploaded or if it was explicitly changed
+                        // If format is 'text', we might want to clear the logo filename or keep it. We'll keep it for now.
+                        $site_logo_key => $new_logo_filename_to_save
+                    ];
+
+                    $sql_insert_settings = "INSERT INTO site_settings (setting_key, setting_value) VALUES (:key, :value)
+                                            ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)";
+                    $stmt_insert_settings = $pdo->prepare($sql_insert_settings);
+
+                    foreach ($settings_to_save as $key => $value) {
+                        $stmt_insert_settings->bindParam(':key', $key, PDO::PARAM_STR);
+                        if ($value === null) {
+                            $stmt_insert_settings->bindValue(':value', null, PDO::PARAM_NULL);
+                        } else {
+                            $stmt_insert_settings->bindParam(':value', $value, PDO::PARAM_STR);
+                        }
+                        $stmt_insert_settings->execute();
+                    }
+                    $message = '<p style="color:green;">Configurações de identidade do site atualizadas com sucesso!</p>';
+                } catch (PDOException $e) {
+                    error_log("PDOException in " . __FILE__ . " (save_site_identity): " . $e->getMessage());
+                    $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao salvar as configurações de identidade do site. Por favor, tente novamente.</p>';
+                    // Cleanup uploaded site logo on PDOException if a new one was moved
+                    if ($file_was_moved_for_site_logo && $new_logo_filename_to_save && $new_logo_filename_to_save !== $current_site_logo_filename_db) {
+                        $filePathToDelete = SITE_LOGO_UPLOAD_DIR . $new_logo_filename_to_save;
+                        if (file_exists($filePathToDelete)) {
+                            @unlink($filePathToDelete);
+                        }
                     }
                 }
             }
-        } elseif (isset($_FILES['site_logo_file']) && $_FILES['site_logo_file']['error'] != UPLOAD_ERR_NO_FILE && $_FILES['site_logo_file']['error'] != UPLOAD_ERR_OK) {
-            $message .= '<p style="color:red;">Erro no upload do logo. Código: ' . $_FILES['site_logo_file']['error'] . '</p>';
         }
-
-        if (empty($message)) { // Proceed only if no upload errors or other critical errors
-            try {
-                $settings_to_save = [
-                    $site_name_key => $new_site_name,
-                    $site_display_format_key => $new_site_display_format,
-                    // Only update logo filename if a new one was uploaded or if it was explicitly changed
-                    // If format is 'text', we might want to clear the logo filename or keep it. We'll keep it for now.
-                    $site_logo_key => $new_logo_filename_to_save
-                ];
-
-                $sql_insert_settings = "INSERT INTO site_settings (setting_key, setting_value) VALUES (:key, :value)
-                                        ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)";
-                $stmt_insert_settings = $pdo->prepare($sql_insert_settings);
-
-                foreach ($settings_to_save as $key => $value) {
-                    $stmt_insert_settings->bindParam(':key', $key, PDO::PARAM_STR);
-                    if ($value === null) {
-                        $stmt_insert_settings->bindValue(':value', null, PDO::PARAM_NULL);
-                    } else {
-                        $stmt_insert_settings->bindParam(':value', $value, PDO::PARAM_STR);
-                    }
-                    $stmt_insert_settings->execute();
-                }
-                $message = '<p style="color:green;">Configurações de identidade do site atualizadas com sucesso!</p>';
-            } catch (PDOException $e) {
-                error_log("PDOException in " . __FILE__ . " (save_site_identity): " . $e->getMessage());
-                $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao salvar as configurações de identidade do site. Por favor, tente novamente.</p>';
-                // Cleanup uploaded site logo on PDOException if a new one was moved
-                if ($file_was_moved_for_site_logo && $new_logo_filename_to_save && $new_logo_filename_to_save !== $initial_db_logo_filename) {
-                    $filePathToDelete = SITE_LOGO_UPLOAD_DIR . $new_logo_filename_to_save;
-                    if (file_exists($filePathToDelete)) {
-                        @unlink($filePathToDelete);
-                    }
-                }
-            }
-        }
-        // If an action was processed, a redirect usually happens.
-        // If not (e.g. only a message is set due to an internal error after CSRF pass),
-        // the $csrf_token should be regenerated if the form is to be displayed again with an error from DB etc.
-        // The current structure sets $message and re-displays.
-        // If $message was set due to a processing error (not CSRF), regenerate token for the redisplayed form.
+        // If an action was processed, a message is set. If it's an error message, regenerate token.
         if (!empty($message) && strpos($message, 'sucesso') === false) { // If message is an error
              $csrf_token = generate_csrf_token(true);
         }
-    }
-}
+    } // <-- Closes the 'else' block for valid CSRF.
+} // <-- Closes the main 'if ($_SERVER["REQUEST_METHOD"] == "POST")' block.
+
 
 // Fetch all current settings from database
 try {
