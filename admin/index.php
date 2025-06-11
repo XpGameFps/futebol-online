@@ -542,6 +542,50 @@ if (isset($pdo)) {
             fetchOnlineUsers_nav();
             setInterval(fetchOnlineUsers_nav, 30000);
         });
+
+        // Initialize Searchable Selects
+        document.addEventListener('DOMContentLoaded', function() {
+            const homeTeamSelect = document.getElementById('home_team_id');
+            if (homeTeamSelect) {
+                makeSelectSearchable(homeTeamSelect);
+            }
+
+            const awayTeamSelect = document.getElementById('away_team_id');
+            if (awayTeamSelect) {
+                makeSelectSearchable(awayTeamSelect);
+            }
+
+            const leagueSelect = document.getElementById('league_id');
+            if (leagueSelect) {
+                makeSelectSearchable(leagueSelect);
+            }
+
+            // For dynamically generated saved_stream_id selects
+            document.querySelectorAll('details').forEach(detailElement => {
+                detailElement.addEventListener('toggle', function(event) {
+                    if (this.open) {
+                        const selectInDetails = this.querySelector('.saved-stream-select');
+                        if (selectInDetails && !selectInDetails.classList.contains('searchable-select-initialized')) {
+                            makeSelectSearchable(selectInDetails);
+                            selectInDetails.classList.add('searchable-select-initialized');
+                        }
+                    }
+                });
+            });
+
+            // Initialize any .saved-stream-select that might already be open on page load
+            document.querySelectorAll('.saved-stream-select').forEach(selectElement => {
+                const parentDetails = selectElement.closest('details');
+                if (parentDetails && parentDetails.open && !selectElement.classList.contains('searchable-select-initialized')) {
+                    makeSelectSearchable(selectElement);
+                    selectElement.classList.add('searchable-select-initialized');
+                } else if (!parentDetails && !selectElement.classList.contains('searchable-select-initialized')) {
+                    makeSelectSearchable(selectElement);
+                    selectElement.classList.add('searchable-select-initialized');
+                }
+            });
+        });
     </script>
+    <script src="js/searchable_select.js"></script>
 </body>
 </html>
