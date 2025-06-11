@@ -64,16 +64,38 @@ $site_display_format_from_db = 'text'; // Default 'text' or 'logo'
 if (isset($pdo)) {
     try {
         $stmt_settings = $pdo->query("SELECT setting_key, setting_value FROM site_settings
-                                      WHERE setting_key IN ('site_name', 'site_logo_filename', 'site_display_format')");
+                                      WHERE setting_key IN (
+                                          'site_name', 'site_logo_filename', 'site_display_format',
+                                          'seo_homepage_title', 'seo_homepage_description', 'seo_homepage_keywords'
+                                      )");
         $site_settings = $stmt_settings->fetchAll(PDO::FETCH_KEY_PAIR);
 
         $site_name_from_db = $site_settings['site_name'] ?? 'FutOnline';
         $site_logo_filename_from_db = $site_settings['site_logo_filename'] ?? null;
         $site_display_format_from_db = $site_settings['site_display_format'] ?? 'text';
+        $seo_homepage_title_from_db = $site_settings['seo_homepage_title'] ?? null;
+        $seo_homepage_description_from_db = $site_settings['seo_homepage_description'] ?? '';
+        $seo_homepage_keywords_from_db = $site_settings['seo_homepage_keywords'] ?? '';
+
     } catch (PDOException $e) {
-        error_log("Error fetching site identity settings: " . $e->getMessage());
+        error_log("Error fetching site identity and SEO settings: " . $e->getMessage());
         // Defaults will be used
+        // Ensure these are initialized even on error to prevent undefined variable issues later
+        $site_name_from_db = $site_name_from_db ?? 'FutOnline'; // Keep existing if somehow set before error
+        $site_logo_filename_from_db = $site_logo_filename_from_db ?? null;
+        $site_display_format_from_db = $site_display_format_from_db ?? 'text';
+        $seo_homepage_title_from_db = null;
+        $seo_homepage_description_from_db = '';
+        $seo_homepage_keywords_from_db = '';
     }
+} else {
+    // Case where $pdo is not set, ensure defaults for all needed variables
+    $site_name_from_db = 'FutOnline';
+    $site_logo_filename_from_db = null;
+    $site_display_format_from_db = 'text';
+    $seo_homepage_title_from_db = null;
+    $seo_homepage_description_from_db = '';
+    $seo_homepage_keywords_from_db = '';
 }
 // --- END Site Identity Settings ---
 
@@ -82,12 +104,50 @@ if (!isset($header_leagues)) {
     $header_leagues = []; // Default if not provided by including page
 }
 $direct_nav_leagues = array_slice($header_leagues, 0, 3);
+
+// Determine if current page is Homepage
+$is_homepage = (basename($_SERVER['PHP_SELF']) == 'index.php' &&
+                empty($_GET['league_id']) &&
+                empty($_GET['match_id']) && // Assuming match_id could be a param on index.php for some views
+                empty($_GET['channel_id']) && // Assuming channel_id might also be used
+                empty($_GET['query'])); // Check for search query
+
+// Initialize variables for title, meta description, and keywords
+// $page_title is usually set by the including page (e.g., index.php, match.php)
+$page_title_output = $page_title ?? $site_name_from_db; // Fallback to site name if $page_title not set
+$meta_description_output = '';
+$meta_keywords_output = '';
+
+if ($is_homepage) {
+    $page_title_output = !empty($seo_homepage_title_from_db) ? $seo_homepage_title_from_db : $site_name_from_db;
+    if (!empty($seo_homepage_description_from_db)) {
+        $meta_description_output = $seo_homepage_description_from_db;
+    }
+    if (!empty($seo_homepage_keywords_from_db)) {
+        $meta_keywords_output = $seo_homepage_keywords_from_db;
+    }
+} else {
+    // For other pages, use $page_title if set by the page, otherwise fallback to site name (already handled by $page_title_output initialization)
+    // Allow other pages to define their own meta description and keywords
+    if (isset($page_meta_description) && !empty($page_meta_description)) {
+        $meta_description_output = $page_meta_description;
+    }
+    if (isset($page_meta_keywords) && !empty($page_meta_keywords)) {
+        $meta_keywords_output = $page_meta_keywords;
+    }
+}
 ?>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo htmlspecialchars($page_title_output); ?></title>
+    <?php if (!empty($meta_description_output)): ?>
+    <meta name="description" content="<?php echo htmlspecialchars($meta_description_output); ?>">
+    <?php endif; ?>
+    <?php if (!empty($meta_keywords_output)): ?>
+    <meta name="keywords" content="<?php echo htmlspecialchars($meta_keywords_output); ?>">
+    <?php endif; ?>
     <link rel="stylesheet" href="css/style.css">
-    <?php /* Dynamic title is set in each page like index.php, match.php etc. before including this header */ ?>
 </head>
 <body>
     <header class="site-header">
