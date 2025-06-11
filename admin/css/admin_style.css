@@ -567,3 +567,62 @@ legend + div,
 legend + .form-row {
     margin-top: 10px; /* Space below legend */
 }
+
+/* Styles for Custom Searchable Select */
+.searchable-select-wrapper {
+    position: relative; /* For positioning the options container */
+    width: 100%; /* Or match the width of other form inputs */
+}
+
+.searchable-select-input {
+    width: 100%; /* Take full width of the wrapper */
+    padding: 10px; /* Match other input padding */
+    border: 1px solid #ccc; /* Match other input border */
+    border-radius: 4px; /* Match other input border-radius */
+    box-sizing: border-box; /* Consistent box model */
+    font-size: 1em; /* Match other input font-size */
+}
+
+.searchable-select-input:focus {
+    border-color: #007bff; /* Highlight focus, match other inputs */
+    outline: none;
+}
+
+.searchable-select-options {
+    display: none; /* Initially hidden, shown by JS */
+    position: absolute;
+    top: 100%; /* Position below the input field */
+    left: 0;
+    right: 0;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-top: none; /* Avoid double border with input */
+    border-radius: 0 0 4px 4px;
+    max-height: 200px; /* Limit height and allow scrolling */
+    overflow-y: auto;
+    z-index: 1000; /* Ensure it's above other elements */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.searchable-select-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 0.95em;
+    color: #333;
+}
+
+.searchable-select-option:hover {
+    background-color: #f0f0f0;
+}
+
+.searchable-select-option.selected {
+    background-color: #007bff;
+    color: white;
+    font-weight: bold;
+}
+
+.searchable-select-option.disabled {
+    color: #aaa;
+    cursor: not-allowed;
+    background-color: #f9f9f9;
+}

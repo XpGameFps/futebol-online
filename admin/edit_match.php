@@ -357,7 +357,24 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     fetchOnlineUsers();
     setInterval(fetchOnlineUsers, 30000);
+
+    // Initialize Searchable Selects for Edit Match form
+    const homeTeamEditSelect = document.getElementById('home_team_id_edit');
+    if (homeTeamEditSelect) {
+        makeSelectSearchable(homeTeamEditSelect);
+    }
+
+    const awayTeamEditSelect = document.getElementById('away_team_id_edit');
+    if (awayTeamEditSelect) {
+        makeSelectSearchable(awayTeamEditSelect);
+    }
+
+    const leagueEditSelect = document.getElementById('league_id_edit');
+    if (leagueEditSelect) {
+        makeSelectSearchable(leagueEditSelect);
+    }
 });
 </script>
+<script src="js/searchable_select.js"></script>
 </body>
 </html>
