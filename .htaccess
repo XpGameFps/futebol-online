@@ -1,0 +1,19 @@
+<Files "config.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# Protect other sensitive file types
+<FilesMatch "\.(sql|md|log)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Prevent directory listing
+Options -Indexes
+
+# Protect the .htaccess file itself
+<Files ".htaccess">
+    Order Allow,Deny
+    Deny from all
+</Files>

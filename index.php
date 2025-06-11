@@ -95,22 +95,15 @@ if ($selected_league_name) { // If a league is selected, update title and metas
     $meta_keywords_content = "futebol, jogos de hoje, ao vivo, online, resultados, transmissões";
 }
 
+// Prepare variables for header.php
+$page_title = $current_page_title;
+$page_meta_description = $meta_description_content;
+$page_meta_keywords = $meta_keywords_content;
+// $header_leagues is already fetched and available to header.php
 ?>
 <!DOCTYPE html>
 <html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <title><?php echo $current_page_title; ?></title>
-    <?php if (!empty($meta_description_content)): ?>
-        <meta name="description" content="<?php echo $meta_description_content; ?>">
-    <?php endif; ?>
-    <?php if (!empty($meta_keywords_content)): ?>
-        <meta name="keywords" content="<?php echo $meta_keywords_content; ?>">
-    <?php endif; ?>
-    <link rel="stylesheet" href="css/style.css">
-</head>
-<body>
-    <?php require_once 'templates/header.php'; // $header_leagues is available ?>
+<?php require_once 'templates/header.php'; ?>
     <main class="main-content">
         <?php if (!empty($tv_channels)): ?>
         <section class="tv-channels-slider">
