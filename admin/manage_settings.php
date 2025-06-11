@@ -15,6 +15,10 @@ $site_name_key = 'site_name';
 $site_logo_key = 'site_logo_filename';
 $site_display_format_key = 'site_display_format';
 
+$seo_homepage_title_key = 'seo_homepage_title';
+$seo_homepage_description_key = 'seo_homepage_description';
+$seo_homepage_keywords_key = 'seo_homepage_keywords';
+
 $page_title = "Configurações do Site";
 $message = '';
 $cookie_banner_text_key = 'cookie_banner_text';
@@ -24,6 +28,9 @@ $current_cookie_banner_text = '';
 $current_site_name = '';
 $current_site_logo_filename = null;
 $current_site_display_format = 'text'; // Default
+$current_seo_homepage_title = '';
+$current_seo_homepage_description = '';
+$current_seo_homepage_keywords = '';
 
 // Handle form submission to update settings
 if ($_SERVER["REQUEST_METHOD"] == "POST") { // Line 29
@@ -157,6 +164,32 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") { // Line 29
                     }
                 }
             }
+        } elseif (isset($_POST['save_seo_settings'])) {
+            $new_seo_title = trim($_POST['seo_homepage_title'] ?? '');
+            $new_seo_description = trim($_POST['seo_homepage_description'] ?? '');
+            $new_seo_keywords = trim($_POST['seo_homepage_keywords'] ?? '');
+
+            $seo_settings_to_save = [
+                $seo_homepage_title_key => $new_seo_title,
+                $seo_homepage_description_key => $new_seo_description,
+                $seo_homepage_keywords_key => $new_seo_keywords,
+            ];
+
+            try {
+                $sql_insert_seo_settings = "INSERT INTO site_settings (setting_key, setting_value) VALUES (:key, :value)
+                                            ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)";
+                $stmt_insert_seo_settings = $pdo->prepare($sql_insert_seo_settings);
+
+                foreach ($seo_settings_to_save as $key => $value) {
+                    $stmt_insert_seo_settings->bindParam(':key', $key, PDO::PARAM_STR);
+                    $stmt_insert_seo_settings->bindParam(':value', $value, PDO::PARAM_STR);
+                    $stmt_insert_seo_settings->execute();
+                }
+                $message = '<p style="color:green;">Configurações de SEO da Homepage atualizadas com sucesso!</p>';
+            } catch (PDOException $e) {
+                error_log("PDOException in " . __FILE__ . " (save_seo_settings): " . $e->getMessage());
+                $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao salvar as configurações de SEO da Homepage. Por favor, tente novamente.</p>';
+            }
         }
         // If an action was processed, a message is set. If it's an error message, regenerate token.
         if (!empty($message) && strpos($message, 'sucesso') === false) { // If message is an error
@@ -176,6 +209,10 @@ try {
     $current_site_logo_filename = $all_settings[$site_logo_key] ?? null;
     $current_site_display_format = $all_settings[$site_display_format_key] ?? 'text';
 
+    $current_seo_homepage_title = $all_settings[$seo_homepage_title_key] ?? 'Título Padrão da Homepage';
+    $current_seo_homepage_description = $all_settings[$seo_homepage_description_key] ?? 'Descrição padrão para a homepage.';
+    $current_seo_homepage_keywords = $all_settings[$seo_homepage_keywords_key] ?? 'palavra1, palavra2, palavra3';
+
 } catch (PDOException $e) {
     error_log("PDOException in " . __FILE__ . " (fetching all settings): " . $e->getMessage());
     $message .= '<p style="color:red;">Ocorreu um erro no banco de dados ao carregar as configurações do site. Por favor, tente novamente.</p>';
@@ -184,6 +221,9 @@ try {
     $current_site_name = $current_site_name ?: 'FutOnline';
     $current_site_logo_filename = $current_site_logo_filename ?: null;
     $current_site_display_format = $current_site_display_format ?: 'text';
+    $current_seo_homepage_title = $current_seo_homepage_title ?: 'Título Padrão da Homepage';
+    $current_seo_homepage_description = $current_seo_homepage_description ?: 'Descrição padrão para a homepage.';
+    $current_seo_homepage_keywords = $current_seo_homepage_keywords ?: 'palavra1, palavra2, palavra3';
 }
 
 ?>
@@ -253,6 +293,33 @@ try {
                 </div>
                 <div>
                     <button type="submit" name="save_site_identity">Salvar Identidade do Site</button>
+                </div>
+            </form>
+        </section>
+
+        <hr style="margin-top: 30px; margin-bottom: 30px;">
+
+        <section id="homepage-seo-settings">
+            <h2>SEO da Homepage</h2>
+            <form action="manage_settings.php" method="POST">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
+                <div>
+                    <label for="seo_homepage_title">Título SEO:</label>
+                    <input type="text" id="seo_homepage_title" name="seo_homepage_title" value="<?php echo htmlspecialchars($current_seo_homepage_title); ?>" maxlength="120">
+                    <p style="font-size:0.8em; color:#555;">O título que aparecerá nos resultados de busca e na aba do navegador (recomendado: 50-60 caracteres).</p>
+                </div>
+                <div>
+                    <label for="seo_homepage_description">Meta Descrição:</label>
+                    <textarea id="seo_homepage_description" name="seo_homepage_description" rows="3" maxlength="255"><?php echo htmlspecialchars($current_seo_homepage_description); ?></textarea>
+                    <p style="font-size:0.8em; color:#555;">Uma breve descrição da sua homepage (recomendado: 150-160 caracteres).</p>
+                </div>
+                <div>
+                    <label for="seo_homepage_keywords">Meta Palavras-chave (separadas por vírgula):</label>
+                    <input type="text" id="seo_homepage_keywords" name="seo_homepage_keywords" value="<?php echo htmlspecialchars($current_seo_homepage_keywords); ?>" maxlength="255">
+                    <p style="font-size:0.8em; color:#555;">Palavras-chave relevantes para a sua homepage.</p>
+                </div>
+                <div>
+                    <button type="submit" name="save_seo_settings">Salvar Configurações de SEO</button>
                 </div>
             </form>
         </section>
