@@ -74,9 +74,40 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_team'])) {
         // Repopulate form vars with POSTed data for sticky form
         $team_name = $new_team_name;
         $primary_color_hex = $new_primary_color_hex;
-        // $current_logo_filename is handled by upload logic below
+        // $current_logo_filename will be correctly set below
 
-        $new_logo_filename_to_save = $current_logo_filename; // Initialize with current, might change if new file uploaded
+        // Fetch the true current logo filename from DB for this team_id
+        // This is crucial to ensure we don't lose the logo if no new one is uploaded.
+        $db_current_logo_filename = null; // Initialize
+        if ($team_id) { // Ensure team_id is valid
+            try {
+                $stmt_get_logo = $pdo->prepare("SELECT logo_filename FROM teams WHERE id = :id");
+                $stmt_get_logo->bindParam(':id', $team_id, PDO::PARAM_INT);
+                $stmt_get_logo->execute();
+                $result_logo = $stmt_get_logo->fetch(PDO::FETCH_ASSOC);
+                if ($result_logo) {
+                    $db_current_logo_filename = $result_logo['logo_filename'];
+                } else {
+                    // This case should ideally not happen if team_id was validated earlier,
+                    // but as a safeguard:
+                    if (empty($message)) $message = '<p style="color:red;">Erro: Time não encontrado ao tentar verificar logo atual.</p>';
+                    // This error would halt further processing if $message is checked before DB update
+                }
+            } catch (PDOException $e) {
+                error_log("PDOException in " . __FILE__ . " (fetching current logo for team ID: " . $team_id . "): " . $e->getMessage());
+                if (empty($message)) $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao verificar o logo atual. Por favor, tente novamente.</p>';
+                // This error would also halt further processing
+            }
+        } else {
+            // This should also not happen due to earlier team_id checks
+            if (empty($message)) $message = '<p style="color:red;">ID do time inválido ao tentar verificar logo atual.</p>';
+        }
+
+        // Now, use this authoritative value from the DB.
+        // And ensure $current_logo_filename (used later for deleting old logo) is also this value.
+        $current_logo_filename = $db_current_logo_filename;
+        $new_logo_filename_to_save = $db_current_logo_filename; // Initialize with DB current, might change if new file uploaded
+
         $file_was_moved_in_this_request = false; // Flag to track if a new file was moved
         $upload_error_message = '';
 
