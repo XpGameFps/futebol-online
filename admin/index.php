@@ -166,41 +166,80 @@ if (isset($pdo)) {
         <?php if (!empty($add_match_form_error)) echo $add_match_form_error; ?>
         <form action="add_match.php" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
-            <div>
-                <label for="home_team_id">Time da Casa:</label>
-                <select id="home_team_id" name="home_team_id" required>
-                    <option value="">-- Selecionar Time da Casa --</option>
+
+            <fieldset>
+                <legend>Informações da Partida</legend>
+                <div class="form-row">
+                    <div class="form-group-inline">
+                        <label for="home_team_id">Time da Casa:</label>
+                        <select id="home_team_id" name="home_team_id" required>
+                            <option value="">-- Selecionar Time da Casa --</option>
                     <?php foreach ($teams_for_dropdown as $team_opt): ?>
                         <option value="<?php echo htmlspecialchars($team_opt['id']); ?>" <?php echo (isset($form_data_add_match['home_team_id']) && $form_data_add_match['home_team_id'] == $team_opt['id']) ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars($team_opt['name']); ?>
                         </option>
                     <?php endforeach; ?>
-                </select>
-            </div>
-            <div>
-                <label for="away_team_id">Time Visitante:</label>
-                <select id="away_team_id" name="away_team_id" required>
-                    <option value="">-- Selecionar Time Visitante --</option>
+                        </select>
+                    </div>
+                    <div class="form-group-inline">
+                        <label for="away_team_id">Time Visitante:</label>
+                        <select id="away_team_id" name="away_team_id" required>
+                            <option value="">-- Selecionar Time Visitante --</option>
                     <?php foreach ($teams_for_dropdown as $team_opt): ?>
                         <option value="<?php echo htmlspecialchars($team_opt['id']); ?>" <?php echo (isset($form_data_add_match['away_team_id']) && $form_data_add_match['away_team_id'] == $team_opt['id']) ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars($team_opt['name']); ?>
                         </option>
                     <?php endforeach; ?>
-                </select>
-            </div>
-            <div><label for="match_time">Data e Hora da Partida:</label><input type="datetime-local" id="match_time" name="match_time" value="<?php echo htmlspecialchars($form_data_add_match['match_time'] ?? ''); ?>" required></div>
-            <div><label for="league_id">Liga (Opcional):</label><select id="league_id" name="league_id"><option value="">-- Selecionar Liga --</option><?php foreach ($leagues_for_dropdown as $league_opt) { $selected_league = (isset($form_data_add_match['league_id']) && $form_data_add_match['league_id'] == $league_opt['id']) ? 'selected' : ''; echo '<option value="'.htmlspecialchars($league_opt['id']).'" '.$selected_league.'>'.htmlspecialchars($league_opt['name']).'</option>'; } ?></select></div>
-            <div>
-                <label for="cover_image_file">Imagem de Capa (opcional, PNG, JPG, GIF, max 2MB):</label>
-                <input type="file" id="cover_image_file" name="cover_image_file" accept="image/png, image/jpeg, image/gif">
-                <?php if (!empty($form_data_add_match['cover_image_filename_tmp'])): ?>
-                    <p style="font-size:0.8em; color:blue;">Arquivo previamente selecionado: <?php echo htmlspecialchars($form_data_add_match['cover_image_filename_tmp']); ?> (selecione novamente se desejar manter ou alterar)</p>
-                <?php endif; ?>
-            </div>
-            <div><label for="description">Descrição (opcional):</label><textarea id="description" name="description" rows="3"><?php echo htmlspecialchars($form_data_add_match['description'] ?? ''); ?></textarea></div>
-            <div><label for="meta_description">Meta Descrição SEO (opcional, máx ~160 caracteres):</label><textarea id="meta_description" name="meta_description" rows="3"><?php echo htmlspecialchars($form_data_add_match['meta_description'] ?? ''); ?></textarea></div>
-            <div><label for="meta_keywords">Meta Keywords SEO (opcional, separadas por vírgula):</label><input type="text" id="meta_keywords" name="meta_keywords" value="<?php echo htmlspecialchars($form_data_add_match['meta_keywords'] ?? ''); ?>" placeholder="ex: futebol, ao vivo, time A vs time B"></div>
-            <div><button type="submit">Adicionar Jogo</button></div>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group-inline">
+                        <label for="match_time">Data e Hora da Partida:</label>
+                        <input type="datetime-local" id="match_time" name="match_time" value="<?php echo htmlspecialchars($form_data_add_match['match_time'] ?? ''); ?>" required>
+                    </div>
+                    <div class="form-group-inline">
+                        <label for="league_id">Liga (Opcional):</label>
+                        <select id="league_id" name="league_id">
+                            <option value="">-- Selecionar Liga --</option>
+                            <?php foreach ($leagues_for_dropdown as $league_opt) { $selected_league = (isset($form_data_add_match['league_id']) && $form_data_add_match['league_id'] == $league_opt['id']) ? 'selected' : ''; echo '<option value="'.htmlspecialchars($league_opt['id']).'" '.$selected_league.'>'.htmlspecialchars($league_opt['name']).'</option>'; } ?>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label for="description">Descrição (opcional):</label>
+                    <textarea id="description" name="description" rows="3"><?php echo htmlspecialchars($form_data_add_match['description'] ?? ''); ?></textarea>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Mídia</legend>
+                <div>
+                    <label for="cover_image_file">Imagem de Capa:</label>
+                    <input type="file" id="cover_image_file" name="cover_image_file" accept="image/png, image/jpeg, image/gif">
+                    <p class="form-text">Formatos suportados: JPG, PNG, GIF (máx. 2MB).</p>
+                    <img id="cover_image_preview" src="#" alt="Preview da Imagem" style="display: none; max-width: 200px; margin-top: 10px;">
+                    <?php if (!empty($form_data_add_match['cover_image_filename_tmp'])): ?>
+                        <p style="font-size:0.8em; color:blue;">Arquivo previamente selecionado: <?php echo htmlspecialchars($form_data_add_match['cover_image_filename_tmp']); ?> (selecione novamente se desejar manter ou alterar)</p>
+                    <?php endif; ?>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>SEO</legend>
+                <div>
+                    <label for="meta_description">Meta Descrição (máx ~160 caracteres):</label>
+                    <textarea id="meta_description" name="meta_description" rows="3"><?php echo htmlspecialchars($form_data_add_match['meta_description'] ?? ''); ?></textarea>
+                    <span id="meta_description_counter" style="display: block; font-size: 0.85em; color: #666; margin-top: 4px;">0/160</span>
+                </div>
+                <div>
+                    <label for="meta_keywords">Meta Keywords (separadas por vírgula):</label>
+                    <input type="text" id="meta_keywords" name="meta_keywords" value="<?php echo htmlspecialchars($form_data_add_match['meta_keywords'] ?? ''); ?>" placeholder="palavra1, outra palavra, termo chave">
+                </div>
+            </fieldset>
+
+            <div><button type="submit" class="btn-add-match">➕ Adicionar Jogo</button></div>
+            <div id="form_submission_loader" style="display: none; margin-top: 10px; text-align: center; font-style: italic;">Salvando...</div>
         </form>
         <?php
         if (isset($_SESSION['form_data']['add_match'])) {
@@ -353,6 +392,42 @@ if (isset($pdo)) {
     </div> <!-- end container -->
 
     <script>
+        // Script for Cover Image Preview
+        const coverImageInput = document.getElementById('cover_image_file');
+        const coverImagePreview = document.getElementById('cover_image_preview');
+
+        if (coverImageInput && coverImagePreview) {
+            coverImageInput.addEventListener('change', function(event) {
+                const file = event.target.files[0];
+                if (file && file.type.startsWith('image/')) {
+                    coverImagePreview.src = URL.createObjectURL(file);
+                    coverImagePreview.style.display = 'block';
+                } else {
+                    coverImagePreview.src = '#';
+                    coverImagePreview.style.display = 'none';
+                }
+            });
+        }
+
+        // Script for Meta Description Counter
+        const metaDescriptionTextarea = document.getElementById('meta_description');
+        const metaDescriptionCounter = document.getElementById('meta_description_counter');
+        const metaDescriptionLimit = 160; // Define limit
+
+        if (metaDescriptionTextarea && metaDescriptionCounter) {
+            metaDescriptionTextarea.addEventListener('input', function() {
+                const currentLength = this.value.length;
+                metaDescriptionCounter.textContent = currentLength + '/' + metaDescriptionLimit;
+                if (currentLength > metaDescriptionLimit) {
+                    metaDescriptionCounter.classList.add('limit-exceeded');
+                } else {
+                    metaDescriptionCounter.classList.remove('limit-exceeded');
+                }
+            });
+            // Trigger on page load in case there's pre-filled text
+            metaDescriptionTextarea.dispatchEvent(new Event('input'));
+        }
+
         const allSavedStreamsData = <?php echo $saved_streams_json ?? '[]'; ?>;
 
         document.querySelectorAll('.saved-stream-select').forEach(selectElement => {
@@ -409,6 +484,43 @@ if (isset($pdo)) {
             });
             if (checkbox.checked) { checkbox.dispatchEvent(new Event('change')); }
         });
+
+        // Script for Add Match Form Loader
+        const addMatchForm = document.querySelector('form[action="add_match.php"]');
+        const addMatchSubmitButton = addMatchForm ? addMatchForm.querySelector('button[type="submit"].btn-add-match') : null;
+        const addMatchLoaderDiv = document.getElementById('form_submission_loader');
+
+        if (addMatchForm && addMatchSubmitButton && addMatchLoaderDiv) {
+            addMatchForm.addEventListener('submit', function(event) {
+                let formIsValid = true;
+                addMatchForm.querySelectorAll('[required]').forEach(function(input) {
+                    // Check for actual value, not just whitespace
+                    if (!input.value.trim()) {
+                        formIsValid = false;
+                        // Optionally focus the first invalid field, though browser validation usually does this
+                        // input.focus();
+                    }
+                    // For file inputs, checking 'required' means a file must be selected.
+                    // However, our cover image is optional. If it were required:
+                    // if (input.type === 'file' && input.required && input.files.length === 0) {
+                    //    formIsValid = false;
+                    // }
+                });
+
+                if (formIsValid) {
+                    addMatchSubmitButton.disabled = true;
+                    addMatchLoaderDiv.style.display = 'block';
+                } else {
+                    // If form is not valid (e.g. an empty required field),
+                    // HTML5 validation should prevent submission by default.
+                    // If it didn't, or for extra safety, you could explicitly prevent submission:
+                    // event.preventDefault();
+                    // And hide loader just in case it was shown by a bypass:
+                    addMatchSubmitButton.disabled = false;
+                    addMatchLoaderDiv.style.display = 'none';
+                }
+            });
+        }
 
         // Online users counter script
         document.addEventListener('DOMContentLoaded', function() {

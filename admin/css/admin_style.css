@@ -436,3 +436,134 @@ td img.logo {
     border: 1px solid #eee; /* Optional: adds a light border like team logos */
     border-radius: 3px; /* Optional: slightly rounded corners */
 }
+
+/* Styles for "Adicionar Novo Jogo" form enhancements */
+fieldset {
+    border: 1px solid #ddd;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+}
+
+legend {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #333;
+    padding: 0 5px;
+    margin-left: 10px; /* Align with fieldset padding */
+}
+
+.form-row {
+    display: flex;
+    flex-wrap: wrap; /* Allow wrapping on smaller screens */
+    margin-left: -5px; /* Counteract padding on form-group-inline */
+    margin-right: -5px; /* Counteract padding on form-group-inline */
+    margin-bottom: 0; /* Reset bottom margin for the row itself */
+}
+
+.form-group-inline {
+    flex: 1; /* Allow groups to grow */
+    min-width: 250px; /* Minimum width before wrapping */
+    padding: 0 5px; /* Spacing between inline elements */
+    /* margin-bottom: 15px; */ /* Removed to be handled by form div or direct children */
+}
+
+/* Ensure labels and inputs within these groups take full width and have consistent bottom margin */
+.form-group-inline label,
+.form-group-inline input,
+.form-group-inline select,
+.form-group-inline textarea {
+    width: 100%;
+    box-sizing: border-box; /* Ensure padding and border are included in width */
+}
+.form-group-inline > div { /* If there's an extra div wrapper inside form-group-inline */
+    margin-bottom: 15px;
+}
+.form-group-inline > label + input, /* Direct label + input/select/textarea */
+.form-group-inline > label + select,
+.form-group-inline > label + textarea {
+    margin-bottom: 15px;
+}
+/* If no extra div and label is a sibling of input/select, this ensures margin-bottom for the field */
+.form-group-inline input,
+.form-group-inline select,
+.form-group-inline textarea {
+    margin-bottom: 15px; /* Default bottom margin for fields in a row */
+}
+/* Remove bottom margin from the form-group-inline itself if it's part of a form-row,
+   as its children (inputs/selects) will handle their own bottom margin. */
+.form-row > .form-group-inline {
+    margin-bottom: 0;
+}
+
+
+#cover_image_preview {
+    display: none; /* Initially hidden */
+    max-width: 200px;
+    max-height: 150px; /* Added max-height */
+    margin-top: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+#meta_description_counter {
+    display: block;
+    font-size: 0.85em;
+    color: #666;
+    margin-top: 3px;
+    text-align: right;
+}
+
+#meta_description_counter.limit-exceeded {
+    color: red;
+    font-weight: bold;
+}
+
+form button.btn-add-match {
+    background-color: #28a745; /* Green */
+    color: white;
+    padding: 12px 25px; /* Slightly larger padding */
+    font-size: 1.1em; /* Slightly larger font */
+}
+form button.btn-add-match:hover {
+    background-color: #218838; /* Darker green */
+}
+
+.form-text {
+    font-size: 0.85em;
+    color: #6c757d; /* Bootstrap's text-muted color */
+    margin-top: 0.25rem;
+    display: block; /* Ensure it takes its own line if needed */
+}
+
+/* Adjust default 'form div' margin if it's part of a form-row or form-group-inline */
+.form-row > div,
+.form-group-inline > div {
+    margin-bottom: 0; /* Overwrite default form div margin */
+}
+/* Add margin back to direct children that are not rows/groups or specific elements */
+form > div:not(.form-row):not(.form-group-inline) {
+    margin-bottom: 15px;
+}
+/* Ensure elements directly inside form-group-inline have their bottom margin */
+.form-group-inline > label,
+.form-group-inline > input,
+.form-group-inline > select,
+.form-group-inline > textarea,
+.form-group-inline > .form-text, /* for help texts */
+.form-group-inline > #cover_image_preview { /* for preview image */
+    margin-bottom: 10px; /* Consistent spacing for elements within an inline group */
+}
+.form-group-inline > *:last-child {
+    margin-bottom: 0; /* Remove margin from the last child in an inline group */
+}
+
+/* Ensure fieldsets and legends have breathing room from form controls */
+fieldset > div:first-child,
+fieldset > .form-row:first-child {
+    margin-top: 10px;
+}
+legend + div,
+legend + .form-row {
+    margin-top: 10px; /* Space below legend */
+}
