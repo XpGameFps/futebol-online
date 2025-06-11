@@ -425,3 +425,14 @@ details form {
     border: 1px solid #eee;
     border-radius: 3px;
 }
+
+/* Standardized logo display in tables */
+td img.logo {
+    max-height: 40px;
+    max-width: 100px;
+    width: auto;
+    height: auto;
+    vertical-align: middle;
+    border: 1px solid #eee; /* Optional: adds a light border like team logos */
+    border-radius: 3px; /* Optional: slightly rounded corners */
+}
