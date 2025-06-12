@@ -197,6 +197,79 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") { // Line 29
                 error_log("PDOException in " . __FILE__ . " (save_seo_settings): " . $e->getMessage());
                 $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao salvar as configurações de SEO da Homepage. Por favor, tente novamente.</p>';
             }
+        // === Start of Default Match Cover Logic (Moved and Refactored) ===
+        } elseif (isset($_POST['save_default_cover'])) {
+            // CSRF check already done at the top of POST handling
+            if (isset($_FILES['default_cover_image_file']) && $_FILES['default_cover_image_file']['error'] == UPLOAD_ERR_OK) {
+                $file_tmp_path = $_FILES['default_cover_image_file']['tmp_name'];
+                $file_name = $_FILES['default_cover_image_file']['name'];
+                $file_size = $_FILES['default_cover_image_file']['size'];
+                $file_type = $_FILES['default_cover_image_file']['type'];
+                $file_ext_array = explode('.', $file_name);
+                $file_extension = strtolower(end($file_ext_array));
+
+                if ($file_size > MAX_DEFAULT_COVER_SIZE) {
+                    $message = '<p style="color:red;">Arquivo de capa padrão muito grande (Max 2MB).</p>';
+                } elseif (!in_array($file_type, $allowed_default_cover_mime_types)) {
+                    $message = '<p style="color:red;">Tipo de arquivo inválido para capa padrão (JPG, PNG, GIF).</p>';
+                } else {
+                    $image_info = @getimagesize($file_tmp_path);
+                    if ($image_info === false) {
+                        $message = '<p style="color:red;">Arquivo de capa padrão inválido. Conteúdo não é uma imagem reconhecida.</p>';
+                    } else {
+                        $new_filename = 'default_match_cover.' . $file_extension; // Consistent filename
+                        $destination_path = DEFAULT_COVER_UPLOAD_DIR . $new_filename;
+
+                        if (!is_dir(DEFAULT_COVER_UPLOAD_DIR)) {
+                            if (!@mkdir(DEFAULT_COVER_UPLOAD_DIR, 0755, true)) {
+                                $message = '<p style="color:red;">Falha ao criar diretório de upload para imagens padrão.</p>';
+                                error_log("Failed to create upload directory: " . DEFAULT_COVER_UPLOAD_DIR);
+                            }
+                        }
+                        
+                        if (empty($message)) {
+                            if ($current_default_cover && $current_default_cover !== $new_filename && file_exists(DEFAULT_COVER_UPLOAD_DIR . $current_default_cover)) {
+                                @unlink(DEFAULT_COVER_UPLOAD_DIR . $current_default_cover);
+                            }
+
+                            if (move_uploaded_file($file_tmp_path, $destination_path)) {
+                                try {
+                                    $stmt_upsert = $pdo->prepare("INSERT INTO site_settings (setting_key, setting_value) VALUES (:key, :value) ON DUPLICATE KEY UPDATE setting_value = :value");
+                                    $stmt_upsert->bindParam(':key', $default_cover_setting_key, PDO::PARAM_STR);
+                                    $stmt_upsert->bindParam(':value', $new_filename, PDO::PARAM_STR);
+                                    $stmt_upsert->execute();
+                                    $current_default_cover = $new_filename; 
+                                    $message = '<p style="color:green;">Imagem de capa padrão salva com sucesso.</p>';
+                                } catch (PDOException $e) {
+                                    $message = '<p style="color:red;">Erro ao salvar configuração de capa padrão no banco: ' . $e->getMessage() . '</p>';
+                                    if (file_exists($destination_path)) @unlink($destination_path);
+                                }
+                            } else {
+                                $message = '<p style="color:red;">Falha ao mover arquivo de capa padrão para o destino.</p>';
+                            }
+                        }
+                    }
+                }
+            } elseif (isset($_FILES['default_cover_image_file']) && $_FILES['default_cover_image_file']['error'] != UPLOAD_ERR_NO_FILE) {
+                $message = '<p style="color:red;">Erro no upload da capa padrão: Código ' . $_FILES['default_cover_image_file']['error'] . '</p>';
+            } else {
+                $message = '<p style="color:orange;">Nenhum arquivo selecionado para upload da capa padrão.</p>';
+            }
+        } elseif (isset($_POST['delete_default_cover'])) {
+            // CSRF check already done at the top of POST handling
+            if ($current_default_cover && file_exists(DEFAULT_COVER_UPLOAD_DIR . $current_default_cover)) {
+                @unlink(DEFAULT_COVER_UPLOAD_DIR . $current_default_cover);
+            }
+            try {
+                $stmt_delete = $pdo->prepare("DELETE FROM site_settings WHERE setting_key = :key");
+                $stmt_delete->bindParam(':key', $default_cover_setting_key, PDO::PARAM_STR);
+                $stmt_delete->execute();
+                $current_default_cover = null; 
+                $message = '<p style="color:green;">Imagem de capa padrão removida.</p>';
+            } catch (PDOException $e) {
+                $message = '<p style="color:red;">Erro ao remover configuração de capa padrão do banco: ' . $e->getMessage() . '</p>';
+            }
+        // === END of Default Match Cover Logic ===
         }
         // If an action was processed, a message is set. If it's an error message, regenerate token.
         if (!empty($message) && strpos($message, 'sucesso') === false) { // If message is an error
@@ -207,6 +280,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") { // Line 29
 
 
 // Fetch all current settings from database
+// This needs to run AFTER any POST processing that might change $current_default_cover for display
 try {
     $stmt_get_all = $pdo->query("SELECT setting_key, setting_value FROM site_settings");
     $all_settings = $stmt_get_all->fetchAll(PDO::FETCH_KEY_PAIR);
@@ -236,102 +310,8 @@ try {
 }
 
 
-// === PHP Logic for Default Match Cover ===
-// Handle File Upload for Default Match Cover
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['save_default_cover'])) {
-    if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
-        $message = '<p style="color:red;">Falha na verificação CSRF. Tente novamente.</p>';
-        $csrf_token = generate_csrf_token(true); // Regenerate for form re-display
-    } else {
-        if (isset($_FILES['default_cover_image_file']) && $_FILES['default_cover_image_file']['error'] == UPLOAD_ERR_OK) {
-            $file_tmp_path = $_FILES['default_cover_image_file']['tmp_name'];
-            $file_name = $_FILES['default_cover_image_file']['name'];
-            $file_size = $_FILES['default_cover_image_file']['size'];
-            $file_type = $_FILES['default_cover_image_file']['type'];
-            $file_ext_array = explode('.', $file_name);
-            $file_extension = strtolower(end($file_ext_array));
-
-            if ($file_size > MAX_DEFAULT_COVER_SIZE) {
-                $message = '<p style="color:red;">Arquivo de capa padrão muito grande (Max 2MB).</p>';
-            } elseif (!in_array($file_type, $allowed_default_cover_mime_types)) {
-                $message = '<p style="color:red;">Tipo de arquivo inválido para capa padrão (JPG, PNG, GIF).</p>';
-            } else {
-                $image_info = @getimagesize($file_tmp_path);
-                if ($image_info === false) {
-                    $message = '<p style="color:red;">Arquivo de capa padrão inválido. Conteúdo não é uma imagem reconhecida.</p>';
-                } else {
-                    $new_filename = 'default_match_cover.' . $file_extension; // Consistent filename
-                    $destination_path = DEFAULT_COVER_UPLOAD_DIR . $new_filename;
-
-                    if (!is_dir(DEFAULT_COVER_UPLOAD_DIR)) {
-                        if (!@mkdir(DEFAULT_COVER_UPLOAD_DIR, 0755, true)) {
-                            $message = '<p style="color:red;">Falha ao criar diretório de upload para imagens padrão.</p>';
-                            error_log("Failed to create upload directory: " . DEFAULT_COVER_UPLOAD_DIR);
-                        }
-                    }
-
-                    if (empty($message)) {
-                        // Delete old default file if it exists and has a different extension
-                        if ($current_default_cover && $current_default_cover !== $new_filename && file_exists(DEFAULT_COVER_UPLOAD_DIR . $current_default_cover)) {
-                            @unlink(DEFAULT_COVER_UPLOAD_DIR . $current_default_cover);
-                        }
-
-                        if (move_uploaded_file($file_tmp_path, $destination_path)) {
-                            try {
-                                // Use site_settings table
-                                $stmt_upsert = $pdo->prepare("INSERT INTO site_settings (setting_key, setting_value) VALUES (:key, :value) ON DUPLICATE KEY UPDATE setting_value = :value");
-                                $stmt_upsert->bindParam(':key', $default_cover_setting_key, PDO::PARAM_STR);
-                                $stmt_upsert->bindParam(':value', $new_filename, PDO::PARAM_STR);
-                                $stmt_upsert->execute();
-                                $current_default_cover = $new_filename;
-                                $message = '<p style="color:green;">Imagem de capa padrão salva com sucesso.</p>';
-                            } catch (PDOException $e) {
-                                $message = '<p style="color:red;">Erro ao salvar configuração de capa padrão no banco: ' . $e->getMessage() . '</p>';
-                                if (file_exists($destination_path)) @unlink($destination_path);
-                            }
-                        } else {
-                            $message = '<p style="color:red;">Falha ao mover arquivo de capa padrão para o destino.</p>';
-                        }
-                    }
-                }
-            }
-        } elseif (isset($_FILES['default_cover_image_file']) && $_FILES['default_cover_image_file']['error'] != UPLOAD_ERR_NO_FILE) {
-            $message = '<p style="color:red;">Erro no upload da capa padrão: Código ' . $_FILES['default_cover_image_file']['error'] . '</p>';
-        } else {
-            $message = '<p style="color:orange;">Nenhum arquivo selecionado para upload da capa padrão.</p>';
-        }
-        if (!empty($message) && strpos($message, 'sucesso') === false) {
-             $csrf_token = generate_csrf_token(true);
-        }
-    }
-}
-
-// Handle Delete Default Cover
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['delete_default_cover'])) {
-    if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
-        $message = '<p style="color:red;">Falha na verificação CSRF. Tente novamente.</p>';
-        $csrf_token = generate_csrf_token(true);
-    } else {
-        if ($current_default_cover && file_exists(DEFAULT_COVER_UPLOAD_DIR . $current_default_cover)) {
-            @unlink(DEFAULT_COVER_UPLOAD_DIR . $current_default_cover);
-        }
-        try {
-            // Use site_settings table
-            $stmt_delete = $pdo->prepare("DELETE FROM site_settings WHERE setting_key = :key");
-            $stmt_delete->bindParam(':key', $default_cover_setting_key, PDO::PARAM_STR);
-            $stmt_delete->execute();
-            $current_default_cover = null;
-            $message = '<p style="color:green;">Imagem de capa padrão removida.</p>';
-        } catch (PDOException $e) {
-            $message = '<p style="color:red;">Erro ao remover configuração de capa padrão do banco: ' . $e->getMessage() . '</p>';
-        }
-        if (!empty($message) && strpos($message, 'sucesso') === false) {
-             $csrf_token = generate_csrf_token(true);
-        }
-    }
-}
-// === END PHP Logic for Default Match Cover ===
-
+// Note: The block "PHP Logic for Default Match Cover" was moved into the main POST handling block above.
+// It is no longer here.
 
 ?>
 <!DOCTYPE html>
@@ -408,7 +388,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['delete_default_cover']
 
         <section id="default-match-cover-settings">
             <h2>Imagem de Capa Padrão para Jogos</h2>
-
+    
             <form action="manage_settings.php" method="POST" enctype="multipart/form-data" style="margin-bottom: 20px;">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
                 <div>
@@ -419,7 +399,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['delete_default_cover']
                     <button type="submit" name="save_default_cover">Salvar Nova Imagem Padrão</button>
                 </div>
             </form>
-
+    
             <?php if ($current_default_cover && file_exists(DEFAULT_COVER_UPLOAD_DIR . $current_default_cover)): ?>
                 <div style="margin-bottom: 20px;">
                     <p><strong>Capa Padrão Atual:</strong></p>
@@ -439,7 +419,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['delete_default_cover']
                 <p>Nenhuma imagem de capa padrão configurada.</p>
             <?php endif; ?>
         </section>
-
+        
         <hr style="margin-top: 30px; margin-bottom: 30px;">
 
         <section id="homepage-seo-settings">
