@@ -63,7 +63,7 @@ $page_title = "Gerenciar Banners";
                                     <td><?php echo htmlspecialchars($banner['id']); ?></td>
                                     <td>
                                         <?php if (!empty($banner['image_path'])): ?>
-                                            <img src="<?php echo '../uploads/banners/' . htmlspecialchars($banner['image_path']); ?>" alt="<?php echo htmlspecialchars($banner['alt_text'] ?? 'Banner'); ?>" style="max-width: 100px; max-height: 50px;">
+                                            <img src="<?php echo '../uploads/banners/' . htmlspecialchars($banner['image_path']); ?>" alt="<?php echo htmlspecialchars($banner['alt_text'] ?? 'Banner'); ?>" class="banner-list-thumbnail">
                                         <?php else: ?>
                                             N/A
                                         <?php endif; ?>
