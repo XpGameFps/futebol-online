@@ -1,7 +1,7 @@
 <?php
 require_once '../config.php';
 require_once 'auth_check.php';
-require_once 'utils/csrf_utils.php';
+require_once 'csrf_utils.php';
 
 $page_title = "Adicionar Novo Banner";
 $errors = [];
