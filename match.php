@@ -276,6 +276,37 @@ if ($match_id > 0) {
             </div>
         </div>
     </main>
+
+    <?php
+    // Fetch Banners for Match Page
+    $match_page_banners = [];
+    if (isset($pdo)) {
+        try {
+            $stmt_mp_banners = $pdo->query("SELECT image_path, target_url, alt_text FROM banners WHERE is_active = 1 AND display_on_match_page = 1 ORDER BY RAND() LIMIT 4");
+            $match_page_banners = $stmt_mp_banners->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("PDOException fetching match page banners: " . $e->getMessage());
+            // Silently fail or log the error, don't break the page
+        }
+    }
+
+    if (!empty($match_page_banners)):
+    ?>
+    <h4 class="publicidade-label">Publicidade</h4>
+    <div class="banner-container">
+        <?php foreach ($match_page_banners as $banner): ?>
+            <div class="banner-item">
+                <a href="<?php echo htmlspecialchars($banner['target_url']); ?>" target="_blank">
+                    <img src="uploads/banners/<?php echo htmlspecialchars($banner['image_path']); ?>"
+                         alt="<?php echo htmlspecialchars($banner['alt_text'] ?? 'Banner'); ?>">
+                </a>
+            </div>
+        <?php endforeach; ?>
+    </div>
+    <?php
+    endif;
+    ?>
+
     <?php require_once 'templates/footer.php'; ?>
     <script>
         document.addEventListener('DOMContentLoaded', function() {

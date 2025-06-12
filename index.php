@@ -248,6 +248,37 @@ $page_meta_keywords = $meta_keywords_content;
             <?php endif; ?>
         </div>
     </main>
+
+    <?php
+    // Fetch Banners for Homepage
+    $home_banners = [];
+    if (isset($pdo)) {
+        try {
+            $stmt_banners = $pdo->query("SELECT image_path, target_url, alt_text FROM banners WHERE is_active = 1 AND display_on_homepage = 1 ORDER BY RAND() LIMIT 4");
+            $home_banners = $stmt_banners->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("PDOException fetching homepage banners: " . $e->getMessage());
+            // Silently fail or log the error, don't break the page
+        }
+    }
+
+    if (!empty($home_banners)):
+    ?>
+    <h4 class="publicidade-label">Publicidade</h4>
+    <div class="banner-container">
+        <?php foreach ($home_banners as $banner): ?>
+            <div class="banner-item">
+                <a href="<?php echo htmlspecialchars($banner['target_url']); ?>" target="_blank">
+                    <img src="uploads/banners/<?php echo htmlspecialchars($banner['image_path']); ?>"
+                         alt="<?php echo htmlspecialchars($banner['alt_text'] ?? 'Banner'); ?>">
+                </a>
+            </div>
+        <?php endforeach; ?>
+    </div>
+    <?php
+    endif;
+    ?>
+
     <?php require_once 'templates/footer.php'; ?>
 </body>
 </html>

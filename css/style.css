@@ -271,3 +271,61 @@ body {
     .search-area input[type="search"] { min-width: 80px; max-width: 120px; }
     .main-navigation { flex-grow: 0; }
 }
+
+/* Advertisement Label */
+.publicidade-label {
+    text-align: center;
+    font-size: 0.85em;
+    color: #888;
+    margin-top: 20px;
+    margin-bottom: 5px;
+    font-weight: normal;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Banner Styles */
+.banner-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-around; /* Distributes space around items */
+    align-items: center;
+    padding: 15px 0; /* Increased padding slightly */
+    margin-top: 25px; /* Increased margin slightly */
+    margin-bottom: 15px; /* Increased margin slightly */
+    clear: both; /* Ensure it doesn't interfere with floated elements */
+}
+
+.banner-item {
+    margin: 10px; /* Increased margin for better spacing between items */
+    text-align: center;
+    flex-basis: calc(25% - 20px); /* Aim for 4 items per row, accounting for margin */
+    min-width: 150px; /* Minimum width before wrapping */
+    box-sizing: border-box; /* Include padding and border in the element's total width and height */
+}
+
+.banner-item a {
+    display: block; /* Make the link a block to contain the image properly */
+}
+
+.banner-item img {
+    max-width: 100%;
+    height: auto;
+    max-height: 120px; /* As previously defined, can be adjusted */
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    vertical-align: middle; /* Better alignment if text were next to it */
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+    .banner-item {
+        flex-basis: calc(50% - 20px); /* 2 items per row on medium screens */
+    }
+}
+
+@media (max-width: 480px) {
+    .banner-item {
+        flex-basis: calc(100% - 20px); /* 1 item per row on small screens */
+    }
+}

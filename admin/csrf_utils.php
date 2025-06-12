@@ -24,6 +24,11 @@ function generate_csrf_token(bool $force_regenerate = false): string {
     return $token;
 }
 
+function generate_csrf_input(): string {
+    $token = generate_csrf_token(); // Use the existing function to get a token
+    return '<input type="hidden" name="csrf_token" value="' . htmlspecialchars($token) . '">';
+}
+
 function validate_csrf_token(?string $token_from_form): bool {
     if (empty($token_from_form) || !isset($_SESSION['csrf_tokens'])) {
         return false;

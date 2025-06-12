@@ -437,6 +437,16 @@ td img.logo {
     border-radius: 3px; /* Optional: slightly rounded corners */
 }
 
+.banner-list-thumbnail {
+    width: 120px;
+    height: 60px;
+    object-fit: contain;
+    border: 1px solid #ddd; /* Light border around the image/object-fit area */
+    background-color: #f8f9fa; /* Light background for letterboxing, matches table header */
+    vertical-align: middle; /* Ensures proper alignment within table cell */
+    display: inline-block; /* Or block, depending on desired layout in cell */
+}
+
 /* Styles for "Adicionar Novo Jogo" form enhancements */
 fieldset {
     border: 1px solid #ddd;
