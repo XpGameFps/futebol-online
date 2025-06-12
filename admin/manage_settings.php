@@ -226,7 +226,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") { // Line 29
                                 error_log("Failed to create upload directory: " . DEFAULT_COVER_UPLOAD_DIR);
                             }
                         }
-                        
+
                         if (empty($message)) {
                             if ($current_default_cover && $current_default_cover !== $new_filename && file_exists(DEFAULT_COVER_UPLOAD_DIR . $current_default_cover)) {
                                 @unlink(DEFAULT_COVER_UPLOAD_DIR . $current_default_cover);
@@ -238,7 +238,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") { // Line 29
                                     $stmt_upsert->bindParam(':key', $default_cover_setting_key, PDO::PARAM_STR);
                                     $stmt_upsert->bindParam(':value', $new_filename, PDO::PARAM_STR);
                                     $stmt_upsert->execute();
-                                    $current_default_cover = $new_filename; 
+                                    $current_default_cover = $new_filename;
                                     $message = '<p style="color:green;">Imagem de capa padrão salva com sucesso.</p>';
                                 } catch (PDOException $e) {
                                     $message = '<p style="color:red;">Erro ao salvar configuração de capa padrão no banco: ' . $e->getMessage() . '</p>';
@@ -264,7 +264,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") { // Line 29
                 $stmt_delete = $pdo->prepare("DELETE FROM site_settings WHERE setting_key = :key");
                 $stmt_delete->bindParam(':key', $default_cover_setting_key, PDO::PARAM_STR);
                 $stmt_delete->execute();
-                $current_default_cover = null; 
+                $current_default_cover = null;
                 $message = '<p style="color:green;">Imagem de capa padrão removida.</p>';
             } catch (PDOException $e) {
                 $message = '<p style="color:red;">Erro ao remover configuração de capa padrão do banco: ' . $e->getMessage() . '</p>';
@@ -388,7 +388,7 @@ try {
 
         <section id="default-match-cover-settings">
             <h2>Imagem de Capa Padrão para Jogos</h2>
-    
+
             <form action="manage_settings.php" method="POST" enctype="multipart/form-data" style="margin-bottom: 20px;">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
                 <div>
@@ -399,7 +399,7 @@ try {
                     <button type="submit" name="save_default_cover">Salvar Nova Imagem Padrão</button>
                 </div>
             </form>
-    
+
             <?php if ($current_default_cover && file_exists(DEFAULT_COVER_UPLOAD_DIR . $current_default_cover)): ?>
                 <div style="margin-bottom: 20px;">
                     <p><strong>Capa Padrão Atual:</strong></p>
@@ -419,7 +419,7 @@ try {
                 <p>Nenhuma imagem de capa padrão configurada.</p>
             <?php endif; ?>
         </section>
-        
+
         <hr style="margin-top: 30px; margin-bottom: 30px;">
 
         <section id="homepage-seo-settings">
