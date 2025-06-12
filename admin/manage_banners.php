@@ -1,7 +1,7 @@
 <?php
 require_once '../config.php';
 require_once 'auth_check.php';
-require_once 'utils/csrf_utils.php'; // For CSRF token generation
+require_once 'csrf_utils.php'; // For CSRF token generation
 
 // Fetch banners from the database
 $stmt = $pdo->query("SELECT * FROM banners ORDER BY created_at DESC");
