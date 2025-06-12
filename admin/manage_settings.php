@@ -217,8 +217,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") { // Line 29
                     if ($image_info === false) {
                         $message = '<p style="color:red;">Arquivo de capa padrão inválido. Conteúdo não é uma imagem reconhecida.</p>';
                     } else {
-                        $new_filename = 'default_match_cover.' . $file_extension; // Consistent filename
-                        $destination_path = DEFAULT_COVER_UPLOAD_DIR . $new_filename;
+                        // Standardized filename construction
+                        $standardized_filename = 'default_match_cover.' . $file_extension;
+                        $destination_path = DEFAULT_COVER_UPLOAD_DIR . $standardized_filename;
 
                         if (!is_dir(DEFAULT_COVER_UPLOAD_DIR)) {
                             if (!@mkdir(DEFAULT_COVER_UPLOAD_DIR, 0755, true)) {
@@ -228,17 +229,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") { // Line 29
                         }
 
                         if (empty($message)) {
-                            if ($current_default_cover && $current_default_cover !== $new_filename && file_exists(DEFAULT_COVER_UPLOAD_DIR . $current_default_cover)) {
+                            // Unlink old file if it exists and is different from the new standardized name
+                            if ($current_default_cover && $current_default_cover !== $standardized_filename && file_exists(DEFAULT_COVER_UPLOAD_DIR . $current_default_cover)) {
                                 @unlink(DEFAULT_COVER_UPLOAD_DIR . $current_default_cover);
                             }
 
+                            // Move the new file using the destination_path (which includes standardized_filename)
                             if (move_uploaded_file($file_tmp_path, $destination_path)) {
                                 try {
                                     $stmt_upsert = $pdo->prepare("INSERT INTO site_settings (setting_key, setting_value) VALUES (:key, :value) ON DUPLICATE KEY UPDATE setting_value = :value");
                                     $stmt_upsert->bindParam(':key', $default_cover_setting_key, PDO::PARAM_STR);
-                                    $stmt_upsert->bindParam(':value', $new_filename, PDO::PARAM_STR);
+                                    // Bind the standardized_filename for database saving
+                                    $stmt_upsert->bindParam(':value', $standardized_filename, PDO::PARAM_STR);
                                     $stmt_upsert->execute();
-                                    $current_default_cover = $new_filename;
+                                    $current_default_cover = $standardized_filename; // Update current_default_cover for display
                                     $message = '<p style="color:green;">Imagem de capa padrão salva com sucesso.</p>';
                                 } catch (PDOException $e) {
                                     $message = '<p style="color:red;">Erro ao salvar configuração de capa padrão no banco: ' . $e->getMessage() . '</p>';

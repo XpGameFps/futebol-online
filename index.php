@@ -21,6 +21,23 @@ try {
     $tv_channels = $stmt_channels->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) { /* Silently fail or log */ }
 
+// Fetch Site Default Cover Filename
+$site_default_cover_filename = null;
+try {
+    $stmt_default_cover = $pdo->prepare("SELECT setting_value FROM site_settings WHERE setting_key = 'default_match_cover'");
+    $stmt_default_cover->execute();
+    $result_default_cover = $stmt_default_cover->fetch(PDO::FETCH_ASSOC);
+    if ($result_default_cover && !empty($result_default_cover['setting_value'])) {
+        // Filesystem check relative to index.php
+        if (file_exists('uploads/defaults/' . $result_default_cover['setting_value'])) {
+            $site_default_cover_filename = $result_default_cover['setting_value'];
+        } else {
+            error_log("Default cover '{$result_default_cover['setting_value']}' in settings but not found at 'uploads/defaults/{$result_default_cover['setting_value']}' from root index.php");
+        }
+    }
+} catch (PDOException $e) {
+    error_log("PDOException fetching default_match_cover in root index.php: " . $e->getMessage());
+}
 
 // --- Match Fetching Logic with League Filter ---
 $matches = [];
@@ -152,12 +169,56 @@ $page_meta_keywords = $meta_keywords_content;
                                     </div>
                                 </div>
 
-                                <?php if (!empty($match['cover_image_filename'])): ?>
-                                    <img src="<?php echo FRONTEND_MATCH_COVER_BASE_PATH . htmlspecialchars($match['cover_image_filename']); ?>"
-                                         alt="Background" class="match-card-main-bg-image">
+                                <?php
+                                $current_match_cover_src = null;
+                                $current_match_alt_text = "Capa do Jogo"; // Default alt
+
+                                // Path for default covers, relative to web root
+                                $web_default_cover_path = '/uploads/defaults/';
+                                // Path for specific match covers, relative to web root
+                                $web_specific_match_cover_path = '/uploads/covers/matches/';
+                                // Filesystem path for checking default cover existence (relative to index.php)
+                                $fs_default_cover_path = 'uploads/defaults/'; // Used by $site_default_cover_filename logic already
+
+                                // Check if the site_default_cover_filename was successfully fetched and the file exists
+                                // $site_default_cover_filename is already checked for file existence when it's populated.
+                                // So, if it's not null here, the file exists.
+                                $actual_site_default_cover_filename = $site_default_cover_filename;
+
+                                if (!empty($match['cover_image_filename'])) {
+                                    // Case 1: The match's cover filename IS the site's default cover filename.
+                                    if ($actual_site_default_cover_filename && $match['cover_image_filename'] === $actual_site_default_cover_filename) {
+                                        $current_match_cover_src = $web_default_cover_path . htmlspecialchars($actual_site_default_cover_filename);
+                                        $current_match_alt_text = "Capa Padrão do Jogo";
+                                    }
+                                    // Case 2: The match has a specific cover filename (legacy).
+                                    else {
+                                        // Check if this specific file exists in the specific directory
+                                        if (file_exists('uploads/covers/matches/' . $match['cover_image_filename'])) {
+                                             $current_match_cover_src = $web_specific_match_cover_path . htmlspecialchars($match['cover_image_filename']);
+                                             $current_match_alt_text = "Capa do Jogo: " . htmlspecialchars($match['home_team_name'] . " vs " . $match['away_team_name']);
+                                        } else {
+                                            // Specific file listed in DB but not found, try to fallback to default if available
+                                            if ($actual_site_default_cover_filename) {
+                                                $current_match_cover_src = $web_default_cover_path . htmlspecialchars($actual_site_default_cover_filename);
+                                                $current_match_alt_text = "Capa Padrão do Jogo";
+                                            }
+                                            // If no default either, src remains null, placeholder will show.
+                                        }
+                                    }
+                                }
+                                // Case 3: Match has no cover_image_filename, so use site default if available.
+                                elseif ($actual_site_default_cover_filename) {
+                                    $current_match_cover_src = $web_default_cover_path . htmlspecialchars($actual_site_default_cover_filename);
+                                    $current_match_alt_text = "Capa Padrão do Jogo";
+                                }
+
+                                if ($current_match_cover_src): ?>
+                                    <img src="<?php echo $current_match_cover_src; ?>?t=<?php echo time(); // Cache buster ?>"
+                                         alt="<?php echo htmlspecialchars($current_match_alt_text); ?>" class="match-card-main-bg-image">
                                 <?php else: ?>
                                     <div class="match-card-main-bg-placeholder"></div>
-                                    <?php endif; ?>
+                                <?php endif; ?>
 
                                 <div class="match-card-overlay-content">
                                     <div class="teams-row">

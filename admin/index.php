@@ -234,19 +234,6 @@ if (isset($pdo)) {
             </fieldset>
 
             <fieldset>
-                <legend>Mídia</legend>
-                <div>
-                    <label for="cover_image_file">Imagem de Capa:</label>
-                    <input type="file" id="cover_image_file" name="cover_image_file" accept="image/png, image/jpeg, image/gif">
-                    <p class="form-text">Formatos suportados: JPG, PNG, GIF (máx. 2MB).</p>
-                    <img id="cover_image_preview" src="#" alt="Preview da Imagem" style="display: none; max-width: 200px; margin-top: 10px;">
-                    <?php if (!empty($form_data_add_match['cover_image_filename_tmp'])): ?>
-                        <p style="font-size:0.8em; color:blue;">Arquivo previamente selecionado: <?php echo htmlspecialchars($form_data_add_match['cover_image_filename_tmp']); ?> (selecione novamente se desejar manter ou alterar)</p>
-                    <?php endif; ?>
-                </div>
-            </fieldset>
-
-            <fieldset>
                 <legend>SEO</legend>
                 <div>
                     <label for="meta_description">Meta Descrição (máx ~160 caracteres):</label>
@@ -283,34 +270,50 @@ if (isset($pdo)) {
                     <h3><?php echo htmlspecialchars($match['home_team_name'] ?? 'Time da Casa N/D'); ?> vs <?php echo htmlspecialchars($match['away_team_name'] ?? 'Time Visitante N/D'); ?></h3>
                     <?php
                     $match_cover_src = null;
-                    $alt_text = "Capa do Jogo";
-                    // Path components - relative to admin/index.php
-                    $specific_cover_path_prefix = '../uploads/covers/matches/';
-                    $default_cover_path_prefix = '../uploads/defaults/';
+                    $alt_text = "Capa do Jogo"; // Default alt text
+
+                    // Filesystem path components - relative to admin/index.php (for file_exists)
+                    $fs_specific_cover_path_prefix = '../uploads/covers/matches/';
+                    $fs_default_cover_path_prefix = '../uploads/defaults/';
+
+                    // Web URL path components - relative to web root (for <img> src)
+                    $web_specific_cover_path_prefix = '/uploads/covers/matches/';
+                    $web_default_cover_path_prefix = '/uploads/defaults/';
 
                     if (!empty($match['cover_image_filename'])) {
-                        $specific_cover_file = $specific_cover_path_prefix . $match['cover_image_filename'];
-                        $default_cover_file_if_name_matches = $default_cover_path_prefix . $match['cover_image_filename'];
-
-                        if (file_exists($specific_cover_file)) {
-                            // Check if this filename is actually different from the default filename,
-                            // or if it's the default filename but stored as a specific upload (which shouldn't happen ideally).
-                            // If it's the default's filename, but exists in specific uploads, it's a specific upload.
-                            $match_cover_src = $specific_cover_file;
-                        }
-                        // This case handles if add_match.php stored the *actual default filename* into matches.cover_image_filename
-                        elseif ($match['cover_image_filename'] === $default_cover_filename_from_settings && $default_cover_filename_from_settings !== null) {
-                            if(file_exists($default_cover_file_if_name_matches)){ // Double check existence
-                                $match_cover_src = $default_cover_file_if_name_matches;
-                                $alt_text = "Capa Padrão do Jogo (referenciada diretamente)";
+                        // Case 1: The filename stored in DB IS the system's default cover filename.
+                        if ($match['cover_image_filename'] === $default_cover_filename_from_settings && $default_cover_filename_from_settings !== null) {
+                            $fs_default_file_to_check = $fs_default_cover_path_prefix . $match['cover_image_filename'];
+                            if (file_exists($fs_default_file_to_check)) {
+                                $match_cover_src = $web_default_cover_path_prefix . htmlspecialchars($match['cover_image_filename']);
+                                $alt_text = "Capa Padrão do Site"; // Or "Capa Padrão do Jogo (definida)"
+                            } else {
+                                // Default filename is set, but actual file is missing from /defaults/
+                                error_log("Default cover file '{$match['cover_image_filename']}' specified but not found at '{$fs_default_file_to_check}' for match ID {$match['id']}");
+                                // $match_cover_src remains null, will show "(Sem capa)"
                             }
                         }
-                    } elseif ($default_cover_filename_from_settings) {
-                        // Match has NULL or empty for cover_image_filename, so use system default if available
-                        // (already checked for file_exists when $default_cover_filename_from_settings was populated)
-                        $match_cover_src = $default_cover_path_prefix . htmlspecialchars($default_cover_filename_from_settings);
+                        // Case 2: The filename stored in DB is NOT the system's default (so it's an old specific cover).
+                        else {
+                            $fs_specific_file_to_check = $fs_specific_cover_path_prefix . $match['cover_image_filename'];
+                            if (file_exists($fs_specific_file_to_check)) {
+                                $match_cover_src = $web_specific_cover_path_prefix . htmlspecialchars($match['cover_image_filename']);
+                                // alt_text remains "Capa do Jogo"
+                            } else {
+                                // Specific cover filename is set, but actual file is missing from /covers/matches/
+                                error_log("Specific cover file '{$match['cover_image_filename']}' specified but not found at '{$fs_specific_file_to_check}' for match ID {$match['id']}");
+                                // $match_cover_src remains null, will show "(Sem capa)"
+                            }
+                        }
+                    }
+                    // Case 3: No cover filename stored in DB for the match, but there IS a system default cover.
+                    elseif ($default_cover_filename_from_settings) {
+                        // The existence of $default_cover_filename_from_settings implies the file itself
+                        // was checked at the top of admin/index.php.
+                        $match_cover_src = $web_default_cover_path_prefix . htmlspecialchars($default_cover_filename_from_settings);
                         $alt_text = "Capa Padrão do Site";
                     }
+                    // If $match_cover_src is still null here, it will show "(Sem capa)"
 
                     if ($match_cover_src): ?>
                         <img src="<?php echo $match_cover_src; ?>?t=<?php echo time(); // Cache buster ?>" alt="<?php echo $alt_text; ?>" class="match-cover-admin">
