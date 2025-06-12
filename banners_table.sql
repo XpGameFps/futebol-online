@@ -1,0 +1,13 @@
+CREATE TABLE `banners` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `image_path` VARCHAR(255) NOT NULL,
+  `target_url` VARCHAR(2048) NOT NULL,
+  `alt_text` VARCHAR(255) NULL,
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `display_on_homepage` TINYINT(1) NOT NULL DEFAULT 0,
+  `display_on_match_page` TINYINT(1) NOT NULL DEFAULT 0,
+  `display_on_tv_page` TINYINT(1) NOT NULL DEFAULT 0,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+);
