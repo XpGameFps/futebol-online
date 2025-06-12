@@ -195,7 +195,15 @@ if ($match_id > 0) {
             <?php elseif ($match): ?>
 
                 <?php if (!empty($match['cover_image_filename'])): ?>
-                    <img src="<?php echo FRONTEND_MATCH_COVER_BASE_PATH . htmlspecialchars($match['cover_image_filename']); ?>"
+                    <?php
+                        $cover_image_path = '';
+                        if ($match['cover_image_filename'] === 'default_match_cover.png') {
+                            $cover_image_path = 'uploads/defaults/default_match_cover.png?t=1749759013';
+                        } else {
+                            $cover_image_path = FRONTEND_MATCH_COVER_BASE_PATH . htmlspecialchars($match['cover_image_filename']);
+                        }
+                    ?>
+                    <img src="<?php echo $cover_image_path; ?>"
                          alt="Capa para <?php echo htmlspecialchars($match['home_team_name'] ?? ''); ?> vs <?php echo htmlspecialchars($match['away_team_name'] ?? ''); ?>"
                          class="match-page-cover-banner">
                 <?php endif; ?>
