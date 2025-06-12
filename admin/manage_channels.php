@@ -225,8 +225,15 @@ try {
         });
 
         // Online users counter script (copied from admin/index.php)
-        document.addEventListener('DOMContentLoaded', function() { // This might be redundant if already wrapped for other scripts
-            const onlineUsersCountElement_nav = document.getElementById('online-users-count'); // Ensure ID is unique if multiple counters on one page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize Searchable Select for Add Channel Form
+            const savedStreamChannelSelect = document.getElementById('saved_stream_id_channel_add');
+            if (savedStreamChannelSelect) {
+                makeSelectSearchable(savedStreamChannelSelect);
+            }
+
+            // Existing online users counter script
+            const onlineUsersCountElement_nav = document.getElementById('online-users-count');
             function fetchOnlineUsers_nav() {
                 if (!onlineUsersCountElement_nav) return;
                 fetch('get_online_users.php')
@@ -245,5 +252,6 @@ try {
             setInterval(fetchOnlineUsers_nav, 30000);
         });
     </script>
+    <script src="js/searchable_select.js"></script>
 </body>
 </html>
