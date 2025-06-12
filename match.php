@@ -292,6 +292,7 @@ if ($match_id > 0) {
 
     if (!empty($match_page_banners)):
     ?>
+    <h4 class="publicidade-label">Publicidade</h4>
     <div class="banner-container">
         <?php foreach ($match_page_banners as $banner): ?>
             <div class="banner-item">

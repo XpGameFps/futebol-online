@@ -162,6 +162,7 @@ if ($channel_id > 0) {
 
     if (!empty($tv_page_banners)):
     ?>
+    <h4 class="publicidade-label">Publicidade</h4>
     <div class="banner-container">
         <?php foreach ($tv_page_banners as $banner): ?>
             <div class="banner-item">

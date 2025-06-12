@@ -264,6 +264,7 @@ $page_meta_keywords = $meta_keywords_content;
 
     if (!empty($home_banners)):
     ?>
+    <h4 class="publicidade-label">Publicidade</h4>
     <div class="banner-container">
         <?php foreach ($home_banners as $banner): ?>
             <div class="banner-item">
