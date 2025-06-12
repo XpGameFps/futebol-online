@@ -19,12 +19,19 @@ $seo_homepage_title_key = 'seo_homepage_title';
 $seo_homepage_description_key = 'seo_homepage_description';
 $seo_homepage_keywords_key = 'seo_homepage_keywords';
 
+// Constants for Default Match Cover
+define('DEFAULT_COVER_UPLOAD_DIR', '../uploads/defaults/'); // Relative to admin folder
+define('MAX_DEFAULT_COVER_SIZE', 2 * 1024 * 1024); // 2MB
+$allowed_default_cover_mime_types = ['image/jpeg', 'image/png', 'image/gif'];
+$default_cover_setting_key = 'default_match_cover';
+
 $page_title = "Configurações do Site";
 $message = '';
 $cookie_banner_text_key = 'cookie_banner_text';
 
 // Initialize variables for all settings
 $current_cookie_banner_text = '';
+$current_default_cover = null; // For the new setting
 $current_site_name = '';
 $current_site_logo_filename = null;
 $current_site_display_format = 'text'; // Default
@@ -212,6 +219,7 @@ try {
     $current_seo_homepage_title = $all_settings[$seo_homepage_title_key] ?? 'Título Padrão da Homepage';
     $current_seo_homepage_description = $all_settings[$seo_homepage_description_key] ?? 'Descrição padrão para a homepage.';
     $current_seo_homepage_keywords = $all_settings[$seo_homepage_keywords_key] ?? 'palavra1, palavra2, palavra3';
+    $current_default_cover = $all_settings[$default_cover_setting_key] ?? null;
 
 } catch (PDOException $e) {
     error_log("PDOException in " . __FILE__ . " (fetching all settings): " . $e->getMessage());
@@ -224,7 +232,106 @@ try {
     $current_seo_homepage_title = $current_seo_homepage_title ?: 'Título Padrão da Homepage';
     $current_seo_homepage_description = $current_seo_homepage_description ?: 'Descrição padrão para a homepage.';
     $current_seo_homepage_keywords = $current_seo_homepage_keywords ?: 'palavra1, palavra2, palavra3';
+    $current_default_cover = $current_default_cover ?: null;
 }
+
+
+// === PHP Logic for Default Match Cover ===
+// Handle File Upload for Default Match Cover
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['save_default_cover'])) {
+    if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
+        $message = '<p style="color:red;">Falha na verificação CSRF. Tente novamente.</p>';
+        $csrf_token = generate_csrf_token(true); // Regenerate for form re-display
+    } else {
+        if (isset($_FILES['default_cover_image_file']) && $_FILES['default_cover_image_file']['error'] == UPLOAD_ERR_OK) {
+            $file_tmp_path = $_FILES['default_cover_image_file']['tmp_name'];
+            $file_name = $_FILES['default_cover_image_file']['name'];
+            $file_size = $_FILES['default_cover_image_file']['size'];
+            $file_type = $_FILES['default_cover_image_file']['type'];
+            $file_ext_array = explode('.', $file_name);
+            $file_extension = strtolower(end($file_ext_array));
+
+            if ($file_size > MAX_DEFAULT_COVER_SIZE) {
+                $message = '<p style="color:red;">Arquivo de capa padrão muito grande (Max 2MB).</p>';
+            } elseif (!in_array($file_type, $allowed_default_cover_mime_types)) {
+                $message = '<p style="color:red;">Tipo de arquivo inválido para capa padrão (JPG, PNG, GIF).</p>';
+            } else {
+                $image_info = @getimagesize($file_tmp_path);
+                if ($image_info === false) {
+                    $message = '<p style="color:red;">Arquivo de capa padrão inválido. Conteúdo não é uma imagem reconhecida.</p>';
+                } else {
+                    $new_filename = 'default_match_cover.' . $file_extension; // Consistent filename
+                    $destination_path = DEFAULT_COVER_UPLOAD_DIR . $new_filename;
+
+                    if (!is_dir(DEFAULT_COVER_UPLOAD_DIR)) {
+                        if (!@mkdir(DEFAULT_COVER_UPLOAD_DIR, 0755, true)) {
+                            $message = '<p style="color:red;">Falha ao criar diretório de upload para imagens padrão.</p>';
+                            error_log("Failed to create upload directory: " . DEFAULT_COVER_UPLOAD_DIR);
+                        }
+                    }
+
+                    if (empty($message)) {
+                        // Delete old default file if it exists and has a different extension
+                        if ($current_default_cover && $current_default_cover !== $new_filename && file_exists(DEFAULT_COVER_UPLOAD_DIR . $current_default_cover)) {
+                            @unlink(DEFAULT_COVER_UPLOAD_DIR . $current_default_cover);
+                        }
+
+                        if (move_uploaded_file($file_tmp_path, $destination_path)) {
+                            try {
+                                // Use site_settings table
+                                $stmt_upsert = $pdo->prepare("INSERT INTO site_settings (setting_key, setting_value) VALUES (:key, :value) ON DUPLICATE KEY UPDATE setting_value = :value");
+                                $stmt_upsert->bindParam(':key', $default_cover_setting_key, PDO::PARAM_STR);
+                                $stmt_upsert->bindParam(':value', $new_filename, PDO::PARAM_STR);
+                                $stmt_upsert->execute();
+                                $current_default_cover = $new_filename;
+                                $message = '<p style="color:green;">Imagem de capa padrão salva com sucesso.</p>';
+                            } catch (PDOException $e) {
+                                $message = '<p style="color:red;">Erro ao salvar configuração de capa padrão no banco: ' . $e->getMessage() . '</p>';
+                                if (file_exists($destination_path)) @unlink($destination_path);
+                            }
+                        } else {
+                            $message = '<p style="color:red;">Falha ao mover arquivo de capa padrão para o destino.</p>';
+                        }
+                    }
+                }
+            }
+        } elseif (isset($_FILES['default_cover_image_file']) && $_FILES['default_cover_image_file']['error'] != UPLOAD_ERR_NO_FILE) {
+            $message = '<p style="color:red;">Erro no upload da capa padrão: Código ' . $_FILES['default_cover_image_file']['error'] . '</p>';
+        } else {
+            $message = '<p style="color:orange;">Nenhum arquivo selecionado para upload da capa padrão.</p>';
+        }
+        if (!empty($message) && strpos($message, 'sucesso') === false) {
+             $csrf_token = generate_csrf_token(true);
+        }
+    }
+}
+
+// Handle Delete Default Cover
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['delete_default_cover'])) {
+    if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
+        $message = '<p style="color:red;">Falha na verificação CSRF. Tente novamente.</p>';
+        $csrf_token = generate_csrf_token(true);
+    } else {
+        if ($current_default_cover && file_exists(DEFAULT_COVER_UPLOAD_DIR . $current_default_cover)) {
+            @unlink(DEFAULT_COVER_UPLOAD_DIR . $current_default_cover);
+        }
+        try {
+            // Use site_settings table
+            $stmt_delete = $pdo->prepare("DELETE FROM site_settings WHERE setting_key = :key");
+            $stmt_delete->bindParam(':key', $default_cover_setting_key, PDO::PARAM_STR);
+            $stmt_delete->execute();
+            $current_default_cover = null;
+            $message = '<p style="color:green;">Imagem de capa padrão removida.</p>';
+        } catch (PDOException $e) {
+            $message = '<p style="color:red;">Erro ao remover configuração de capa padrão do banco: ' . $e->getMessage() . '</p>';
+        }
+        if (!empty($message) && strpos($message, 'sucesso') === false) {
+             $csrf_token = generate_csrf_token(true);
+        }
+    }
+}
+// === END PHP Logic for Default Match Cover ===
+
 
 ?>
 <!DOCTYPE html>
@@ -295,6 +402,42 @@ try {
                     <button type="submit" name="save_site_identity">Salvar Identidade do Site</button>
                 </div>
             </form>
+        </section>
+
+        <hr style="margin-top: 30px; margin-bottom: 30px;">
+
+        <section id="default-match-cover-settings">
+            <h2>Imagem de Capa Padrão para Jogos</h2>
+
+            <form action="manage_settings.php" method="POST" enctype="multipart/form-data" style="margin-bottom: 20px;">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
+                <div>
+                    <label for="default_cover_image_file">Nova Imagem de Capa Padrão (JPG, PNG, GIF, max 2MB):</label>
+                    <input type="file" id="default_cover_image_file" name="default_cover_image_file" accept="image/png, image/jpeg, image/gif">
+                </div>
+                <div>
+                    <button type="submit" name="save_default_cover">Salvar Nova Imagem Padrão</button>
+                </div>
+            </form>
+
+            <?php if ($current_default_cover && file_exists(DEFAULT_COVER_UPLOAD_DIR . $current_default_cover)): ?>
+                <div style="margin-bottom: 20px;">
+                    <p><strong>Capa Padrão Atual:</strong></p>
+                    <img src="<?php echo htmlspecialchars(DEFAULT_COVER_UPLOAD_DIR . $current_default_cover); ?>?t=<?php echo time(); // Cache buster ?>" alt="Capa Padrão Atual" style="max-width: 300px; max-height: 200px; border: 1px solid #ccc;">
+                    <form action="manage_settings.php" method="POST" style="margin-top: 10px;">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
+                        <button type="submit" name="delete_default_cover" onclick="return confirm('Tem certeza que deseja remover a imagem de capa padrão?');" class="delete-button">Remover Imagem Padrão</button>
+                    </form>
+                </div>
+            <?php elseif ($current_default_cover): ?>
+                <p style="color:orange;">Imagem de capa padrão configurada ("<?php echo htmlspecialchars($current_default_cover); ?>") mas arquivo não encontrado no servidor.</p>
+                 <form action="manage_settings.php" method="POST" style="margin-top: 10px;">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
+                    <button type="submit" name="delete_default_cover" class="delete-button">Limpar Configuração de Imagem Padrão</button>
+                </form>
+            <?php else: ?>
+                <p>Nenhuma imagem de capa padrão configurada.</p>
+            <?php endif; ?>
         </section>
 
         <hr style="margin-top: 30px; margin-bottom: 30px;">

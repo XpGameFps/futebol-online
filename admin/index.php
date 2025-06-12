@@ -39,6 +39,27 @@ if (isset($_GET['status'])) {
     }
 }
 
+// Fetch default cover filename from settings
+$default_cover_filename_from_settings = null;
+$default_cover_setting_key = 'default_match_cover';
+try {
+    // Assuming 'site_settings' is the table name used in manage_settings.php
+    $stmt_get_default_cover_list = $pdo->prepare("SELECT setting_value FROM site_settings WHERE setting_key = :key");
+    $stmt_get_default_cover_list->bindParam(':key', $default_cover_setting_key, PDO::PARAM_STR);
+    $stmt_get_default_cover_list->execute();
+    $default_cover_result_list = $stmt_get_default_cover_list->fetch(PDO::FETCH_ASSOC);
+    if ($default_cover_result_list && !empty($default_cover_result_list['setting_value'])) {
+        // Path relative to admin folder (location of this script)
+        if (file_exists('../uploads/defaults/' . $default_cover_result_list['setting_value'])) {
+            $default_cover_filename_from_settings = $default_cover_result_list['setting_value'];
+        } else {
+            error_log("Default cover file (from settings) not found: ../uploads/defaults/" . $default_cover_result_list['setting_value']);
+        }
+    }
+} catch (PDOException $e) {
+    error_log("Error fetching default cover in admin/index.php: " . $e->getMessage());
+}
+
 // Fetch existing leagues for the dropdown
 $leagues_for_dropdown = [];
 try {
@@ -260,8 +281,41 @@ if (isset($pdo)) {
             <?php foreach ($matches as $match): ?>
                 <div class="match-item" id="match-<?php echo $match['id']; ?>">
                     <h3><?php echo htmlspecialchars($match['home_team_name'] ?? 'Time da Casa N/D'); ?> vs <?php echo htmlspecialchars($match['away_team_name'] ?? 'Time Visitante N/D'); ?></h3>
-                    <?php if (!empty($match['cover_image_filename'])): ?>
-                        <img src="../uploads/covers/matches/<?php echo htmlspecialchars($match['cover_image_filename']); ?>" alt="Capa" class="match-cover-admin">
+                    <?php
+                    $match_cover_src = null;
+                    $alt_text = "Capa do Jogo";
+                    // Path components - relative to admin/index.php
+                    $specific_cover_path_prefix = '../uploads/covers/matches/';
+                    $default_cover_path_prefix = '../uploads/defaults/';
+
+                    if (!empty($match['cover_image_filename'])) {
+                        $specific_cover_file = $specific_cover_path_prefix . $match['cover_image_filename'];
+                        $default_cover_file_if_name_matches = $default_cover_path_prefix . $match['cover_image_filename'];
+
+                        if (file_exists($specific_cover_file)) {
+                            // Check if this filename is actually different from the default filename,
+                            // or if it's the default filename but stored as a specific upload (which shouldn't happen ideally).
+                            // If it's the default's filename, but exists in specific uploads, it's a specific upload.
+                            $match_cover_src = $specific_cover_file;
+                        }
+                        // This case handles if add_match.php stored the *actual default filename* into matches.cover_image_filename
+                        elseif ($match['cover_image_filename'] === $default_cover_filename_from_settings && $default_cover_filename_from_settings !== null) {
+                            if(file_exists($default_cover_file_if_name_matches)){ // Double check existence
+                                $match_cover_src = $default_cover_file_if_name_matches;
+                                $alt_text = "Capa Padrão do Jogo (referenciada diretamente)";
+                            }
+                        }
+                    } elseif ($default_cover_filename_from_settings) {
+                        // Match has NULL or empty for cover_image_filename, so use system default if available
+                        // (already checked for file_exists when $default_cover_filename_from_settings was populated)
+                        $match_cover_src = $default_cover_path_prefix . htmlspecialchars($default_cover_filename_from_settings);
+                        $alt_text = "Capa Padrão do Site";
+                    }
+
+                    if ($match_cover_src): ?>
+                        <img src="<?php echo $match_cover_src; ?>?t=<?php echo time(); // Cache buster ?>" alt="<?php echo $alt_text; ?>" class="match-cover-admin">
+                    <?php else: ?>
+                        <p style="font-size:0.8em; color:#555;">(Sem capa)</p>
                     <?php endif; ?>
                     <p><strong>Horário:</strong> <?php echo htmlspecialchars(date('d/m/Y H:i', strtotime($match['match_time']))); ?></p>
                     <p><strong>Liga:</strong> <?php echo htmlspecialchars($match['league_name'] ?? 'N/A'); ?></p>

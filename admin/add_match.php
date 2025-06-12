@@ -132,6 +132,35 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
     // --- End Cover Image Upload Handling ---
 
+    // New logic: If no specific cover was uploaded AND there wasn't an upload error for a specific cover
+    if ($cover_image_filename_to_save === null && empty($upload_error_message)) {
+        try {
+            $default_cover_setting_key = 'default_match_cover'; // Consistent key from manage_settings.php
+            // Assuming 'site_settings' is the table name used in manage_settings.php
+            $stmt_get_default = $pdo->prepare("SELECT setting_value FROM site_settings WHERE setting_key = :key");
+            $stmt_get_default->bindParam(':key', $default_cover_setting_key, PDO::PARAM_STR);
+            $stmt_get_default->execute();
+            $result = $stmt_get_default->fetch(PDO::FETCH_ASSOC);
+
+            if ($result && !empty($result['setting_value'])) {
+                $default_cover_filename = $result['setting_value'];
+                // Path to check if default file exists, relative to admin folder (location of this script)
+                $path_to_default_image_file = '../uploads/defaults/' . $default_cover_filename;
+
+                if (file_exists($path_to_default_image_file)) {
+                    // Store the filename of the default image.
+                    // Display logic will need to determine if it's a specific upload or a default.
+                    $cover_image_filename_to_save = $default_cover_filename;
+                } else {
+                    error_log("Default match cover '{$default_cover_filename}' not found at '{$path_to_default_image_file}'.");
+                }
+            }
+        } catch (PDOException $e) {
+            // Log error, but don't necessarily block match creation if default image fetch fails
+            error_log("Error fetching default cover for new match: " . $e->getMessage());
+        }
+    }
+
     // If all prior validations passed (including those that exit on error)
     try {
         // This SQL will be updated in the next step to remove team_home, team_away text columns

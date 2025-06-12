@@ -8,12 +8,34 @@ if (!function_exists('generate_csrf_token')) {
 }
 
 define('MATCH_COVER_UPLOAD_DIR', '../uploads/covers/matches/');
+define('DEFAULT_COVER_UPLOAD_DIR', '../uploads/defaults/'); // Added for consistency
 define('MAX_COVER_FILE_SIZE', 2 * 1024 * 1024); // 2MB
 $allowed_cover_mime_types = ['image/jpeg', 'image/png', 'image/gif'];
 
 $page_title = "Editar Jogo";
 $message = '';
 $match_id = null;
+
+// Fetch default cover filename from settings
+$default_cover_filename_from_settings = null;
+$default_cover_setting_key = 'default_match_cover';
+try {
+    // Use site_settings table as identified in manage_settings.php
+    $stmt_get_default_cover = $pdo->prepare("SELECT setting_value FROM site_settings WHERE setting_key = :key");
+    $stmt_get_default_cover->bindParam(':key', $default_cover_setting_key, PDO::PARAM_STR);
+    $stmt_get_default_cover->execute();
+    $default_cover_result = $stmt_get_default_cover->fetch(PDO::FETCH_ASSOC);
+    if ($default_cover_result && !empty($default_cover_result['setting_value'])) {
+        // Check if the default file actually exists
+        if (file_exists(DEFAULT_COVER_UPLOAD_DIR . $default_cover_result['setting_value'])) {
+            $default_cover_filename_from_settings = $default_cover_result['setting_value'];
+        } else {
+            error_log("Default cover file not found: " . DEFAULT_COVER_UPLOAD_DIR . $default_cover_result['setting_value']);
+        }
+    }
+} catch (PDOException $e) {
+    error_log("Error fetching default cover in edit_match.php: " . $e->getMessage());
+}
 
 // Form data variables
 $team_home_id_val = null; // Changed from text to ID
@@ -127,17 +149,81 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_match'])) {
     $file_was_moved_in_this_request = false; // Flag to track if a new file was moved
 
     // Re-fetch current_cover_filename if it wasn't set (e.g. direct POST or error on previous GET)
-    if ($current_cover_filename === null && $match_id) {
-        $stmt_refetch_cover_edit = $pdo->prepare("SELECT cover_image_filename FROM matches WHERE id = :id");
-        $stmt_refetch_cover_edit->bindParam(':id', $match_id, PDO::PARAM_INT);
-        $stmt_refetch_cover_edit->execute();
-        $cover_data_edit = $stmt_refetch_cover_edit->fetch(PDO::FETCH_ASSOC);
-        if ($cover_data_edit) $current_cover_filename = $cover_data_edit['cover_image_filename'];
+    // This is critical to ensure $current_cover_filename is correctly populated before POST logic.
+    if ($_SERVER["REQUEST_METHOD"] == "POST" && !$match_data_loaded && $match_id) { // If it's a POST and initial fetch didn't happen
+        $stmt_refetch_match_post = $pdo->prepare("SELECT cover_image_filename FROM matches WHERE id = :id");
+        $stmt_refetch_match_post->bindParam(':id', $match_id, PDO::PARAM_INT);
+        $stmt_refetch_match_post->execute();
+        $match_post_data = $stmt_refetch_match_post->fetch(PDO::FETCH_ASSOC);
+        if ($match_post_data) {
+            $current_cover_filename = $match_post_data['cover_image_filename']; // This is the true current one from DB for POST context
+        }
     }
+    // Initialize $new_cover_filename_to_save with the value currently in DB or just fetched.
     $new_cover_filename_to_save = $current_cover_filename;
     $upload_error_message = '';
 
-    // Validation for new team ID fields
+
+    if (isset($_POST['revert_to_default_cover'])) {
+        if ($current_cover_filename && $current_cover_filename !== $default_cover_filename_from_settings) {
+            $specific_cover_path = MATCH_COVER_UPLOAD_DIR . $current_cover_filename;
+            // Check if the current file is a specific upload (not a default filename that might be missing from its specific path)
+            // A simple check is if it's not the default filename AND it exists in the specific match upload dir.
+            // Or, more accurately, if it's not NULL and not already the default filename path.
+            // The key is that default images are NOT in MATCH_COVER_UPLOAD_DIR.
+            $is_specific_match_cover = false;
+            if ($current_cover_filename) {
+                // Check if it's a specific upload or if it's the default filename (meaning it was already using default)
+                $is_default_already = ($current_cover_filename === $default_cover_filename_from_settings);
+                if (!$is_default_already && file_exists($specific_cover_path)) {
+                    $is_specific_match_cover = true;
+                }
+            }
+
+            if ($is_specific_match_cover) {
+                 @unlink($specific_cover_path); // Delete the specific image file
+            }
+        }
+        $new_cover_filename_to_save = null; // Set to NULL to use default logic on display / or store default name
+        $message = '<p style="color:green;">Imagem da partida revertida para a capa padrão.</p>';
+        $current_cover_filename = null; // Update for immediate display change if form is re-rendered with error
+
+    } elseif (empty($_POST['revert_to_default_cover']) && isset($_FILES['cover_image_file']) && $_FILES['cover_image_file']['error'] == UPLOAD_ERR_OK) {
+        // This 'elseif' ensures that 'revert_to_default_cover' takes precedence over file upload if both somehow submitted.
+        // The original file upload logic starts here.
+        $file_tmp_path = $_FILES['cover_image_file']['tmp_name']; $file_name = $_FILES['cover_image_file']['name'];
+        $file_size = $_FILES['cover_image_file']['size']; $file_type = $_FILES['cover_image_file']['type'];
+        $file_ext_array = explode('.', $file_name); $file_extension = strtolower(end($file_ext_array));
+        if ($file_size > MAX_COVER_FILE_SIZE) { $upload_error_message = 'Arquivo de capa muito grande (max 2MB).'; }
+        elseif (!in_array($file_type, $allowed_cover_mime_types)) { $upload_error_message = 'Tipo de arquivo de capa inválido (PNG, JPG, GIF).'; }
+        else {
+            $image_info = @getimagesize($file_tmp_path);
+            if ($image_info === false) {
+                $upload_error_message = 'Arquivo de capa inválido. Conteúdo não reconhecido como imagem.';
+            } else {
+                $new_uploaded_filename = uniqid('match_cover_', true) . '.' . $file_extension;
+                $destination_path = MATCH_COVER_UPLOAD_DIR . $new_uploaded_filename;
+                if (!is_dir(MATCH_COVER_UPLOAD_DIR)) { @mkdir(MATCH_COVER_UPLOAD_DIR, 0755, true); }
+                if (move_uploaded_file($file_tmp_path, $destination_path)) {
+                    // Delete old specific cover if it existed and was not the default one being referenced
+                    if ($current_cover_filename &&
+                        $current_cover_filename !== $default_cover_filename_from_settings &&
+                        file_exists(MATCH_COVER_UPLOAD_DIR . $current_cover_filename)) {
+                       if ($current_cover_filename != $new_uploaded_filename) {
+                           @unlink(MATCH_COVER_UPLOAD_DIR . $current_cover_filename);
+                       }
+                    }
+                    $new_cover_filename_to_save = $new_uploaded_filename;
+                    $file_was_moved_in_this_request = true;
+                } else { $upload_error_message = 'Falha ao mover novo arquivo de capa.'; }
+            }
+        }
+        if (!empty($upload_error_message)) { $message = '<p style="color:red;">Erro no upload da capa: ' . $upload_error_message . '</p>'; }
+
+    } // No new file, no revert action: $new_cover_filename_to_save remains $current_cover_filename (from DB).
+      // This is implicitly handled by initializing $new_cover_filename_to_save = $current_cover_filename; earlier.
+
+    // Validation for new team ID fields (moved after cover logic to ensure message persistence)
     if (empty($new_home_team_id) || !filter_var($new_home_team_id, FILTER_VALIDATE_INT)) { $message = '<p style="color:red;">Time da casa é obrigatório.</p>'; }
     elseif (empty($new_away_team_id) || !filter_var($new_away_team_id, FILTER_VALIDATE_INT)) { $message = '<p style="color:red;">Time visitante é obrigatório.</p>'; }
     elseif ($new_home_team_id === $new_away_team_id) { $message = '<p style="color:red;">Times da casa e visitante não podem ser o mesmo.</p>'; }
@@ -316,12 +402,68 @@ if (empty($csrf_token)) { // Generate only if not already set (e.g., by CSRF err
             </div>
             <div>
                 <label for="cover_image_file">Imagem de Capa (PNG, JPG, GIF, max 2MB):</label>
-                <?php if ($current_cover_filename): ?>
-                    <p>Capa Atual: <img src="<?php echo MATCH_COVER_UPLOAD_DIR . htmlspecialchars($current_cover_filename); ?>" alt="Capa Atual" style="max-height: 80px; vertical-align: middle; margin-bottom:5px; border:1px solid #eee;"></p>
-                    <p style="font-size:0.8em; color:#555;">Envie um novo arquivo para substituir. Se nenhum for enviado, a capa atual será mantida.</p>
+                <?php
+                $display_image_src = null;
+                $is_displaying_specific_match_cover = false; // Cover specifically for this match
+                $is_displaying_site_default_cover = false;   // Site-wide default cover
+
+                // Check for specific match cover first
+                if ($current_cover_filename && file_exists(MATCH_COVER_UPLOAD_DIR . $current_cover_filename)) {
+                    // This logic assumes $current_cover_filename is NOT the name of a default file,
+                    // but a unique name from MATCH_COVER_UPLOAD_DIR.
+                    // If add_match.php saves the default filename directly, this check needs adjustment.
+                    // For now, assume $current_cover_filename is null if it's supposed to use default,
+                    // or it's the actual default filename if add_match.php was modified that way.
+
+                    // If $current_cover_filename could be the name of the default file itself:
+                    if ($current_cover_filename === $default_cover_filename_from_settings) {
+                        // It's using the default file name, path is default dir
+                        $display_image_src = DEFAULT_COVER_UPLOAD_DIR . htmlspecialchars($current_cover_filename);
+                        if (file_exists($display_image_src)) { // Verify it actually exists there
+                           $is_displaying_site_default_cover = true;
+                        } else { // Setting points to default, but default file is missing
+                            $display_image_src = null; // Don't display broken image
+                            error_log("Match " . $match_id . " references default cover '" . $current_cover_filename . "' but file not found in " . DEFAULT_COVER_UPLOAD_DIR);
+                        }
+                    } else {
+                        // It's a specific cover name
+                        $display_image_src = MATCH_COVER_UPLOAD_DIR . htmlspecialchars($current_cover_filename);
+                        $is_displaying_specific_match_cover = true;
+                    }
+                } elseif ($default_cover_filename_from_settings) {
+                    // No specific cover ($current_cover_filename is null or file not found in MATCH_COVER_UPLOAD_DIR), but a site default exists
+                    $display_image_src = DEFAULT_COVER_UPLOAD_DIR . htmlspecialchars($default_cover_filename_from_settings);
+                    $is_displaying_site_default_cover = true;
+                }
+
+                if ($display_image_src && file_exists(str_replace('?t='.time(), '', $display_image_src))): // Check without cache buster if file_exists needed here
+                // Re-ensure display_image_src is stripped of potential cache busters for file_exists
+                $actual_file_path_to_check = $display_image_src; // Assume it's clean for now
+                if (file_exists($actual_file_path_to_check)):
+                ?>
+                    <p>Capa Atual: <img src="<?php echo $actual_file_path_to_check; ?>?t=<?php echo time(); ?>" alt="Capa Atual" style="max-height: 80px; vertical-align: middle; margin-bottom:5px; border:1px solid #eee;">
+                    <?php if ($is_displaying_site_default_cover): ?>
+                        <span style="font-size:0.8em; color:#555;"> (Esta é a capa padrão do site)</span>
+                    <?php endif; ?>
+                    </p>
+                    <?php
+                    // Offer revert if a specific image is shown AND a default exists,
+                    // OR if the current image is the default one (meaning it's not null) and we want to make it NULL explicitly.
+                    // The action of revert_to_default_cover is to set cover_image_filename to NULL.
+                    // So, if current_cover_filename is not NULL, we can offer to make it NULL (to use default).
+                    if ($current_cover_filename && $default_cover_filename_from_settings):
+                    // Show revert button if there's any cover currently set and a default exists, to allow reverting to "use default system" (NULL in DB)
+                    ?>
+                        <button type="submit" name="revert_to_default_cover" class="button" style="background-color: #ffc107; color: #212529; margin-bottom:10px;" onclick="return confirm('Tem certeza que deseja remover a imagem específica e usar a capa padrão do site? A imagem atual será excluída.');">Reverter para Capa Padrão</button>
+                    <?php endif; ?>
+                    <p style="font-size:0.8em; color:#555;">Envie um novo arquivo para substituir a capa atual (específica ou padrão referenciada).</p>
                 <?php else: ?>
-                     <p style="font-size:0.8em; color:#555;">Nenhuma capa cadastrada. Envie um arquivo.</p>
-                <?php endif; ?>
+                    <p style="font-size:0.8em; color:#555;">Nenhuma capa específica ou padrão configurada/encontrada. Envie um arquivo.</p>
+                <?php endif; // file_exists($actual_file_path_to_check)
+                      else: // $display_image_src was null
+                ?>
+                     <p style="font-size:0.8em; color:#555;">Nenhuma capa específica. <?php echo $default_cover_filename_from_settings ? "Uma capa padrão do site está configurada." : "Nenhuma capa padrão do site configurada.";?> Envie um arquivo para definir uma capa específica para este jogo.</p>
+                <?php endif; // $display_image_src ?>
                 <input type="file" id="cover_image_file" name="cover_image_file" accept="image/png, image/jpeg, image/gif">
             </div>
             <div><label for="description">Descrição (opcional):</label><textarea id="description" name="description" rows="3"><?php echo htmlspecialchars($description ?? ''); ?></textarea></div>
