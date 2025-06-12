@@ -44,7 +44,7 @@ try {
 
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!verify_csrf_token()) {
+    if (!validate_csrf_token($_POST['csrf_token'] ?? null)) {
         $errors[] = "Falha na verificação CSRF. Por favor, tente novamente.";
     } else {
         $input['target_url'] = trim($_POST['target_url'] ?? $banner['target_url']);

@@ -8,7 +8,7 @@ $errors = [];
 $input = ['target_url' => '', 'alt_text' => '', 'is_active' => 1, 'display_on_homepage' => 0, 'display_on_match_page' => 0, 'display_on_tv_page' => 0];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!verify_csrf_token()) {
+    if (!validate_csrf_token($_POST['csrf_token'] ?? null)) {
         $errors[] = "Falha na verificação CSRF. Por favor, tente novamente.";
     } else {
         $input['target_url'] = trim($_POST['target_url'] ?? '');

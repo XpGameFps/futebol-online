@@ -1,10 +1,10 @@
 <?php
 require_once '../../config.php'; // Adjusted path
 require_once '../auth_check.php'; // Adjusted path
-require_once '../utils/csrf_utils.php'; // Adjusted path
+require_once '../csrf_utils.php'; // Adjusted path
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!verify_csrf_token()) {
+    if (!validate_csrf_token($_POST['csrf_token'] ?? null)) {
         $_SESSION['error_message'] = "Falha na verificação CSRF. Ação de alternância de status não permitida.";
         header("Location: ../manage_banners.php"); // Adjusted path
         exit;
