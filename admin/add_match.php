@@ -67,76 +67,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     $cover_image_filename_to_save = null;
-    $upload_error_message = '';
-    // --- Cover Image Upload Handling ---
-    if (isset($_FILES['cover_image_file']) && $_FILES['cover_image_file']['error'] == UPLOAD_ERR_OK) {
-        $file_tmp_path = $_FILES['cover_image_file']['tmp_name'];
-        $file_name = $_FILES['cover_image_file']['name'];
-        $file_size = $_FILES['cover_image_file']['size'];
-        $file_type = $_FILES['cover_image_file']['type'];
-        $file_ext_array = explode('.', $file_name);
-        $file_extension = strtolower(end($file_ext_array));
+    // --- Cover Image Upload Handling Removed ---
 
-        if ($file_size > MAX_COVER_FILE_SIZE) {
-            $upload_error_message = 'Arquivo de capa muito grande. Máximo 2MB.';
-        } elseif (!in_array($file_type, $allowed_cover_mime_types)) {
-            // Check browser-provided MIME type first
-            $upload_error_message = 'Tipo de arquivo de capa inválido (MIME). Apenas PNG, JPG, GIF.';
-        } else {
-            // Verify if it's actually an image using getimagesize
-            $image_info = @getimagesize($file_tmp_path);
-            if ($image_info === false) {
-                $upload_error_message = 'Arquivo de capa inválido. Conteúdo não reconhecido como imagem.';
-            } else {
-                // Optional: could further check $image_info[2] if specific image types (beyond MIME) are required.
-                // Example: $allowed_image_types = [IMAGETYPE_GIF, IMAGETYPE_JPEG, IMAGETYPE_PNG];
-                // if (!in_array($image_info[2], $allowed_image_types)) {
-                //    $upload_error_message = 'Formato de imagem não suportado após verificação de conteúdo.';
-                // } else {
-
-                // Proceed with generating new filename and moving the file
-                $new_file_name = uniqid('match_cover_', true) . '.' . $file_extension;
-                $destination_path = MATCH_COVER_UPLOAD_DIR . $new_file_name;
-
-                if (!is_dir(MATCH_COVER_UPLOAD_DIR)) {
-                    if (!@mkdir(MATCH_COVER_UPLOAD_DIR, 0755, true)) {
-                        $upload_error_message = 'Falha ao criar diretório de upload.';
-                        // Log this server-side error
-                        error_log("Failed to create upload directory: " . MATCH_COVER_UPLOAD_DIR);
-                    }
-                }
-
-                if (empty($upload_error_message)) { // Check if directory creation was successful
-                    if (move_uploaded_file($file_tmp_path, $destination_path)) {
-                        $cover_image_filename_to_save = $new_file_name;
-                        if (isset($_SESSION['form_data']['add_match']['cover_image_filename_tmp'])) {
-                            unset($_SESSION['form_data']['add_match']['cover_image_filename_tmp']);
-                        }
-                    } else {
-                        $upload_error_message = 'Falha ao mover arquivo de capa upado.';
-                        // Log this server-side error
-                        error_log("Failed to move uploaded file to: " . $destination_path);
-                    }
-                }
-                // } // End of optional stricter image type check
-            }
-        }
-    } elseif (isset($_FILES['cover_image_file']) && $_FILES['cover_image_file']['error'] != UPLOAD_ERR_NO_FILE && $_FILES['cover_image_file']['error'] != UPLOAD_ERR_OK) {
-        $upload_error_message = 'Erro no upload do arquivo de capa. Código: ' . $_FILES['cover_image_file']['error'];
-    }
-
-    if (!empty($upload_error_message)) {
-        $_SESSION['form_error_message']['add_match'] = $upload_error_message;
-        header("Location: index.php#add-match-form");
-        exit;
-    }
-    // --- End Cover Image Upload Handling ---
-
-    // New logic: If no specific cover was uploaded AND there wasn't an upload error for a specific cover
-    if ($cover_image_filename_to_save === null && empty($upload_error_message)) {
-        try {
-            $default_cover_setting_key = 'default_match_cover'; // Consistent key from manage_settings.php
-            // Assuming 'site_settings' is the table name used in manage_settings.php
+    // Logic to assign default cover image.
+    // This block is now always executed because cover uploads are removed.
+    // $cover_image_filename_to_save is initialized to null and may be overridden below.
+    try {
+        $default_cover_setting_key = 'default_match_cover'; // Consistent key from manage_settings.php
+        // Assuming 'site_settings' is the table name used in manage_settings.php
             $stmt_get_default = $pdo->prepare("SELECT setting_value FROM site_settings WHERE setting_key = :key");
             $stmt_get_default->bindParam(':key', $default_cover_setting_key, PDO::PARAM_STR);
             $stmt_get_default->execute();
@@ -159,7 +97,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             // Log error, but don't necessarily block match creation if default image fetch fails
             error_log("Error fetching default cover for new match: " . $e->getMessage());
         }
-    }
+    // EXTRA BRACE REMOVED FROM HERE
 
     // If all prior validations passed (including those that exit on error)
     try {
