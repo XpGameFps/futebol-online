@@ -11,6 +11,7 @@
                 <a href="manage_settings.php">Configurações</a>
             </div>
             <div class="nav-user-info">
+                <span id="server-clock" style="margin-right: 15px; color: #007bff; font-weight:bold;"></span>
                 <span id="online-users-indicator" style="margin-right: 15px; color: #007bff; font-weight:bold;">
                     Online: <span id="online-users-count">--</span>
                 </span>
@@ -18,3 +19,20 @@
                 <a href="logout.php" class="logout-link">Logout</a>
             </div>
         </nav>
+
+<script>
+function updateServerTime() {
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  const timeString = `${hours}:${minutes}:${seconds}`;
+  const clockElement = document.getElementById('server-clock');
+  if (clockElement) {
+    clockElement.textContent = timeString;
+  }
+}
+
+setInterval(updateServerTime, 1000);
+updateServerTime(); // Initial call to display time immediately
+</script>

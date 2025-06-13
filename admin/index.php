@@ -337,70 +337,56 @@ if (isset($pdo)) {
                 <button type="submit" class="delete-button" id="deleteSelectedBtn" disabled style="padding: 8px 12px;">Excluir Selecionados</button>
             </div>
             <?php foreach ($matches as $match): ?>
-                <div class="match-item" id="match-<?php echo $match['id']; ?>" style="border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 5px; background-color: #fff;">
-                    <div style="display:flex; align-items: flex-start;">
-                        <input type="checkbox" name="match_ids[]" value="<?php echo $match['id']; ?>" class="past-game-checkbox" style="margin-top: 10px; margin-right: 10px; transform: scale(1.3);">
-                        <div style="flex-grow:1;">
+                <div class="match-item" id="match-<?php echo $match['id']; ?>">
+                    <input type="checkbox" name="match_ids[]" value="<?php echo $match['id']; ?>" class="past-game-checkbox">
+                    <div class="match-content-wrapper"> <!-- Adjust width as needed -->
+                        <?php
+                        $match_cover_src = null;
+                        $alt_text = "Capa do Jogo"; // Default alt text
+                        $fs_specific_cover_path_prefix = '../uploads/covers/matches/';
+                        $fs_default_cover_path_prefix = '../uploads/defaults/';
+                        $web_specific_cover_path_prefix = '/uploads/covers/matches/';
+                        $web_default_cover_path_prefix = '/uploads/defaults/';
+
+                        if (!empty($match['cover_image_filename'])) {
+                            if ($match['cover_image_filename'] === $default_cover_filename_from_settings && $default_cover_filename_from_settings !== null) {
+                                $fs_default_file_to_check = $fs_default_cover_path_prefix . $match['cover_image_filename'];
+                                if (file_exists($fs_default_file_to_check)) {
+                                    $match_cover_src = $web_default_cover_path_prefix . htmlspecialchars($match['cover_image_filename']);
+                                    $alt_text = "Capa Padrão do Site";
+                                } else {
+                                    error_log("Default cover file '{$match['cover_image_filename']}' specified but not found at '{$fs_default_file_to_check}' for match ID {$match['id']}");
+                                }
+                            } else {
+                                $fs_specific_file_to_check = $fs_specific_cover_path_prefix . $match['cover_image_filename'];
+                                if (file_exists($fs_specific_file_to_check)) {
+                                    $match_cover_src = $web_specific_cover_path_prefix . htmlspecialchars($match['cover_image_filename']);
+                                } else {
+                                    error_log("Specific cover file '{$match['cover_image_filename']}' specified but not found at '{$fs_specific_file_to_check}' for match ID {$match['id']}");
+                                }
+                            }
+                        } elseif ($default_cover_filename_from_settings) {
+                            $match_cover_src = $web_default_cover_path_prefix . htmlspecialchars($default_cover_filename_from_settings);
+                            $alt_text = "Capa Padrão do Site";
+                        }
+
+                        if ($match_cover_src): ?>
+                            <img src="<?php echo $match_cover_src; ?>?t=<?php echo time(); // Cache buster ?>" alt="<?php echo $alt_text; ?>" class="match-cover-admin">
+                        <?php else: ?>
+                            <p style="font-size:0.8em; color:#555;">(Sem capa)</p>
+                        <?php endif; ?>
+
+                        <div class="match-info-main">
                             <h3><?php echo htmlspecialchars($match['home_team_name'] ?? 'Time da Casa N/D'); ?> vs <?php echo htmlspecialchars($match['away_team_name'] ?? 'Time Visitante N/D'); ?></h3>
-                            <?php
-                            $match_cover_src = null;
-                    $alt_text = "Capa do Jogo"; // Default alt text
+                            <p><strong>Horário:</strong> <?php echo htmlspecialchars(date('d/m/Y H:i', strtotime($match['match_time']))); ?></p>
+                            <p><strong>Liga:</strong> <?php echo htmlspecialchars($match['league_name'] ?? 'N/A'); ?></p>
+                            <?php if (!empty($match['description'])): ?>
+                                <p><strong>Descrição:</strong> <?php echo nl2br(htmlspecialchars($match['description'])); ?></p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
 
-                    // Filesystem path components - relative to admin/index.php (for file_exists)
-                    $fs_specific_cover_path_prefix = '../uploads/covers/matches/';
-                    $fs_default_cover_path_prefix = '../uploads/defaults/';
-
-                    // Web URL path components - relative to web root (for <img> src)
-                    $web_specific_cover_path_prefix = '/uploads/covers/matches/';
-                    $web_default_cover_path_prefix = '/uploads/defaults/';
-
-                    if (!empty($match['cover_image_filename'])) {
-                        // Case 1: The filename stored in DB IS the system's default cover filename.
-                        if ($match['cover_image_filename'] === $default_cover_filename_from_settings && $default_cover_filename_from_settings !== null) {
-                            $fs_default_file_to_check = $fs_default_cover_path_prefix . $match['cover_image_filename'];
-                            if (file_exists($fs_default_file_to_check)) {
-                                $match_cover_src = $web_default_cover_path_prefix . htmlspecialchars($match['cover_image_filename']);
-                                $alt_text = "Capa Padrão do Site"; // Or "Capa Padrão do Jogo (definida)"
-                            } else {
-                                // Default filename is set, but actual file is missing from /defaults/
-                                error_log("Default cover file '{$match['cover_image_filename']}' specified but not found at '{$fs_default_file_to_check}' for match ID {$match['id']}");
-                                // $match_cover_src remains null, will show "(Sem capa)"
-                            }
-                        }
-                        // Case 2: The filename stored in DB is NOT the system's default (so it's an old specific cover).
-                        else {
-                            $fs_specific_file_to_check = $fs_specific_cover_path_prefix . $match['cover_image_filename'];
-                            if (file_exists($fs_specific_file_to_check)) {
-                                $match_cover_src = $web_specific_cover_path_prefix . htmlspecialchars($match['cover_image_filename']);
-                                // alt_text remains "Capa do Jogo"
-                            } else {
-                                // Specific cover filename is set, but actual file is missing from /covers/matches/
-                                error_log("Specific cover file '{$match['cover_image_filename']}' specified but not found at '{$fs_specific_file_to_check}' for match ID {$match['id']}");
-                                // $match_cover_src remains null, will show "(Sem capa)"
-                            }
-                        }
-                    }
-                    // Case 3: No cover filename stored in DB for the match, but there IS a system default cover.
-                    elseif ($default_cover_filename_from_settings) {
-                        // The existence of $default_cover_filename_from_settings implies the file itself
-                        // was checked at the top of admin/index.php.
-                        $match_cover_src = $web_default_cover_path_prefix . htmlspecialchars($default_cover_filename_from_settings);
-                        $alt_text = "Capa Padrão do Site";
-                    }
-                    // If $match_cover_src is still null here, it will show "(Sem capa)"
-
-                    if ($match_cover_src): ?>
-                        <img src="<?php echo $match_cover_src; ?>?t=<?php echo time(); // Cache buster ?>" alt="<?php echo $alt_text; ?>" class="match-cover-admin">
-                    <?php else: ?>
-                        <p style="font-size:0.8em; color:#555;">(Sem capa)</p>
-                    <?php endif; ?>
-                    <p><strong>Horário:</strong> <?php echo htmlspecialchars(date('d/m/Y H:i', strtotime($match['match_time']))); ?></p>
-                    <p><strong>Liga:</strong> <?php echo htmlspecialchars($match['league_name'] ?? 'N/A'); ?></p>
-                    <?php if (!empty($match['description'])): ?>
-                        <p><strong>Descrição:</strong> <?php echo nl2br(htmlspecialchars($match['description'])); ?></p>
-                    <?php endif; ?>
-
-                    <div style="margin-top:10px;">
+                    <div class="match-actions-main" style="margin-top:10px;">
                         <a href="edit_match.php?id=<?php echo $match['id']; ?>" class="edit-button" style="margin-right: 5px; margin-bottom:5px; display:inline-block;">Editar Jogo</a>
                         <form action="delete_match.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este jogo? Esta ação não pode ser desfeita e removerá também a capa e todos os streams associados.');" style="display:inline-block;">
                             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
@@ -471,7 +457,7 @@ if (isset($pdo)) {
                     $open_details = !empty($add_stream_form_error);
                     ?>
                     <details style="margin-top:15px;" <?php echo $open_details ? 'open' : ''; ?>>
-                        <summary style="cursor:pointer; color:#007bff; font-weight:bold; padding:5px; background-color:#f0f0f0; border-radius:4px;">Adicionar Novo Stream</summary>
+                        <summary style="cursor:pointer; color:#007bff; font-weight:bold; padding:5px; background-color:#f0f0f0; border-radius:4px;">＋ Stream</summary>
                         <?php if (!empty($add_stream_form_error)) echo $add_stream_form_error; ?>
 
                         <form action="add_stream.php" method="POST" class="add-stream-form" style="margin-top:10px; padding:10px; border:1px solid #eee; border-radius:4px;">
@@ -515,17 +501,15 @@ if (isset($pdo)) {
                             <div><button type="submit">Salvar Stream</button></div>
                         </form>
                     </details>
-                        </div> <!-- closing inner div for flex content -->
-                    </div> <!-- closing div for flex container -->
+                    </div> <!-- This was .match-content-wrapper, but checkbox is outside now. This div might need restructuring based on final layout goals. -->
                 </div> <!-- closing match-item -->
             <?php endforeach; ?>
         </form>
         <?php else: // Handles upcoming matches or any other view_type not 'past' with matches ?>
             <?php foreach ($matches as $match): ?>
                 <div class="match-item" id="match-<?php echo $match['id']; ?>">
-                    <?php // Standard display for non-past or non-empty past matches without checkboxes ?>
-                    <h3><?php echo htmlspecialchars($match['home_team_name'] ?? 'Time da Casa N/D'); ?> vs <?php echo htmlspecialchars($match['away_team_name'] ?? 'Time Visitante N/D'); ?></h3>
-                    <?php
+                    <div class="match-content-wrapper">
+                        <?php
                         $match_cover_src = null;
                         $alt_text = "Capa do Jogo";
                         $fs_specific_cover_path_prefix = '../uploads/covers/matches/';
@@ -560,23 +544,27 @@ if (isset($pdo)) {
                         <?php else: ?>
                             <p style="font-size:0.8em; color:#555;">(Sem capa)</p>
                         <?php endif; ?>
-                        <p><strong>Horário:</strong> <?php echo htmlspecialchars(date('d/m/Y H:i', strtotime($match['match_time']))); ?></p>
-                        <p><strong>Liga:</strong> <?php echo htmlspecialchars($match['league_name'] ?? 'N/A'); ?></p>
-                        <?php if (!empty($match['description'])): ?>
-                            <p><strong>Descrição:</strong> <?php echo nl2br(htmlspecialchars($match['description'])); ?></p>
-                        <?php endif; ?>
-
-                        <div style="margin-top:10px;">
-                            <a href="edit_match.php?id=<?php echo $match['id']; ?>" class="edit-button" style="margin-right: 5px; margin-bottom:5px; display:inline-block;">Editar Jogo</a>
-                            <form action="delete_match.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este jogo? Esta ação não pode ser desfeita e removerá também a capa e todos os streams associados.');" style="display:inline-block;">
-                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
-                                <input type="hidden" name="match_id" value="<?php echo $match['id']; ?>">
-                                <button type="submit" class="delete-button">Excluir Jogo</button>
-                            </form>
+                        <div class="match-info-main">
+                            <h3><?php echo htmlspecialchars($match['home_team_name'] ?? 'Time da Casa N/D'); ?> vs <?php echo htmlspecialchars($match['away_team_name'] ?? 'Time Visitante N/D'); ?></h3>
+                            <p><strong>Horário:</strong> <?php echo htmlspecialchars(date('d/m/Y H:i', strtotime($match['match_time']))); ?></p>
+                            <p><strong>Liga:</strong> <?php echo htmlspecialchars($match['league_name'] ?? 'N/A'); ?></p>
+                            <?php if (!empty($match['description'])): ?>
+                                <p><strong>Descrição:</strong> <?php echo nl2br(htmlspecialchars($match['description'])); ?></p>
+                            <?php endif; ?>
                         </div>
+                    </div>
 
-                        <hr style="margin-top:15px; margin-bottom:10px;">
-                        <h4>Streams Cadastrados:</h4>
+                    <div class="match-actions-main" style="margin-top:10px;">
+                        <a href="edit_match.php?id=<?php echo $match['id']; ?>" class="edit-button" style="margin-right: 5px; margin-bottom:5px; display:inline-block;">Editar Jogo</a>
+                        <form action="delete_match.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este jogo? Esta ação não pode ser desfeita e removerá também a capa e todos os streams associados.');" style="display:inline-block;">
+                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
+                            <input type="hidden" name="match_id" value="<?php echo $match['id']; ?>">
+                            <button type="submit" class="delete-button">Excluir Jogo</button>
+                        </form>
+                    </div>
+
+                    <hr style="margin-top:15px; margin-bottom:10px;">
+                    <h4>Streams Cadastrados:</h4>
                         <?php
                         $match_streams = [];
                         if (isset($pdo)) {
@@ -637,7 +625,7 @@ if (isset($pdo)) {
                         $open_details = !empty($add_stream_form_error);
                         ?>
                         <details style="margin-top:15px;" <?php echo $open_details ? 'open' : ''; ?>>
-                            <summary style="cursor:pointer; color:#007bff; font-weight:bold; padding:5px; background-color:#f0f0f0; border-radius:4px;">Adicionar Novo Stream</summary>
+                            <summary style="cursor:pointer; color:#007bff; font-weight:bold; padding:5px; background-color:#f0f0f0; border-radius:4px;">＋ Stream</summary>
                             <?php if (!empty($add_stream_form_error)) echo $add_stream_form_error; ?>
 
                             <form action="add_stream.php" method="POST" class="add-stream-form" style="margin-top:10px; padding:10px; border:1px solid #eee; border-radius:4px;">
@@ -681,7 +669,7 @@ if (isset($pdo)) {
                                 <div><button type="submit">Salvar Stream</button></div>
                             </form>
                         </details>
-                    </div>
+                </div> <!-- closing match-item -->
             <?php endforeach; ?>
         <?php endif; ?>
                 </div> <!-- end viewMatchesTabContent -->

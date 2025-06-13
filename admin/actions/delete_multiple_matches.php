@@ -38,7 +38,7 @@ if (!empty($match_ids_to_process)) {
         $placeholders_select = implode(',', array_fill(0, count($match_ids_to_process), '?'));
         
         // SQL to select details of matches that are in the processing list AND are confirmed to be in the past
-        $sql_select_details = "SELECT id, cover_image_filename FROM matches WHERE id IN ({$placeholders_select}) AND match_time < NOW()";
+        $sql_select_details = "SELECT id, cover_image_filename FROM matches WHERE id IN ({$placeholders_select}) AND DATE(match_time) < CURDATE()";
         $stmt_select_details = $pdo->prepare($sql_select_details);
         $stmt_select_details->execute($match_ids_to_process);
         $details_of_intended_deletions = $stmt_select_details->fetchAll(PDO::FETCH_ASSOC);
