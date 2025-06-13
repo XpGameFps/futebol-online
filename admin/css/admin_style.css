@@ -643,3 +643,176 @@ legend + .form-row {
     cursor: not-allowed;
     background-color: #f9f9f9;
 }
+
+/* Enhanced Match Item Styling for Compact Display */
+.match-item {
+    background-color: #fff;
+    padding: 10px; /* Reduced padding */
+    margin-bottom: 10px; /* Reduced margin */
+    border: 1px solid #e0e0e0;
+    border-radius: 4px; /* Slightly less radius */
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+
+/* Checkbox specific styling for past games view */
+.match-item .past-game-checkbox {
+    margin-right: 10px;
+    transform: scale(1.2); /* Keep it slightly larger if desired */
+    vertical-align: top; /* Align with the top of the content wrapper */
+    margin-top: 5px; /* Adjust for better alignment with text */
+}
+
+.match-content-wrapper {
+    display: flex;
+    align-items: flex-start; /* Align items to the start of the cross axis */
+    gap: 10px; /* Space between cover and info */
+}
+/* Specific for past view, if checkbox is outside and wrapper needs to be inline-block */
+form#deleteMultipleMatchesForm .match-item > .match-content-wrapper {
+    display: inline-block; /* Allow checkbox to be to the left */
+    width: calc(100% - 35px); /* Adjust based on checkbox width and margin */
+    vertical-align: top;
+}
+
+
+.match-cover-admin { /* This class is already defined, so we are augmenting it here */
+    max-width: 80px; /* Reduced max-width */
+    max-height: 60px; /* Reduced max-height */
+    margin-bottom: 0; /* Remove bottom margin as it's now side-by-side */
+    object-fit: cover; /* Ensures the image covers the area, might crop */
+    flex-shrink: 0; /* Prevent image from shrinking if info text is long */
+}
+
+.match-content-wrapper > p[style*="font-size:0.8em"] { /* Targeting "Sem capa" paragraph */
+    width: 80px; /* Approx same width as cover */
+    height: 60px; /* Approx same height as cover */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f0f0f0;
+    color: #777;
+    font-size: 0.75em; /* Smaller text */
+    text-align: center;
+    margin: 0;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.match-info-main {
+    flex-grow: 1; /* Takes remaining space */
+}
+
+.match-info-main h3 {
+    font-size: 1.05em; /* Reduced font size */
+    margin-top: 0;
+    margin-bottom: 5px; /* Reduced margin */
+}
+
+.match-info-main p {
+    font-size: 0.8em; /* Reduced font size */
+    margin: 2px 0; /* Tighter margins */
+    color: #333;
+}
+.match-info-main p strong {
+    font-weight: 600; /* Slightly less bold if needed, or keep browser default */
+}
+
+.match-actions-main {
+    margin-top: 8px; /* Reduced margin */
+    margin-bottom: 8px;
+    text-align: right; /* Align buttons to the right */
+}
+
+.match-actions-main .edit-button,
+.match-actions-main .delete-button {
+    padding: 5px 10px; /* Smaller padding */
+    font-size: 0.8em; /* Smaller font size */
+    margin-left: 5px;
+}
+
+.match-item hr {
+    margin-top: 10px;
+    margin-bottom: 8px;
+    border-top: 1px solid #f0f0f0; /* Lighter hr */
+}
+
+.match-item h4 { /* "Streams Cadastrados:" */
+    font-size: 0.95em; /* Reduced font size */
+    margin-top: 0;
+    margin-bottom: 5px; /* Reduced margin */
+    color: #444;
+}
+
+.match-item ul.stream-list {
+    margin-top: 5px;
+}
+
+.match-item ul.stream-list li {
+    padding: 6px 0; /* Reduced padding */
+    align-items: center; /* Better vertical alignment for items */
+}
+
+.match-item .stream-details .stream-label {
+    font-size: 0.85em; /* Smaller label */
+    font-weight: 500; /* Less bold */
+}
+.match-item .stream-details .stream-url {
+    font-size: 0.75em; /* Smaller URL */
+    color: #666;
+}
+
+.match-item .stream-actions a,
+.match-item .stream-actions button {
+    padding: 3px 6px; /* Even smaller buttons for stream actions */
+    font-size: 0.75em;
+    margin-left: 4px;
+}
+
+.match-item details {
+    margin-top: 10px; /* Reduced margin */
+    padding: 8px; /* Reduced padding */
+    background-color: #f9f9f9;
+}
+
+.match-item details summary { /* "＋ Stream" */
+    padding: 5px 8px;
+    font-size: 0.85em; /* Smaller summary text */
+    font-weight: 600; /* Make it look more like a button */
+    background-color: #e9ecef; /* Light background for summary */
+    border-radius: 3px;
+    display: inline-block; /* To make it wrap content */
+}
+.match-item details summary:hover {
+    background-color: #ced4da;
+    text-decoration: none;
+}
+
+.match-item details .add-stream-form {
+    margin-top: 8px;
+    padding: 10px; /* Keep form padding reasonable */
+    background-color: #fff; /* White background for form inside details */
+}
+.match-item details .add-stream-form div {
+    margin-bottom: 8px; /* Reduce spacing in stream form */
+}
+.match-item details .add-stream-form label {
+    font-size: 0.8em;
+    margin-bottom: 3px;
+}
+.match-item details .add-stream-form input[type="text"],
+.match-item details .add-stream-form input[type="url"],
+.match-item details .add-stream-form select {
+    padding: 6px 8px; /* Smaller padding for inputs */
+    font-size: 0.85em;
+}
+.match-item details .add-stream-form button[type="submit"] {
+    padding: 6px 10px;
+    font-size: 0.85em;
+}
+.match-item details .add-stream-form input[type="checkbox"] + label {
+    font-size: 0.8em;
+}
+.match-item details .library-name-input label { /* Label for "Nome para Biblioteca" */
+     margin-top: 5px; /* Add some space if it appears */
+}
