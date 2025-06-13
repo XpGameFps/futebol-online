@@ -381,7 +381,16 @@ if (isset($pdo)) {
                             <p><strong>Horário:</strong> <?php echo htmlspecialchars(date('d/m/Y H:i', strtotime($match['match_time']))); ?></p>
                             <p><strong>Liga:</strong> <?php echo htmlspecialchars($match['league_name'] ?? 'N/A'); ?></p>
                             <?php if (!empty($match['description'])): ?>
-                                <p><strong>Descrição:</strong> <?php echo nl2br(htmlspecialchars($match['description'])); ?></p>
+            <div class="match-description-toggle-container" style="margin-top: 5px; margin-bottom: 5px;">
+                <button type="button" class="toggle-button admin-toggle-button" data-target="#desc-<?php echo $match['id']; ?>" aria-expanded="false" aria-controls="desc-<?php echo $match['id']; ?>">
+                    Descrição <span class="toggle-arrow">&#9658;</span>
+                </button>
+                <div id="desc-<?php echo $match['id']; ?>" class="collapsible-content admin-collapsible-content" style="display: none;">
+                    <p style="padding-top: 5px;">
+                        <?php echo nl2br(htmlspecialchars($match['description'])); ?>
+                    </p>
+                </div>
+            </div>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -396,7 +405,6 @@ if (isset($pdo)) {
                     </div>
 
                     <hr style="margin-top:15px; margin-bottom:10px;">
-                    <h4>Streams Cadastrados:</h4>
                     <?php
                     $match_streams = [];
                     if (isset($pdo)) {
@@ -411,29 +419,37 @@ if (isset($pdo)) {
                         }
                     }
                     ?>
-                    <?php if (empty($match_streams)): ?>
-                        <p style="font-size:0.9em; color:#555;">Nenhum stream cadastrado para este jogo.</p>
-                    <?php else: ?>
-                        <ul class="stream-list">
-                            <?php foreach ($match_streams as $stream): ?>
-                                <li>
-                                    <div class="stream-details">
-                                        <span class="stream-label"><?php echo htmlspecialchars($stream['stream_label']); ?></span><br>
-                                        <span class="stream-url"><?php echo htmlspecialchars($stream['stream_url']); ?></span>
-                                    </div>
-                                    <div class="stream-actions">
-                                        <a href="edit_stream.php?id=<?php echo $stream['id']; ?>&match_id=<?php echo $match['id']; ?>" class="edit-button">Editar</a>
-                                        <form action="delete_stream.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este stream?');" style="display:inline;">
-                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
-                                            <input type="hidden" name="stream_id" value="<?php echo $stream['id']; ?>">
-                                            <input type="hidden" name="match_id" value="<?php echo $match['id']; ?>">
-                                            <button type="submit" class="delete-button">Excluir</button>
-                                        </form>
-                                    </div>
-                                </li>
-                            <?php endforeach; ?>
-                        </ul>
-                    <?php endif; ?>
+        <div class="match-streams-toggle-container" style="margin-top: 10px; margin-bottom: 10px;">
+            <button type="button" class="toggle-button admin-toggle-button" data-target="#streams-list-<?php echo $match['id']; ?>" aria-expanded="false" aria-controls="streams-list-<?php echo $match['id']; ?>">
+                Streams Cadastrados (<?php echo count($match_streams); ?>) <span class="toggle-arrow">&#9658;</span>
+            </button>
+            <div id="streams-list-<?php echo $match['id']; ?>" class="collapsible-content admin-collapsible-content" style="display: none;">
+                <h4>Streams Cadastrados:</h4>
+                <?php if (empty($match_streams)): ?>
+                    <p style="font-size:0.9em; color:#555;">Nenhum stream cadastrado para este jogo.</p>
+                <?php else: ?>
+                    <ul class="stream-list">
+                        <?php foreach ($match_streams as $stream): ?>
+                            <li>
+                                <div class="stream-details">
+                                    <span class="stream-label"><?php echo htmlspecialchars($stream['stream_label']); ?></span><br>
+                                    <span class="stream-url"><?php echo htmlspecialchars($stream['stream_url']); ?></span>
+                                </div>
+                                <div class="stream-actions">
+                                    <a href="edit_stream.php?id=<?php echo $stream['id']; ?>&match_id=<?php echo $match['id']; ?>" class="edit-button">Editar</a>
+                                    <form action="delete_stream.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este stream?');" style="display:inline;">
+                                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
+                                        <input type="hidden" name="stream_id" value="<?php echo $stream['id']; ?>">
+                                        <input type="hidden" name="match_id" value="<?php echo $match['id']; ?>">
+                                        <button type="submit" class="delete-button">Excluir</button>
+                                    </form>
+                                </div>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </div> <!-- This closes the new streams-list collapsible div -->
+        </div> <!-- This closes the new match-streams-toggle-container div -->
 
                     <?php
                     $add_stream_form_data_key = 'add_stream';
@@ -549,7 +565,16 @@ if (isset($pdo)) {
                             <p><strong>Horário:</strong> <?php echo htmlspecialchars(date('d/m/Y H:i', strtotime($match['match_time']))); ?></p>
                             <p><strong>Liga:</strong> <?php echo htmlspecialchars($match['league_name'] ?? 'N/A'); ?></p>
                             <?php if (!empty($match['description'])): ?>
-                                <p><strong>Descrição:</strong> <?php echo nl2br(htmlspecialchars($match['description'])); ?></p>
+            <div class="match-description-toggle-container" style="margin-top: 5px; margin-bottom: 5px;">
+                <button type="button" class="toggle-button admin-toggle-button" data-target="#desc-<?php echo $match['id']; ?>" aria-expanded="false" aria-controls="desc-<?php echo $match['id']; ?>">
+                    Descrição <span class="toggle-arrow">&#9658;</span>
+                </button>
+                <div id="desc-<?php echo $match['id']; ?>" class="collapsible-content admin-collapsible-content" style="display: none;">
+                    <p style="padding-top: 5px;">
+                        <?php echo nl2br(htmlspecialchars($match['description'])); ?>
+                    </p>
+                </div>
+            </div>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -564,7 +589,6 @@ if (isset($pdo)) {
                     </div>
 
                     <hr style="margin-top:15px; margin-bottom:10px;">
-                    <h4>Streams Cadastrados:</h4>
                         <?php
                         $match_streams = [];
                         if (isset($pdo)) {
@@ -579,29 +603,37 @@ if (isset($pdo)) {
                             }
                         }
                         ?>
-                        <?php if (empty($match_streams)): ?>
-                            <p style="font-size:0.9em; color:#555;">Nenhum stream cadastrado para este jogo.</p>
-                        <?php else: ?>
-                            <ul class="stream-list">
-                                <?php foreach ($match_streams as $stream): ?>
-                                    <li>
-                                        <div class="stream-details">
-                                            <span class="stream-label"><?php echo htmlspecialchars($stream['stream_label']); ?></span><br>
-                                            <span class="stream-url"><?php echo htmlspecialchars($stream['stream_url']); ?></span>
-                                        </div>
-                                        <div class="stream-actions">
-                                            <a href="edit_stream.php?id=<?php echo $stream['id']; ?>&match_id=<?php echo $match['id']; ?>" class="edit-button">Editar</a>
-                                            <form action="delete_stream.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este stream?');" style="display:inline;">
-                                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
-                                                <input type="hidden" name="stream_id" value="<?php echo $stream['id']; ?>">
-                                                <input type="hidden" name="match_id" value="<?php echo $match['id']; ?>">
-                                                <button type="submit" class="delete-button">Excluir</button>
-                                            </form>
-                                        </div>
-                                    </li>
-                                <?php endforeach; ?>
-                            </ul>
-                        <?php endif; ?>
+        <div class="match-streams-toggle-container" style="margin-top: 10px; margin-bottom: 10px;">
+            <button type="button" class="toggle-button admin-toggle-button" data-target="#streams-list-<?php echo $match['id']; ?>" aria-expanded="false" aria-controls="streams-list-<?php echo $match['id']; ?>">
+                Streams Cadastrados (<?php echo count($match_streams); ?>) <span class="toggle-arrow">&#9658;</span>
+            </button>
+            <div id="streams-list-<?php echo $match['id']; ?>" class="collapsible-content admin-collapsible-content" style="display: none;">
+                <h4>Streams Cadastrados:</h4>
+                <?php if (empty($match_streams)): ?>
+                    <p style="font-size:0.9em; color:#555;">Nenhum stream cadastrado para este jogo.</p>
+                <?php else: ?>
+                    <ul class="stream-list">
+                        <?php foreach ($match_streams as $stream): ?>
+                            <li>
+                                <div class="stream-details">
+                                    <span class="stream-label"><?php echo htmlspecialchars($stream['stream_label']); ?></span><br>
+                                    <span class="stream-url"><?php echo htmlspecialchars($stream['stream_url']); ?></span>
+                                </div>
+                                <div class="stream-actions">
+                                    <a href="edit_stream.php?id=<?php echo $stream['id']; ?>&match_id=<?php echo $match['id']; ?>" class="edit-button">Editar</a>
+                                    <form action="delete_stream.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este stream?');" style="display:inline;">
+                                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
+                                        <input type="hidden" name="stream_id" value="<?php echo $stream['id']; ?>">
+                                        <input type="hidden" name="match_id" value="<?php echo $match['id']; ?>">
+                                        <button type="submit" class="delete-button">Excluir</button>
+                                    </form>
+                                </div>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </div> <!-- This closes the new streams-list collapsible div -->
+        </div> <!-- This closes the new match-streams-toggle-container div -->
 
                         <?php
                         $add_stream_form_data_key = 'add_stream';
@@ -913,6 +945,31 @@ if (isset($pdo)) {
             fetchOnlineUsers_nav();
             setInterval(fetchOnlineUsers_nav, 30000);
         });
+
+// --- BEGIN Collapsible Content Toggle Script ---
+document.addEventListener('DOMContentLoaded', function() {
+    const adminToggleButtons = document.querySelectorAll('.admin-toggle-button');
+
+    adminToggleButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const targetId = this.dataset.target;
+            const targetElement = document.querySelector(targetId);
+
+            if (targetElement) {
+                const isExpanded = this.getAttribute('aria-expanded') === 'true';
+
+                if (isExpanded) {
+                    targetElement.style.display = 'none';
+                    this.setAttribute('aria-expanded', 'false');
+                } else {
+                    targetElement.style.display = 'block'; // Or 'grid', 'flex' etc. if needed for content layout
+                    this.setAttribute('aria-expanded', 'true');
+                }
+            }
+        });
+    });
+});
+// --- END Collapsible Content Toggle Script ---
 
         // Initialize Searchable Selects
         document.addEventListener('DOMContentLoaded', function() {
