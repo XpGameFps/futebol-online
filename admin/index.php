@@ -36,6 +36,13 @@ if (isset($_GET['status'])) {
         $message = '<p style="color:red;">Erro ao atualizar stream: ' . htmlspecialchars($reason) . '</p>';
     } elseif ($status == 'stream_edit_error') {
         $message = '<p style="color:red;">Erro ao editar stream: ' . htmlspecialchars($reason) . '</p>';
+    } elseif ($status == 'matches_deleted_multiple') {
+        $count = isset($_GET['count']) ? (int)$_GET['count'] : 0;
+        $message = '<p style="color:green;">' . $count . ' jogo(s) excluído(s) com sucesso!</p>';
+    } elseif ($status == 'matches_deleted_partial') {
+        $deleted_c = isset($_GET['deleted']) ? (int)$_GET['deleted'] : 0;
+        $failed_c = isset($_GET['failed']) ? (int)$_GET['failed'] : 0;
+        $message = '<p style="color:orange;">' . $deleted_c . ' jogo(s) excluído(s). Falha ao excluir ' . $failed_c . ' jogo(s).</p>';
     }
 }
 
@@ -86,6 +93,7 @@ if (isset($pdo)) {
 // Determine view type for matches (upcoming/all or past)
 $view_type = $_GET['view'] ?? 'upcoming';
 $page_subtitle = "Próximos Jogos / Jogos Recentes"; // Default subtitle
+$search_query = isset($_GET['search_query']) ? trim($_GET['search_query']) : '';
 
 $sql_fetch_matches_base = "SELECT
                               m.id,
@@ -101,23 +109,43 @@ $sql_fetch_matches_base = "SELECT
                           LEFT JOIN teams at ON m.away_team_id = at.id
                           LEFT JOIN leagues l ON m.league_id = l.id";
 
+$params = []; // For prepared statement
+
 if ($view_type === 'past') {
-    $sql_fetch_matches = $sql_fetch_matches_base . " WHERE m.match_time < NOW() ORDER BY m.match_time DESC";
+    $sql_conditions = " WHERE m.match_time < NOW()";
     $page_subtitle = "Jogos Passados";
 } else { // Default to 'upcoming'
     $view_type = 'upcoming'; // Ensure $view_type is explicitly set for the active-view class later
-    $sql_fetch_matches = $sql_fetch_matches_base . " WHERE m.match_time >= NOW() ORDER BY m.match_time ASC";
+    $sql_conditions = " WHERE m.match_time >= NOW()";
     // $page_subtitle remains as default
+}
+
+if (!empty($search_query)) {
+    $sql_conditions .= " AND (ht.name LIKE :search_query_ht OR at.name LIKE :search_query_at OR m.description LIKE :search_query_desc)";
+    $search_param = '%' . $search_query . '%';
+    $params[':search_query_ht'] = $search_param;
+    $params[':search_query_at'] = $search_param;
+    $params[':search_query_desc'] = $search_param;
+    // Update page subtitle if searching
+    if ($page_subtitle == "Próximos Jogos / Jogos Recentes" || $page_subtitle == "Jogos Passados"){
+         $page_subtitle .= " (Buscando por: \"".htmlspecialchars($search_query)."\")";
+    }
+}
+
+if ($view_type === 'past') {
+    $sql_fetch_matches = $sql_fetch_matches_base . $sql_conditions . " ORDER BY m.match_time DESC";
+} else {
+    $sql_fetch_matches = $sql_fetch_matches_base . $sql_conditions . " ORDER BY m.match_time ASC";
 }
 
 // Fetch existing matches to display
 $matches = [];
 try {
-    // $sql_fetch_matches is now a complete and safe query string
-    $stmt_matches = $pdo->query($sql_fetch_matches);
+    $stmt_matches = $pdo->prepare($sql_fetch_matches); // Prepare the statement
+    $stmt_matches->execute($params); // Execute with parameters
     $matches = $stmt_matches->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    error_log("PDOException in " . __FILE__ . " (fetching matches, view: " . $view_type . "): " . $e->getMessage());
+    error_log("PDOException in " . __FILE__ . " (fetching matches, view: " . $view_type . ", search: '" . $search_query . "'): " . $e->getMessage());
     $message .= '<p style="color:red;">Ocorreu um erro no banco de dados ao buscar jogos. Por favor, tente novamente mais tarde.</p>';
     $matches = []; // Ensure matches is empty on error
 }
@@ -146,6 +174,22 @@ if (isset($pdo)) {
     <title>Painel Admin - Gerenciar Jogos</title>
     <link rel="stylesheet" href="css/admin_style.css">
     <style>
+        /* Tab styling */
+        .tabs { overflow: hidden; border-bottom: 1px solid #ccc; margin-bottom: 20px; }
+        .tab-link { background-color: #f1f1f1; float: left; border: none; outline: none; cursor: pointer; padding: 14px 16px; transition: 0.3s; font-size: 17px; }
+        .tab-link:hover { background-color: #ddd; }
+        .tab-link.active { background-color: #ccc; }
+        .tab-content { display: none; padding: 6px 12px; border-top: none; animation: fadeEffect 0.5s; }
+        @keyframes fadeEffect { from {opacity: 0;} to {opacity: 1;} }
+
+        /* Search form styling */
+        .search-form { margin-bottom: 15px; display: flex; align-items: center; }
+        .search-form input[type="text"] { flex-grow: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-right: 5px;}
+        .search-form button { padding: 8px 12px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .search-form button:hover { background-color: #0056b3; }
+        .clear-search-btn { margin-left: 10px; color: #dc3545; text-decoration: none; }
+        .clear-search-btn:hover { text-decoration: underline; }
+
         .stream-list { list-style: none; padding-left: 0; margin-top: 10px; }
         .stream-list li { border-bottom: 1px solid #eee; padding: 8px 0; display: flex; justify-content: space-between; align-items: center; }
         .stream-list li:last-child { border-bottom: none; }
@@ -163,19 +207,25 @@ if (isset($pdo)) {
             <div class="main-content">
                 <h1>Painel Administrativo - Jogos</h1>
 
-        <?php if(!empty($message)): ?>
-            <div class="message"><?php echo $message; ?></div>
-        <?php endif; ?>
-        <?php
-        $general_add_stream_error = '';
-        if (isset($_SESSION['form_error_message']['add_stream_general'])) {
-            $general_add_stream_error = '<p style="color:red; background-color: #f8d7da; border:1px solid #f5c6cb; padding:10px; border-radius:4px;">' . htmlspecialchars($_SESSION['form_error_message']['add_stream_general']) . '</p>';
-            unset($_SESSION['form_error_message']['add_stream_general']);
-        }
-        ?>
-        <?php if (!empty($general_add_stream_error)) echo "<div class='message'>{$general_add_stream_error}</div>"; ?>
+                <?php if(!empty($message)): ?>
+                    <div class="message"><?php echo $message; ?></div>
+                <?php endif; ?>
+                <?php
+                $general_add_stream_error = '';
+                if (isset($_SESSION['form_error_message']['add_stream_general'])) {
+                    $general_add_stream_error = '<p style="color:red; background-color: #f8d7da; border:1px solid #f5c6cb; padding:10px; border-radius:4px;">' . htmlspecialchars($_SESSION['form_error_message']['add_stream_general']) . '</p>';
+                    unset($_SESSION['form_error_message']['add_stream_general']);
+                }
+                ?>
+                <?php if (!empty($general_add_stream_error)) echo "<div class='message'>{$general_add_stream_error}</div>"; ?>
 
-        <h2 id="add-match-form">Adicionar Novo Jogo</h2>
+                <div class="tabs">
+                    <button class="tab-link active" onclick="openTab(event, 'addMatchTabContent')">Adicionar Novo Jogo</button>
+                    <button class="tab-link" onclick="openTab(event, 'viewMatchesTabContent')">Visualizar Jogos</button>
+                </div>
+
+                <div id="addMatchTabContent" class="tab-content">
+                    <h2 id="add-match-form">Adicionar Novo Jogo</h2>
         <?php
         $add_match_form_error = '';
         if (isset($_SESSION['form_error_message']['add_match'])) {
@@ -255,21 +305,45 @@ if (isset($pdo)) {
         }
         ?>
         <hr>
+                </div> <!-- end addMatchTabContent -->
 
-        <h2><?php echo htmlspecialchars($page_subtitle ?? 'Lista de Jogos'); ?></h2>
-        <div class="view-switcher">
-            <a href="index.php?view=upcoming" class="<?php echo ($view_type ?? 'upcoming') === 'upcoming' ? 'active-view' : ''; ?>">Próximos/Recentes</a>
-            <a href="index.php?view=past" class="<?php echo ($view_type ?? 'upcoming') === 'past' ? 'active-view' : ''; ?>">Jogos Passados</a>
-        </div>
+                <div id="viewMatchesTabContent" class="tab-content">
+                    <h2><?php echo htmlspecialchars($page_subtitle ?? 'Lista de Jogos'); ?></h2>
 
-        <?php if (empty($matches)): ?>
-            <p>Nenhum jogo encontrado para esta visualização.</p>
-        <?php else: ?>
+                    <form method="GET" action="index.php" class="search-form">
+                        <input type="hidden" name="view" value="<?php echo htmlspecialchars($view_type); ?>">
+                        <input type="text" name="search_query" placeholder="Buscar por time ou descrição..." value="<?php echo htmlspecialchars($_GET['search_query'] ?? ''); ?>">
+                        <button type="submit">Buscar</button>
+                        <?php if (!empty($_GET['search_query'])): ?>
+                            <a href="index.php?view=<?php echo htmlspecialchars($view_type); ?>" class="clear-search-btn">Limpar Busca</a>
+                        <?php endif; ?>
+                    </form>
+
+                    <div class="view-switcher">
+                        <a href="index.php?view=upcoming<?php echo !empty($search_query) ? '&search_query='.urlencode($search_query) : ''; ?>" class="<?php echo ($view_type ?? 'upcoming') === 'upcoming' ? 'active-view' : ''; ?>">Próximos/Recentes</a>
+                        <a href="index.php?view=past<?php echo !empty($search_query) ? '&search_query='.urlencode($search_query) : ''; ?>" class="<?php echo ($view_type ?? 'upcoming') === 'past' ? 'active-view' : ''; ?>">Jogos Passados</a>
+                    </div>
+
+        <?php if (empty($matches) && $view_type === 'upcoming'): ?>
+            <p>Nenhum jogo encontrado para esta visualização <?php echo !empty($search_query) ? 'com o termo de busca "' . htmlspecialchars($search_query) . '"' : ''; ?>.</p>
+        <?php elseif (empty($matches) && $view_type === 'past'): ?>
+            <p>Nenhum jogo passado encontrado <?php echo !empty($search_query) ? 'com o termo de busca "' . htmlspecialchars($search_query) . '"' : ''; ?>.</p>
+        <?php elseif ($view_type === 'past' && !empty($matches)): ?>
+        <form action="actions/delete_multiple_matches.php" method="POST" id="deleteMultipleMatchesForm" onsubmit="return confirm('Tem certeza que deseja excluir os jogos selecionados? Esta ação não pode ser desfeita e removerá também todos os streams associados.');">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
+            <div style="margin-bottom: 10px; display: flex; align-items: center; padding: 10px; background-color: #f9f9f9; border: 1px solid #eee; border-radius: 4px;">
+                <input type="checkbox" id="selectAllPastGames" style="margin-right: 8px; transform: scale(1.2);">
+                <label for="selectAllPastGames" style="margin-right: 15px; font-weight: bold;">Selecionar Todos Visíveis</label>
+                <button type="submit" class="delete-button" id="deleteSelectedBtn" disabled style="padding: 8px 12px;">Excluir Selecionados</button>
+            </div>
             <?php foreach ($matches as $match): ?>
-                <div class="match-item" id="match-<?php echo $match['id']; ?>">
-                    <h3><?php echo htmlspecialchars($match['home_team_name'] ?? 'Time da Casa N/D'); ?> vs <?php echo htmlspecialchars($match['away_team_name'] ?? 'Time Visitante N/D'); ?></h3>
-                    <?php
-                    $match_cover_src = null;
+                <div class="match-item" id="match-<?php echo $match['id']; ?>" style="border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 5px; background-color: #fff;">
+                    <div style="display:flex; align-items: flex-start;">
+                        <input type="checkbox" name="match_ids[]" value="<?php echo $match['id']; ?>" class="past-game-checkbox" style="margin-top: 10px; margin-right: 10px; transform: scale(1.3);">
+                        <div style="flex-grow:1;">
+                            <h3><?php echo htmlspecialchars($match['home_team_name'] ?? 'Time da Casa N/D'); ?> vs <?php echo htmlspecialchars($match['away_team_name'] ?? 'Time Visitante N/D'); ?></h3>
+                            <?php
+                            $match_cover_src = null;
                     $alt_text = "Capa do Jogo"; // Default alt text
 
                     // Filesystem path components - relative to admin/index.php (for file_exists)
@@ -441,14 +515,266 @@ if (isset($pdo)) {
                             <div><button type="submit">Salvar Stream</button></div>
                         </form>
                     </details>
-                </div>
+                        </div> <!-- closing inner div for flex content -->
+                    </div> <!-- closing div for flex container -->
+                </div> <!-- closing match-item -->
+            <?php endforeach; ?>
+        </form>
+        <?php else: // Handles upcoming matches or any other view_type not 'past' with matches ?>
+            <?php foreach ($matches as $match): ?>
+                <div class="match-item" id="match-<?php echo $match['id']; ?>">
+                    <?php // Standard display for non-past or non-empty past matches without checkboxes ?>
+                    <h3><?php echo htmlspecialchars($match['home_team_name'] ?? 'Time da Casa N/D'); ?> vs <?php echo htmlspecialchars($match['away_team_name'] ?? 'Time Visitante N/D'); ?></h3>
+                    <?php
+                        $match_cover_src = null;
+                        $alt_text = "Capa do Jogo";
+                        $fs_specific_cover_path_prefix = '../uploads/covers/matches/';
+                        $fs_default_cover_path_prefix = '../uploads/defaults/';
+                        $web_specific_cover_path_prefix = '/uploads/covers/matches/';
+                        $web_default_cover_path_prefix = '/uploads/defaults/';
+
+                        if (!empty($match['cover_image_filename'])) {
+                            if ($match['cover_image_filename'] === $default_cover_filename_from_settings && $default_cover_filename_from_settings !== null) {
+                                $fs_default_file_to_check = $fs_default_cover_path_prefix . $match['cover_image_filename'];
+                                if (file_exists($fs_default_file_to_check)) {
+                                    $match_cover_src = $web_default_cover_path_prefix . htmlspecialchars($match['cover_image_filename']);
+                                    $alt_text = "Capa Padrão do Site";
+                                } else {
+                                    error_log("Default cover file '{$match['cover_image_filename']}' specified but not found at '{$fs_default_file_to_check}' for match ID {$match['id']}");
+                                }
+                            } else {
+                                $fs_specific_file_to_check = $fs_specific_cover_path_prefix . $match['cover_image_filename'];
+                                if (file_exists($fs_specific_file_to_check)) {
+                                    $match_cover_src = $web_specific_cover_path_prefix . htmlspecialchars($match['cover_image_filename']);
+                                } else {
+                                    error_log("Specific cover file '{$match['cover_image_filename']}' specified but not found at '{$fs_specific_file_to_check}' for match ID {$match['id']}");
+                                }
+                            }
+                        } elseif ($default_cover_filename_from_settings) {
+                            $match_cover_src = $web_default_cover_path_prefix . htmlspecialchars($default_cover_filename_from_settings);
+                            $alt_text = "Capa Padrão do Site";
+                        }
+
+                        if ($match_cover_src): ?>
+                            <img src="<?php echo $match_cover_src; ?>?t=<?php echo time(); ?>" alt="<?php echo $alt_text; ?>" class="match-cover-admin">
+                        <?php else: ?>
+                            <p style="font-size:0.8em; color:#555;">(Sem capa)</p>
+                        <?php endif; ?>
+                        <p><strong>Horário:</strong> <?php echo htmlspecialchars(date('d/m/Y H:i', strtotime($match['match_time']))); ?></p>
+                        <p><strong>Liga:</strong> <?php echo htmlspecialchars($match['league_name'] ?? 'N/A'); ?></p>
+                        <?php if (!empty($match['description'])): ?>
+                            <p><strong>Descrição:</strong> <?php echo nl2br(htmlspecialchars($match['description'])); ?></p>
+                        <?php endif; ?>
+
+                        <div style="margin-top:10px;">
+                            <a href="edit_match.php?id=<?php echo $match['id']; ?>" class="edit-button" style="margin-right: 5px; margin-bottom:5px; display:inline-block;">Editar Jogo</a>
+                            <form action="delete_match.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este jogo? Esta ação não pode ser desfeita e removerá também a capa e todos os streams associados.');" style="display:inline-block;">
+                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
+                                <input type="hidden" name="match_id" value="<?php echo $match['id']; ?>">
+                                <button type="submit" class="delete-button">Excluir Jogo</button>
+                            </form>
+                        </div>
+
+                        <hr style="margin-top:15px; margin-bottom:10px;">
+                        <h4>Streams Cadastrados:</h4>
+                        <?php
+                        $match_streams = [];
+                        if (isset($pdo)) {
+                            try {
+                                $stmt_streams = $pdo->prepare("SELECT id, stream_url, stream_label FROM streams WHERE match_id = :match_id ORDER BY id ASC");
+                                $stmt_streams->bindParam(':match_id', $match['id'], PDO::PARAM_INT);
+                                $stmt_streams->execute();
+                                $match_streams = $stmt_streams->fetchAll(PDO::FETCH_ASSOC);
+                            } catch (PDOException $e) {
+                                error_log("PDOException in " . __FILE__ . " (fetching streams for match ID " . $match['id'] . "): " . $e->getMessage());
+                                echo '<p style="color:red;">Erro ao buscar streams para este jogo.</p>';
+                            }
+                        }
+                        ?>
+                        <?php if (empty($match_streams)): ?>
+                            <p style="font-size:0.9em; color:#555;">Nenhum stream cadastrado para este jogo.</p>
+                        <?php else: ?>
+                            <ul class="stream-list">
+                                <?php foreach ($match_streams as $stream): ?>
+                                    <li>
+                                        <div class="stream-details">
+                                            <span class="stream-label"><?php echo htmlspecialchars($stream['stream_label']); ?></span><br>
+                                            <span class="stream-url"><?php echo htmlspecialchars($stream['stream_url']); ?></span>
+                                        </div>
+                                        <div class="stream-actions">
+                                            <a href="edit_stream.php?id=<?php echo $stream['id']; ?>&match_id=<?php echo $match['id']; ?>" class="edit-button">Editar</a>
+                                            <form action="delete_stream.php" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este stream?');" style="display:inline;">
+                                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
+                                                <input type="hidden" name="stream_id" value="<?php echo $stream['id']; ?>">
+                                                <input type="hidden" name="match_id" value="<?php echo $match['id']; ?>">
+                                                <button type="submit" class="delete-button">Excluir</button>
+                                            </form>
+                                        </div>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        <?php endif; ?>
+
+                        <?php
+                        $add_stream_form_data_key = 'add_stream';
+                        $current_match_id = $match['id'];
+
+                        $add_stream_form_data = $_SESSION['form_data'][$add_stream_form_data_key][$current_match_id] ?? [];
+                        $add_stream_form_error = '';
+                        if (isset($_SESSION['form_error_message'][$add_stream_form_data_key][$current_match_id])) {
+                            $add_stream_form_error = '<p style="color:red; font-size:0.9em; margin-top:5px;">' . htmlspecialchars($_SESSION['form_error_message'][$add_stream_form_data_key][$current_match_id]) . '</p>';
+                            unset($_SESSION['form_error_message'][$add_stream_form_data_key][$current_match_id]);
+                            if (empty($_SESSION['form_error_message'][$add_stream_form_data_key])) {
+                                unset($_SESSION['form_error_message'][$add_stream_form_data_key]);
+                            }
+                        }
+                        if (isset($_SESSION['form_data'][$add_stream_form_data_key][$current_match_id])) {
+                            unset($_SESSION['form_data'][$add_stream_form_data_key][$current_match_id]);
+                            if (empty($_SESSION['form_data'][$add_stream_form_data_key])) {
+                                unset($_SESSION['form_data'][$add_stream_form_data_key]);
+                            }
+                        }
+                        $open_details = !empty($add_stream_form_error);
+                        ?>
+                        <details style="margin-top:15px;" <?php echo $open_details ? 'open' : ''; ?>>
+                            <summary style="cursor:pointer; color:#007bff; font-weight:bold; padding:5px; background-color:#f0f0f0; border-radius:4px;">Adicionar Novo Stream</summary>
+                            <?php if (!empty($add_stream_form_error)) echo $add_stream_form_error; ?>
+
+                            <form action="add_stream.php" method="POST" class="add-stream-form" style="margin-top:10px; padding:10px; border:1px solid #eee; border-radius:4px;">
+                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
+                                <input type="hidden" name="match_id" value="<?php echo $match['id']; ?>">
+
+                                <div>
+                                    <label for="saved_stream_id_<?php echo $match['id']; ?>">Selecionar da Biblioteca (Opcional):</label>
+                                    <select name="saved_stream_id" id="saved_stream_id_<?php echo $match['id']; ?>" class="saved-stream-select" data-match-id="<?php echo $match['id']; ?>">
+                                        <option value="">-- Digitar Manualmente ou Selecionar --</option>
+                                        <?php foreach ($saved_stream_urls_list as $saved_stream): ?>
+                                            <option value="<?php echo htmlspecialchars($saved_stream['id']); ?>" data-url="<?php echo htmlspecialchars($saved_stream['stream_url_value']); ?>" data-name="<?php echo htmlspecialchars($saved_stream['stream_name']); ?>"
+                                                <?php echo (isset($add_stream_form_data['saved_stream_id']) && $add_stream_form_data['saved_stream_id'] == $saved_stream['id']) ? 'selected' : ''; ?>>
+                                                <?php echo htmlspecialchars($saved_stream['stream_name']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label for="stream_label_<?php echo $match['id']; ?>">Rótulo do Stream (para este jogo):</label>
+                                    <input type="text" id="stream_label_<?php echo $match['id']; ?>" name="stream_label"
+                                           value="<?php echo htmlspecialchars($add_stream_form_data['stream_label'] ?? ''); ?>" required>
+                                </div>
+                                <div>
+                                    <label for="stream_url_<?php echo $match['id']; ?>">URL do Stream:</label>
+                                    <input type="url" id="stream_url_<?php echo $match['id']; ?>" name="stream_url"
+                                           value="<?php echo htmlspecialchars($add_stream_form_data['stream_url'] ?? ''); ?>" required placeholder="https://example.com/stream">
+                                </div>
+                                <div>
+                                    <input type="checkbox" id="save_to_library_<?php echo $match['id']; ?>" name="save_to_library" value="1" class="save-to-library-cb" data-match-id="<?php echo $match['id']; ?>" <?php echo isset($add_stream_form_data['save_to_library']) ? 'checked' : ''; ?>>
+                                    <label for="save_to_library_<?php echo $match['id']; ?>" style="display:inline; font-weight:normal;">Salvar esta URL na biblioteca?</label>
+                                </div>
+                                <div id="library_name_input_<?php echo $match['id']; ?>" class="library-name-input" style="<?php echo isset($add_stream_form_data['save_to_library']) ? 'display:block;' : 'display:none;'; ?>">
+                                    <label for="library_stream_name_<?php echo $match['id']; ?>">Nome para Biblioteca (se salvando):</label>
+                                    <input type="text" id="library_stream_name_<?php echo $match['id']; ?>" name="library_stream_name"
+                                           value="<?php echo htmlspecialchars($add_stream_form_data['library_stream_name'] ?? ''); ?>" placeholder="Ex: Fonte Principal HD">
+                                </div>
+                                <input type="hidden" name="is_manual_entry_<?php echo $match['id']; ?>" id="is_manual_entry_<?php echo $match['id']; ?>" value="<?php echo htmlspecialchars($add_stream_form_data['is_manual_entry_' . $match['id']] ?? 'true'); ?>">
+
+                                <div><button type="submit">Salvar Stream</button></div>
+                            </form>
+                        </details>
+                    </div>
             <?php endforeach; ?>
         <?php endif; ?>
+                </div> <!-- end viewMatchesTabContent -->
             </div> <!-- end main-content -->
         </div> <!-- end admin-layout -->
     </div> <!-- end container -->
 
     <script>
+        function openTab(evt, tabName) {
+            var i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tab-content");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tablinks = document.getElementsByClassName("tab-link");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Default to the first tab or based on hash/status
+            let defaultTab = 'addMatchTabContent';
+            const urlParams = new URLSearchParams(window.location.search);
+            const status = urlParams.get('status');
+            const reason = urlParams.get('reason');
+            const viewParam = urlParams.get('view');
+            const searchQueryParam = urlParams.get('search_query');
+
+            if (window.location.hash === '#viewMatches' || viewParam === 'past' || viewParam === 'upcoming' || searchQueryParam) {
+                defaultTab = 'viewMatchesTabContent';
+            } else if (status && status.includes('match_added')) {
+                defaultTab = 'viewMatchesTabContent';
+            } else if ((status && status.includes('error')) && (window.location.hash.includes('add-match-form') || (reason && reason.includes('file_upload_error')) ) ) {
+                defaultTab = 'addMatchTabContent';
+            }
+
+            // Click the corresponding button for the determined default tab
+            const defaultTabButton = document.querySelector('.tab-link[onclick*="' + defaultTab + '"]');
+            if (defaultTabButton) {
+                defaultTabButton.click();
+            } else {
+                 // Fallback to the first tab if specific button not found
+                const firstTabButton = document.querySelector('.tab-link');
+                if (firstTabButton) {
+                    firstTabButton.click();
+                }
+            }
+
+            // Bulk delete for past games
+            const selectAllPastGamesCheckbox = document.getElementById('selectAllPastGames');
+            const pastGameCheckboxes = document.querySelectorAll('.past-game-checkbox');
+            const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+            // const deleteMultipleMatchesForm = document.getElementById('deleteMultipleMatchesForm'); // Already defined by its ID
+
+            if (selectAllPastGamesCheckbox && pastGameCheckboxes.length > 0 && deleteSelectedBtn) {
+                selectAllPastGamesCheckbox.addEventListener('change', function() {
+                    pastGameCheckboxes.forEach(checkbox => {
+                        checkbox.checked = this.checked;
+                    });
+                    toggleDeleteSelectedButtonState();
+                });
+
+                pastGameCheckboxes.forEach(checkbox => {
+                    checkbox.addEventListener('change', function() {
+                        if (!this.checked) {
+                            selectAllPastGamesCheckbox.checked = false;
+                        } else {
+                            let allChecked = true;
+                            pastGameCheckboxes.forEach(cb => {
+                                if (!cb.checked) allChecked = false;
+                            });
+                            selectAllPastGamesCheckbox.checked = allChecked;
+                        }
+                        toggleDeleteSelectedButtonState();
+                    });
+                });
+
+                function toggleDeleteSelectedButtonState() {
+                    let anyChecked = false;
+                    pastGameCheckboxes.forEach(checkbox => {
+                        if (checkbox.checked) anyChecked = true;
+                    });
+                    deleteSelectedBtn.disabled = !anyChecked;
+                }
+                toggleDeleteSelectedButtonState(); // Initial state
+
+                // Note: The form 'deleteMultipleMatchesForm' is already available if this script runs.
+            }
+        });
+
         // Script for Cover Image Preview
         const coverImageInput = document.getElementById('cover_image_file');
         const coverImagePreview = document.getElementById('cover_image_preview');
