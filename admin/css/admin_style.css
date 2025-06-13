@@ -95,6 +95,13 @@ nav .nav-user-info #online-users-indicator #online-users-count{
     font-weight: bold;
 }
 
+/* Server Clock Styling */
+nav .nav-user-info #server-clock {
+    margin-right: 15px; /* Spacing between clock and online users */
+    color: #007bff; /* Matches other indicators/links, blue */
+    font-weight: bold; /* Consistent with other text in this area */
+}
+
 nav .nav-user-info .logout-link {
     color: #ffc107;
     padding: 8px 10px;
