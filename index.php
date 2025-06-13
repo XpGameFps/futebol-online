@@ -42,7 +42,7 @@ try {
 // --- Match Fetching Logic with League Filter ---
 $matches = [];
 $error_message = '';
-$page_main_title = "Jogos de Hoje"; // Default title
+$page_main_title = "PRÓXIMOS JOGOS"; // Default title
 $selected_league_id = null;
 $selected_league_name = null;
 
