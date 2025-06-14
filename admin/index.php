@@ -122,6 +122,13 @@ if ($view_type === 'past') {
 
 if (!empty($search_query)) {
     $sql_conditions .= " AND (ht.name LIKE :search_query_ht OR at.name LIKE :search_query_at OR m.description LIKE :search_query_desc)";
+    // Future Optimization Note:
+    // If searching by match description (m.description) becomes slow on a large dataset,
+    // consider adding a FULLTEXT index to the `matches.description` column
+    // and changing the query to use MATCH(m.description) AGAINST(:search_query_desc IN BOOLEAN MODE)
+    // or similar full-text search syntax for better performance.
+    // Team name searches (ht.name, at.name) are generally okay due to indexing on team names
+    // and typically smaller size of the teams table.
     $search_param = '%' . $search_query . '%';
     $params[':search_query_ht'] = $search_param;
     $params[':search_query_at'] = $search_param;
@@ -225,86 +232,7 @@ if (isset($pdo)) {
                 </div>
 
                 <div id="addMatchTabContent" class="tab-content">
-                    <h2 id="add-match-form">Adicionar Novo Jogo</h2>
-        <?php
-        $add_match_form_error = '';
-        if (isset($_SESSION['form_error_message']['add_match'])) {
-            $add_match_form_error = '<div class="message"><p style="color:red; background-color: #f8d7da; border:1px solid #f5c6cb; padding:10px; border-radius:4px;">' . htmlspecialchars($_SESSION['form_error_message']['add_match']) . '</p></div>';
-            unset($_SESSION['form_error_message']['add_match']);
-        }
-        $form_data_add_match = $_SESSION['form_data']['add_match'] ?? [];
-        ?>
-        <?php if (!empty($add_match_form_error)) echo $add_match_form_error; ?>
-        <form action="add_match.php" method="POST" enctype="multipart/form-data">
-            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
-
-            <fieldset>
-                <legend>Informações da Partida</legend>
-                <div class="form-row">
-                    <div class="form-group-inline">
-                        <label for="home_team_id">Time da Casa:</label>
-                        <select id="home_team_id" name="home_team_id" required>
-                            <option value="">-- Selecionar Time da Casa --</option>
-                    <?php foreach ($teams_for_dropdown as $team_opt): ?>
-                        <option value="<?php echo htmlspecialchars($team_opt['id']); ?>" <?php echo (isset($form_data_add_match['home_team_id']) && $form_data_add_match['home_team_id'] == $team_opt['id']) ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($team_opt['name']); ?>
-                        </option>
-                    <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="form-group-inline">
-                        <label for="away_team_id">Time Visitante:</label>
-                        <select id="away_team_id" name="away_team_id" required>
-                            <option value="">-- Selecionar Time Visitante --</option>
-                    <?php foreach ($teams_for_dropdown as $team_opt): ?>
-                        <option value="<?php echo htmlspecialchars($team_opt['id']); ?>" <?php echo (isset($form_data_add_match['away_team_id']) && $form_data_add_match['away_team_id'] == $team_opt['id']) ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($team_opt['name']); ?>
-                        </option>
-                    <?php endforeach; ?>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group-inline">
-                        <label for="match_time">Data e Hora da Partida:</label>
-                        <input type="datetime-local" id="match_time" name="match_time" value="<?php echo htmlspecialchars($form_data_add_match['match_time'] ?? ''); ?>" required>
-                    </div>
-                    <div class="form-group-inline">
-                        <label for="league_id">Liga (Opcional):</label>
-                        <select id="league_id" name="league_id">
-                            <option value="">-- Selecionar Liga --</option>
-                            <?php foreach ($leagues_for_dropdown as $league_opt) { $selected_league = (isset($form_data_add_match['league_id']) && $form_data_add_match['league_id'] == $league_opt['id']) ? 'selected' : ''; echo '<option value="'.htmlspecialchars($league_opt['id']).'" '.$selected_league.'>'.htmlspecialchars($league_opt['name']).'</option>'; } ?>
-                        </select>
-                    </div>
-                </div>
-                <div>
-                    <label for="description">Descrição (opcional):</label>
-                    <textarea id="description" name="description" rows="3"><?php echo htmlspecialchars($form_data_add_match['description'] ?? ''); ?></textarea>
-                </div>
-            </fieldset>
-
-            <fieldset>
-                <legend>SEO</legend>
-                <div>
-                    <label for="meta_description">Meta Descrição (máx ~160 caracteres):</label>
-                    <textarea id="meta_description" name="meta_description" rows="3"><?php echo htmlspecialchars($form_data_add_match['meta_description'] ?? ''); ?></textarea>
-                    <span id="meta_description_counter" style="display: block; font-size: 0.85em; color: #666; margin-top: 4px;">0/160</span>
-                </div>
-                <div>
-                    <label for="meta_keywords">Meta Keywords (separadas por vírgula):</label>
-                    <input type="text" id="meta_keywords" name="meta_keywords" value="<?php echo htmlspecialchars($form_data_add_match['meta_keywords'] ?? ''); ?>" placeholder="palavra1, outra palavra, termo chave">
-                </div>
-            </fieldset>
-
-            <div><button type="submit" class="btn-add-match">➕ Adicionar Jogo</button></div>
-            <div id="form_submission_loader" style="display: none; margin-top: 10px; text-align: center; font-style: italic;">Salvando...</div>
-        </form>
-        <?php
-        if (isset($_SESSION['form_data']['add_match'])) {
-            unset($_SESSION['form_data']['add_match']);
-        }
-        ?>
-        <hr>
+                    <?php require_once 'templates/add_match_form.php'; ?>
                 </div> <!-- end addMatchTabContent -->
 
                 <div id="viewMatchesTabContent" class="tab-content">

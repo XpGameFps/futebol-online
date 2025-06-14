@@ -67,14 +67,49 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     $cover_image_filename_to_save = null;
-    // --- Cover Image Upload Handling Removed ---
+    $new_cover_uploaded_path = null; // Path for potential cleanup of new upload
 
-    // Logic to assign default cover image.
-    // This block is now always executed because cover uploads are removed.
-    // $cover_image_filename_to_save is initialized to null and may be overridden below.
-    try {
-        $default_cover_setting_key = 'default_match_cover'; // Consistent key from manage_settings.php
-        // Assuming 'site_settings' is the table name used in manage_settings.php
+    // --- Cover Image Upload Handling ---
+    if (isset($_FILES['cover_image_file']) && $_FILES['cover_image_file']['error'] == UPLOAD_ERR_OK) {
+        $uploaded_file = $_FILES['cover_image_file'];
+
+        // Validate file size
+        if ($uploaded_file['size'] > MAX_COVER_FILE_SIZE) {
+            $_SESSION['form_error_message']['add_match'] = "Erro: O arquivo da capa excede o tamanho máximo de " . (MAX_COVER_FILE_SIZE / 1024 / 1024) . "MB.";
+            header("Location: index.php#add-match-form");
+            exit;
+        }
+
+        // Validate MIME type
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime_type = finfo_file($finfo, $uploaded_file['tmp_name']);
+        finfo_close($finfo);
+
+        if (!in_array($mime_type, $allowed_cover_mime_types)) {
+            $_SESSION['form_error_message']['add_match'] = "Erro: Tipo de arquivo da capa inválido. Permitidos: JPG, PNG, GIF.";
+            header("Location: index.php#add-match-form");
+            exit;
+        }
+
+        // Generate unique filename
+        $file_extension = pathinfo($uploaded_file['name'], PATHINFO_EXTENSION);
+        $unique_cover_filename = 'match_cover_' . uniqid() . '.' . $file_extension;
+        $destination_path = MATCH_COVER_UPLOAD_DIR . $unique_cover_filename;
+
+        if (move_uploaded_file($uploaded_file['tmp_name'], $destination_path)) {
+            $cover_image_filename_to_save = $unique_cover_filename;
+            $new_cover_uploaded_path = $destination_path; // Store path for cleanup if DB fails
+        } else {
+            $_SESSION['form_error_message']['add_match'] = "Erro ao mover o arquivo da capa para o diretório de uploads.";
+            header("Location: index.php#add-match-form");
+            exit;
+        }
+    }
+
+    // If no custom cover was uploaded (or failed validation before this point), try to set default.
+    if ($cover_image_filename_to_save === null) {
+        try {
+            $default_cover_setting_key = 'default_match_cover';
             $stmt_get_default = $pdo->prepare("SELECT setting_value FROM site_settings WHERE setting_key = :key");
             $stmt_get_default->bindParam(':key', $default_cover_setting_key, PDO::PARAM_STR);
             $stmt_get_default->execute();
@@ -82,22 +117,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             if ($result && !empty($result['setting_value'])) {
                 $default_cover_filename = $result['setting_value'];
-                // Path to check if default file exists, relative to admin folder (location of this script)
                 $path_to_default_image_file = '../uploads/defaults/' . $default_cover_filename;
-
                 if (file_exists($path_to_default_image_file)) {
-                    // Store the filename of the default image.
-                    // Display logic will need to determine if it's a specific upload or a default.
-                    $cover_image_filename_to_save = $default_cover_filename;
+                    $cover_image_filename_to_save = $default_cover_filename; // Save the default cover's filename
                 } else {
                     error_log("Default match cover '{$default_cover_filename}' not found at '{$path_to_default_image_file}'.");
                 }
             }
         } catch (PDOException $e) {
-            // Log error, but don't necessarily block match creation if default image fetch fails
             error_log("Error fetching default cover for new match: " . $e->getMessage());
         }
-    // EXTRA BRACE REMOVED FROM HERE
+    }
 
     // If all prior validations passed (including those that exit on error)
     try {
@@ -126,12 +156,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             header("Location: index.php?status=match_added#match-" . $new_match_id);
             exit;
         } else {
-            $_SESSION['form_error_message']['add_match'] = "Erro ao adicionar jogo (DB). Verifique se a tabela 'matches' foi atualizada para usar IDs de times.";
-            if ($cover_image_filename_to_save && file_exists(MATCH_COVER_UPLOAD_DIR . $cover_image_filename_to_save)) {
-                 @unlink(MATCH_COVER_UPLOAD_DIR . $cover_image_filename_to_save);
+            $_SESSION['form_error_message']['add_match'] = "Erro ao adicionar jogo (DB).";
+            // If a new cover was uploaded for this attempt, delete it
+            if ($new_cover_uploaded_path && file_exists($new_cover_uploaded_path)) {
+                @unlink($new_cover_uploaded_path);
             }
         }
     } catch (PDOException $e) {
+        // If a new cover was uploaded for this attempt, delete it
+        if ($new_cover_uploaded_path && file_exists($new_cover_uploaded_path)) {
+            @unlink($new_cover_uploaded_path);
+        }
         // Check for foreign key constraint violation for team_ids if table is altered
         if (strpos($e->getMessage(), "FOREIGN KEY (`home_team_id`)") !== false || strpos($e->getMessage(), "FOREIGN KEY (`away_team_id`)") !== false) {
              $_SESSION['form_error_message']['add_match'] = "Erro: ID do time da casa ou visitante inválido.";
@@ -140,9 +175,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         } else {
             error_log("PDOException in " . __FILE__ . " (add_match): " . $e->getMessage());
             $_SESSION['form_error_message']['add_match'] = "Ocorreu um erro no banco de dados ao adicionar o jogo. Por favor, tente novamente.";
-        }
-        if ($cover_image_filename_to_save && file_exists(MATCH_COVER_UPLOAD_DIR . $cover_image_filename_to_save)) {
-             @unlink(MATCH_COVER_UPLOAD_DIR . $cover_image_filename_to_save);
         }
     }
     header("Location: index.php#add-match-form");
