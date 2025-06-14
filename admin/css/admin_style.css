@@ -816,3 +816,73 @@ form#deleteMultipleMatchesForm .match-item > .match-content-wrapper {
 .match-item details .library-name-input label { /* Label for "Nome para Biblioteca" */
      margin-top: 5px; /* Add some space if it appears */
 }
+
+/* Collapsible Content Styling - Admin Panel */
+.admin-toggle-button {
+    background-color: #6c757d; /* Bootstrap secondary-like color */
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    text-align: left;
+    width: auto; /* Fit content */
+    display: inline-block; /* Or block if you want it full width of its container */
+    font-size: 0.85em;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-bottom: 5px; /* Space between button and content if content is below */
+    transition: background-color 0.2s ease;
+}
+
+.admin-toggle-button:hover {
+    background-color: #5a6268; /* Darker shade on hover */
+}
+
+.admin-toggle-button .toggle-arrow {
+    display: inline-block;
+    margin-left: 8px;
+    transition: transform 0.2s ease-in-out;
+    font-size: 0.9em; /* Ensure arrow is visible */
+}
+
+.admin-toggle-button[aria-expanded="true"] .toggle-arrow {
+    transform: rotate(90deg);
+}
+
+.admin-collapsible-content {
+    /* display: none; */ /* Default state, already set inline, but good for CSS control */
+    padding: 10px;
+    background-color: #fdfdfd; /* Slightly off-white background for the content */
+    border: 1px solid #e9ecef; /* Light border */
+    border-top: none; /* Avoid double border if button is directly above */
+    border-radius: 0 0 4px 4px; /* Rounded corners at the bottom */
+    margin-top: -1px; /* Overlap slightly with button if they are direct siblings and button has bottom border */
+    overflow: hidden; /* Contains content within rounded borders */
+}
+
+/* If the button and content are not direct siblings with border overlap desired, adjust margin-top */
+.match-description-toggle-container .admin-collapsible-content,
+.match-streams-toggle-container .admin-collapsible-content {
+    /* If button is directly above, margin-top: -1px can help merge borders if button has one.
+       If button has margin-bottom, this might not be needed, or adjust as per visual test.
+       For now, let's assume the button's margin-bottom is enough.
+    */
+    /* margin-top: 0; */ /* Reset any previous margin if needed */
+}
+
+/* Ensure paragraphs inside collapsible content don't have excessive top margin */
+.admin-collapsible-content > p:first-child {
+    margin-top: 0;
+}
+.admin-collapsible-content > p:last-child {
+    margin-bottom: 0;
+}
+
+/* Ensure the h4 inside streams collapsible content is styled appropriately */
+.admin-collapsible-content h4 {
+    font-size: 0.9em; /* Adjust if needed, should be smaller than match-item h3 */
+    margin-top: 0; /* Remove top margin if it's the first element */
+    margin-bottom: 8px;
+    color: #333;
+    border-bottom: 1px solid #f0f0f0;
+    padding-bottom: 5px;
+}

@@ -120,7 +120,7 @@ body {
 }
 
 /* Match Listing Grid Styles (Common for index.php, search.php) */
-.match-list { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.match-list { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
 .match-list-item-container { /* If you use this as the li */
     /* Potentially no styles if <a> takes over all card styling */
 }
@@ -130,7 +130,7 @@ body {
     position: relative;
     border-radius: 8px;
     overflow: hidden;
-    height: 180px;
+    height: 135px;
     text-decoration: none;
     color: #fff;
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
@@ -166,7 +166,7 @@ body {
     position: absolute;
     top:0; left:0; right:0; bottom:0;
     z-index: 3;
-    padding: 10px;
+    padding: 8px;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -178,7 +178,7 @@ body {
      justify-content: space-around;
      align-items: center;
      width: 100%;
-     margin-bottom:10px;
+     margin-bottom:5px;
  }
  .match-card-overlay-content .team-info {
     flex: 1;
@@ -187,13 +187,13 @@ body {
     align-items: center;
  }
 .match-card-overlay-content .team-logo {
-    max-height: 50px;
-    max-width: 50px;
+    max-height: 40px;
+    max-width: 40px;
     margin-bottom: 5px;
     object-fit: contain;
 }
 .match-card-overlay-content .team-name {
-    font-size: 1.1em;
+    font-size: 1em;
     font-weight: bold;
     color: #fff;
     text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
@@ -206,7 +206,7 @@ body {
      text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
 }
 .match-card-overlay-content .match-card-time {
-    font-size: 0.9em;
+    font-size: 0.8em;
     color: #eee;
     background-color: rgba(0,0,0,0.4);
     padding: 3px 8px;
@@ -241,13 +241,16 @@ body {
 
 /* Responsive Media Queries (Common) */
 @media (max-width: 992px) { /* For tablets, still 2 columns for match list */
-    /* .match-list already handled for 2 columns if previous styles are maintained or adapted */
-    .match-card-link.new-design { height: 170px; }
-    .match-card-overlay-content .team-logo { max-height: 45px; max-width: 45px; }
-    .match-card-overlay-content .team-name { font-size: 1em; }
+    .match-list { grid-template-columns: repeat(3, 1fr); }
+    .match-card-link.new-design { height: 130px; }
+    .match-card-overlay-content .team-logo { max-height: 35px; max-width: 35px; }
+    .match-card-overlay-content .team-name { font-size: 0.9em; }
 }
 @media (max-width: 767px) { /* Header adjustments for smaller tablets/landscape phones */
     .match-list { grid-template-columns: repeat(2, 1fr); gap: 15px; } /* Ensure match list itself is responsive */
+    .match-card-link.new-design { height: 125px; }
+    .match-card-overlay-content .team-logo { max-height: 35px; max-width: 35px; }
+    .match-card-overlay-content .team-name { font-size: 0.9em; }
     .main-navigation .league-nav-link { display: none; }
     .logo-area .logo-text { font-size: 1.8em; }
     .search-area input[type="search"] { min-width: 120px; font-size: 0.85em; padding: 7px 10px; }
@@ -260,11 +263,11 @@ body {
 }
 @media (max-width: 576px) { /* For mobile phones, 1 column for match list */
     .match-list { grid-template-columns: 1fr; } /* Ensure match list itself is responsive */
-    .match-card-link.new-design { height: 160px; }
-    .match-card-overlay-content .team-logo { max-height: 40px; max-width: 40px; }
-    .match-card-overlay-content .team-name { font-size: 0.9em; }
-    .match-card-overlay-content .match-versus { font-size: 1em; }
-    .match-card-overlay-content .match-card-time { font-size: 0.8em; }
+    .match-card-link.new-design { height: 120px; }
+    .match-card-overlay-content .team-logo { max-height: 30px; max-width: 30px; }
+    .match-card-overlay-content .team-name { font-size: 0.8em; }
+    .match-card-overlay-content .match-versus { font-size: 0.9em; }
+    .match-card-overlay-content .match-card-time { font-size: 0.7em; }
 }
 @media (max-width: 480px) { /* Even smaller screens */
     .logo-area .logo-text { font-size: 1.6em; }
