@@ -927,9 +927,9 @@ if (isset($pdo)) {
 
         // Online users counter script
         document.addEventListener('DOMContentLoaded', function() {
-            const onlineUsersCountElement_nav = document.getElementById('online-users-count');
+            const statsDisplayTargetElement = document.getElementById('admin-stats-display-container');
             function fetchOnlineUsers_nav() {
-                if (!onlineUsersCountElement_nav) return;
+                if (!statsDisplayTargetElement) return;
                 fetch('get_online_users.php')
                     .then(response => response.json())
                     .then(data => {
@@ -937,11 +937,12 @@ if (isset($pdo)) {
                             const onlineCount = data.online_count !== undefined ? data.online_count : 'N/A';
                             const maxUsers = data.max_users_count !== undefined ? data.max_users_count : 'N/A';
                             const displayText = 'Online: ' + onlineCount + ' | Recorde: ' + maxUsers;
-                            onlineUsersCountElement_nav.textContent = displayText;
-                        } else { onlineUsersCountElement_nav.textContent = '--'; }
+                            statsDisplayTargetElement.innerHTML = ''; // Clear previous content
+                            statsDisplayTargetElement.textContent = displayText;
+                        } else { statsDisplayTargetElement.textContent = '--'; }
                     })
                     .catch(error => {
-                        onlineUsersCountElement_nav.textContent = 'Err';
+                        statsDisplayTargetElement.textContent = 'Err';
                         console.error('Fetch error for online users (nav):', error);
                     });
             }
