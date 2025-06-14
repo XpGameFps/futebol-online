@@ -1,83 +1,73 @@
-# Site de Streaming de Futebol - Versão 1.0
+# FutOnline - Sports Streaming and Schedule Platform
 
-## Visão Geral
+FutOnline is a web platform designed to provide users with schedules for upcoming sports matches, live streaming options, and TV channel information. It features an administrative panel for managing content, including matches, leagues, teams, channels, and a comprehensive advertisement system.
 
-Este projeto é um site simples para listar jogos de futebol e os links de transmissão associados. Possui um painel de administração para gerenciar os jogos e os streams. Esta primeira versão foi construída com PHP e MySQL.
+## Key Features
 
-## Pré-requisitos
+*   **Match Listings:** Displays upcoming matches, filterable by league. Includes match time, description, team information, and cover images.
+*   **Live Match Streaming:** For individual matches, provides embedded players and multiple stream options.
+*   **TV Channel Player:** Lists available TV channels with an embedded player for live viewing.
+*   **Search Functionality:** Allows users to search for matches.
+*   **Comprehensive Admin Panel:**
+    *   Manage Matches (Add, Edit, Delete)
+    *   Manage Leagues (Add, Edit, Delete)
+    *   Manage Teams (Add, Edit, Delete)
+    *   Manage TV Channels (Add, Edit, Delete)
+    *   Manage Streams for matches
+    *   Manage Site Settings (e.g., site name, logo, default cover images)
+    *   **Advanced Ad Management System:**
+        *   Support for multiple ad types:
+            *   **Image Banners:** Traditional clickable image ads.
+            *   **Script Ads (Pop-up):** For pop-up advertisements.
+            *   **Script Ads (Banner):** For ads served via HTML/JavaScript code (e.g., Google AdSense, native banners).
+        *   Control ad display on various pages:
+            *   Homepage
+            *   Match Pages (general area)
+            *   TV Channel Pages (general area)
+            *   Left of Player (Match Pages)
+            *   Right of Player (Match Pages)
+            *   Left of Player (TV Pages)
+            *   Right of Player (TV Pages)
+        *   Activate/Deactivate ads.
+        *   Admin interface to add, edit, and manage all ad types and their display options.
+*   **User Activity Tracking:** Basic tracking of active user sessions.
 
-*   Servidor web com suporte a PHP (versão 7.4 ou superior recomendada).
-*   Banco de dados MySQL ou MariaDB.
-*   Acesso a um painel de controle de hospedagem como o cPanel (ou conhecimento equivalente para configurar o ambiente).
+## Technical Overview
 
-## Passos de Implantação
+*   **Backend:** PHP
+*   **Database:** MySQL
+*   **Frontend:** HTML, CSS, JavaScript (primarily vanilla JS for interactions).
 
-Siga estes passos para implantar o site em seu ambiente de hospedagem:
+## Setup
 
-### 1. Download dos Arquivos
+1.  **Database Configuration:**
+    *   Edit `config.php` in the root directory to set your MySQL database host, username, password, and database name.
+    *   Import the database schema. The following SQL files provide the structure:
+        *   `schema.sql` or `schema_completo.sql`: Contains the initial full schema for most tables (matches, leagues, teams, channels, etc.). **Review and use the one most up-to-date for your setup.**
+        *   `banners_table.sql`: Contains the schema for the `banners` table (this might be part of `schema_completo.sql` as well).
+        *   `update_schema_for_ads.sql`: **Crucially, apply this script after the initial schema setup.** It contains all `ALTER TABLE` statements required for the full ad system functionality, including adding new columns and modifying existing ones in the `banners` table.
+        *   Other `update_schema_vX.sql` files: These appear to be incremental updates. Apply them in order if they were part of your setup process.
 
-Obtenha todos os arquivos do projeto (arquivos `.php`, `.sql` e a pasta `admin/`). Se você clonou o repositório, certifique-se de estar na branch ou commit correto correspondente a esta versão.
+2.  **Web Server:**
+    *   Ensure your web server (e.g., Apache, Nginx) is configured to serve PHP files.
+    *   The document root should point to the project's root directory.
+    *   Ensure URL rewriting (e.g., via `.htaccess` for Apache) is enabled if used by the project (the presence of `.htaccess` suggests it might be).
 
-### 2. Configuração do Banco de Dados no cPanel
+3.  **File Uploads:**
+    *   The `uploads/` directory and its subdirectories (`banners/`, `covers/matches/`, `logos/channels/`, etc.) need to be writable by the web server process for image uploads (banners, team logos, match covers) to work.
 
-1.  **Faça login no seu cPanel.**
-2.  Procure pela seção "Bancos de Dados" e clique em **"Assistente de banco de dados MySQL®"** (ou "MySQL® Databases" se preferir o modo manual).
-3.  **Criar um Novo Banco de Dados**:
-    *   Digite um nome para o seu banco de dados (ex: `futebol_db`) e clique em "Próxima Etapa".
-4.  **Criar um Usuário do Banco de Dados**:
-    *   Digite um nome de usuário para o banco de dados (ex: `futebol_user`).
-    *   Gere uma senha forte e segura. **Anote o nome do banco de dados, o nome de usuário e a senha, pois você precisará deles mais tarde.**
-    *   Clique em "Criar Usuário".
-5.  **Adicionar Usuário ao Banco de Dados e Definir Permissões**:
-    *   Na página "Adicionar usuário ao banco de dados", certifique-se de que o usuário e o banco de dados corretos estejam selecionados.
-    *   Marque a caixa de seleção **"TODOS OS PRIVILÉGIOS"**.
-    *   Clique em "Próxima Etapa" ou "Fazer Alterações".
+## Admin Panel Access
 
-### 3. Importação do Esquema do Banco de Dados
+*   The admin panel is typically located at `/admin/` (e.g., `yourdomain.com/admin/`).
+*   Default credentials might need to be set up manually in the database or through an initial admin creation script if one exists.
 
-1.  Volte para a tela inicial do cPanel e, na seção "Bancos de Dados", clique em **"phpMyAdmin"**.
-2.  No painel esquerdo do phpMyAdmin, selecione o banco de dados que você criou no passo anterior (ex: `futebol_db`).
-3.  Clique na aba **"Importar"** no menu superior.
-4.  Na seção "Arquivo a importar", clique em **"Escolher arquivo"** e localize o arquivo `schema.sql` que está na raiz do projeto.
-5.  Deixe as outras opções com seus valores padrão e clique no botão **"Executar"** (ou "Importar"/"Ir") no final da página.
-    *   Você deverá ver uma mensagem de sucesso indicando que a importação foi concluída. As tabelas `matches` e `streams` estarão criadas.
+## Main Frontend Pages
 
-### 4. Upload dos Arquivos do Site
+*   `index.php`: Homepage, lists upcoming matches and TV channels. Displays homepage banners.
+*   `match.php`: Match detail page. Displays match information, video player, stream options, player-side ads, general match page banners, and pop-up ads.
+*   `channel_player.php`: TV channel player page. Displays the TV channel stream, player-side ads, general TV page banners, and pop-up ads.
+*   `search.php`: Displays search results.
 
-1.  Volte para a tela inicial do cPanel e, na seção "Arquivos", clique em **"Gerenciador de Arquivos"**.
-2.  Navegue até o diretório raiz do seu site. Geralmente é `public_html` para o domínio principal, ou um subdiretório se você estiver usando um subdomínio ou uma pasta específica (ex: `public_html/futebol/`).
-3.  Clique em **"Carregar"** (ou "Upload") no menu superior do Gerenciador de Arquivos.
-4.  Faça o upload de todos os arquivos e pastas do projeto para este diretório:
-    *   `index.php`
-    *   `match.php`
-    *   `config.php`
-    *   `schema.sql` (embora já usado, é bom tê-lo no servidor como referência)
-    *   A pasta `admin/` (com todos os seus arquivos: `index.php`, `add_match.php`, `add_stream.php`, `delete_match.php`).
+---
 
-### 5. Configuração do `config.php`
-
-1.  Ainda no "Gerenciador de Arquivos" do cPanel, localize o arquivo `config.php` que você acabou de enviar.
-2.  Clique com o botão direito sobre ele e selecione **"Edit"** ou **"Code Edit"**.
-3.  Você precisará atualizar as seguintes linhas com as informações do banco de dados que você anotou anteriormente:
-
-    ```php
-    define('DB_HOST', 'localhost'); // Geralmente 'localhost', mas verifique com seu provedor se for diferente
-    define('DB_USER', 'SEU_USUARIO_DO_BANCO_DE_DADOS'); // Substitua pelo usuário que você criou
-    define('DB_PASS', 'SUA_SENHA_DO_BANCO_DE_DADOS'); // Substitua pela senha que você criou
-    define('DB_NAME', 'SEU_NOME_DO_BANCO_DE_DADOS'); // Substitua pelo nome do banco de dados que você criou
-    ```
-4.  Salve as alterações no arquivo.
-
-## Acesso ao Site
-
-Após seguir todos os passos:
-
-*   **Site Principal**: Navegue até o seu domínio (ex: `http://seudominio.com` ou `http://seudominio.com/futebol/` se você usou um subdiretório).
-*   **Painel de Administração**: Acesse `http://seudominio.com/admin/` (ou `http://seudominio.com/futebol/admin/`).
-
-## Considerações Adicionais
-
-*   **Permissões de Arquivo**: Geralmente, os arquivos PHP precisam de permissão `644` e as pastas `755`. O cPanel costuma lidar bem com isso, mas se você encontrar problemas de permissão, verifique essas configurações.
-*   **Segurança do Painel Admin**: Esta versão não inclui um sistema de login para o painel `admin/`. Em um ambiente de produção, é highly recomendável proteger este diretório (ex: usando a ferramenta "Diretórios protegidos por senha" no cPanel ou implementando um sistema de autenticação PHP).
-
-```
+This README provides a general overview. Further details on specific functionalities can often be inferred from the code structure and comments.
