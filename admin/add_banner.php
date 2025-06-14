@@ -5,69 +5,104 @@ require_once 'csrf_utils.php';
 
 $page_title = "Adicionar Novo Banner";
 $errors = [];
-$input = ['target_url' => '', 'alt_text' => '', 'is_active' => 1, 'display_on_homepage' => 0, 'display_on_match_page' => 0, 'display_on_tv_page' => 0];
+// Initialize input with default values, including new fields
+$input = [
+    'target_url' => '',
+    'alt_text' => '',
+    'is_active' => 1,
+    'display_on_homepage' => 0,
+    'display_on_match_page' => 0,
+    'display_on_tv_page' => 0,
+    'ad_type' => 'image', // Default ad type
+    'ad_code' => ''
+];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!validate_csrf_token($_POST['csrf_token'] ?? null)) {
         $errors[] = "Falha na verificação CSRF. Por favor, tente novamente.";
     } else {
-        $input['target_url'] = trim($_POST['target_url'] ?? '');
-        $input['alt_text'] = trim($_POST['alt_text'] ?? '');
-        $input['is_active'] = isset($_POST['is_active']) ? 1 : 0;
-        $input['display_on_homepage'] = isset($_POST['display_on_homepage']) ? 1 : 0;
-        $input['display_on_match_page'] = isset($_POST['display_on_match_page']) ? 1 : 0;
-        $input['display_on_tv_page'] = isset($_POST['display_on_tv_page']) ? 1 : 0;
+        // Retrieve and sanitize ad_type first
+        $ad_type = trim($_POST['ad_type'] ?? 'image');
+        $input['ad_type'] = $ad_type;
 
-        // Validate inputs
-        if (empty($input['target_url']) || !filter_var($input['target_url'], FILTER_VALIDATE_URL)) {
-            $errors[] = "URL Alvo é obrigatória e deve ser uma URL válida.";
-        }
-        if (empty($_FILES['banner_image']['name'])) {
-            $errors[] = "A imagem do banner é obrigatória.";
-        }
+        // Initialize variables for DB insertion
+        $ad_code = null;
+        $target_url = '';
+        $alt_text = '';
+        $image_path_db = null; // Changed from $image_path_db to avoid conflict with $image_path
 
-        // Image upload validation
-        $image_path_db = null;
-        if (isset($_FILES['banner_image']) && $_FILES['banner_image']['error'] == UPLOAD_ERR_OK) {
-            $upload_dir = '../uploads/banners/';
-            if (!is_dir($upload_dir)) {
-                mkdir($upload_dir, 0755, true);
+        // Common fields
+        $is_active = isset($_POST['is_active']) ? 1 : 0;
+        $input['is_active'] = $is_active;
+        $display_on_homepage = isset($_POST['display_on_homepage']) ? 1 : 0;
+        $input['display_on_homepage'] = $display_on_homepage;
+        $display_on_match_page = isset($_POST['display_on_match_page']) ? 1 : 0;
+        $input['display_on_match_page'] = $display_on_match_page;
+        $display_on_tv_page = isset($_POST['display_on_tv_page']) ? 1 : 0;
+        $input['display_on_tv_page'] = $display_on_tv_page;
+
+        if ($ad_type === 'popup_script' || $ad_type === 'banner_script') {
+            $ad_code = trim($_POST['ad_code'] ?? null);
+            $input['ad_code'] = $ad_code; // For repopulating form
+            if (empty($ad_code)) {
+                $errors[] = "Código do Anúncio é obrigatório para o tipo de anúncio selecionado.";
             }
-            $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-            $file_type = mime_content_type($_FILES['banner_image']['tmp_name']);
+        } else { // 'image' type
+            $target_url = trim($_POST['target_url'] ?? '');
+            $alt_text = trim($_POST['alt_text'] ?? '');
+            $input['target_url'] = $target_url; // For repopulating form
+            $input['alt_text'] = $alt_text; // For repopulating form
 
-            if (!in_array($file_type, $allowed_types)) {
-                $errors[] = "Tipo de arquivo inválido. Apenas JPG, PNG, GIF, WEBP são permitidos.";
-            } elseif ($_FILES['banner_image']['size'] > 2 * 1024 * 1024) { // Max 2MB
-                $errors[] = "O arquivo da imagem é muito grande. Máximo de 2MB.";
-            } else {
-                $file_extension = pathinfo($_FILES['banner_image']['name'], PATHINFO_EXTENSION);
-                $unique_filename = 'banner_' . uniqid() . '_' . time() . '.' . $file_extension;
-                $destination = $upload_dir . $unique_filename;
+            if (empty($target_url) || !filter_var($target_url, FILTER_VALIDATE_URL)) {
+                $errors[] = "URL Alvo é obrigatória e deve ser uma URL válida para anúncios de imagem.";
+            }
+            // Image upload validation (only for 'image' type)
+            if (empty($_FILES['banner_image']['name'])) {
+                $errors[] = "A imagem do banner é obrigatória para anúncios de imagem.";
+            }
 
-                if (move_uploaded_file($_FILES['banner_image']['tmp_name'], $destination)) {
-                    $image_path_db = $unique_filename; // Store only filename
-                } else {
-                    $errors[] = "Falha ao mover o arquivo enviado. Verifique as permissões do diretório.";
+            if (isset($_FILES['banner_image']) && $_FILES['banner_image']['error'] == UPLOAD_ERR_OK) {
+                $upload_dir = '../uploads/banners/';
+                if (!is_dir($upload_dir)) {
+                    mkdir($upload_dir, 0755, true);
                 }
-            }
-        } elseif (isset($_FILES['banner_image']) && $_FILES['banner_image']['error'] != UPLOAD_ERR_NO_FILE) {
-            $errors[] = "Erro no upload da imagem: " . $_FILES['banner_image']['error'];
-        }
+                $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+                $file_type = mime_content_type($_FILES['banner_image']['tmp_name']);
 
+                if (!in_array($file_type, $allowed_types)) {
+                    $errors[] = "Tipo de arquivo inválido. Apenas JPG, PNG, GIF, WEBP são permitidos.";
+                } elseif ($_FILES['banner_image']['size'] > 2 * 1024 * 1024) { // Max 2MB
+                    $errors[] = "O arquivo da imagem é muito grande. Máximo de 2MB.";
+                } else {
+                    $file_extension = pathinfo($_FILES['banner_image']['name'], PATHINFO_EXTENSION);
+                    $unique_filename = 'banner_' . uniqid() . '_' . time() . '.' . $file_extension;
+                    $destination = $upload_dir . $unique_filename;
+
+                    if (move_uploaded_file($_FILES['banner_image']['tmp_name'], $destination)) {
+                        $image_path_db = $unique_filename; // Store only filename
+                    } else {
+                        $errors[] = "Falha ao mover o arquivo enviado. Verifique as permissões do diretório.";
+                    }
+                }
+            } elseif (isset($_FILES['banner_image']) && $_FILES['banner_image']['error'] != UPLOAD_ERR_NO_FILE && $ad_type === 'image') {
+                 $errors[] = "Erro no upload da imagem: " . $_FILES['banner_image']['error'];
+            }
+        }
 
         if (empty($errors)) {
             try {
-                $sql = "INSERT INTO banners (image_path, target_url, alt_text, is_active, display_on_homepage, display_on_match_page, display_on_tv_page)
-                        VALUES (:image_path, :target_url, :alt_text, :is_active, :display_on_homepage, :display_on_match_page, :display_on_tv_page)";
+                $sql = "INSERT INTO banners (image_path, target_url, alt_text, ad_type, ad_code, is_active, display_on_homepage, display_on_match_page, display_on_tv_page)
+                        VALUES (:image_path, :target_url, :alt_text, :ad_type, :ad_code, :is_active, :display_on_homepage, :display_on_match_page, :display_on_tv_page)";
                 $stmt = $pdo->prepare($sql);
-                $stmt->bindParam(':image_path', $image_path_db, PDO::PARAM_STR);
-                $stmt->bindParam(':target_url', $input['target_url'], PDO::PARAM_STR);
-                $stmt->bindParam(':alt_text', $input['alt_text'], PDO::PARAM_STR);
-                $stmt->bindParam(':is_active', $input['is_active'], PDO::PARAM_INT);
-                $stmt->bindParam(':display_on_homepage', $input['display_on_homepage'], PDO::PARAM_INT);
-                $stmt->bindParam(':display_on_match_page', $input['display_on_match_page'], PDO::PARAM_INT);
-                $stmt->bindParam(':display_on_tv_page', $input['display_on_tv_page'], PDO::PARAM_INT);
+                $stmt->bindParam(':image_path', $image_path_db, PDO::PARAM_STR); // Will be null if not image type
+                $stmt->bindParam(':target_url', $target_url, PDO::PARAM_STR);     // Will be empty if not image type
+                $stmt->bindParam(':alt_text', $alt_text, PDO::PARAM_STR);         // Will be empty if not image type
+                $stmt->bindParam(':ad_type', $ad_type, PDO::PARAM_STR);
+                $stmt->bindParam(':ad_code', $ad_code, PDO::PARAM_STR);           // Will be null if image type
+                $stmt->bindParam(':is_active', $is_active, PDO::PARAM_INT);
+                $stmt->bindParam(':display_on_homepage', $display_on_homepage, PDO::PARAM_INT);
+                $stmt->bindParam(':display_on_match_page', $display_on_match_page, PDO::PARAM_INT);
+                $stmt->bindParam(':display_on_tv_page', $display_on_tv_page, PDO::PARAM_INT);
 
                 if ($stmt->execute()) {
                     $_SESSION['success_message'] = "Banner adicionado com sucesso!";
@@ -110,18 +145,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php echo generate_csrf_input(); ?>
 
                 <div class="form-group">
-                    <label for="banner_image">Imagem do Banner (JPG, PNG, GIF, WEBP - Max 2MB)</label>
-                    <input type="file" class="form-control-file" id="banner_image" name="banner_image" required>
+                    <label for="ad_type">Tipo de Anúncio</label>
+                    <select class="form-control" id="ad_type" name="ad_type">
+                        <option value="image" <?php echo ($input['ad_type'] === 'image') ? 'selected' : ''; ?>>Imagem</option>
+                        <option value="popup_script" <?php echo ($input['ad_type'] === 'popup_script') ? 'selected' : ''; ?>>Script Pop-up</option>
+                        <option value="banner_script" <?php echo ($input['ad_type'] === 'banner_script') ? 'selected' : ''; ?>>Script Banner</option>
+                    </select>
                 </div>
 
-                <div class="form-group">
-                    <label for="target_url">URL Alvo (link)</label>
-                    <input type="url" class="form-control" id="target_url" name="target_url" value="<?php echo htmlspecialchars($input['target_url']); ?>" required placeholder="https://exemplo.com">
+                <div id="image_fields_container">
+                    <div class="form-group">
+                        <label for="banner_image">Imagem do Banner (JPG, PNG, GIF, WEBP - Max 2MB)</label>
+                        <input type="file" class="form-control-file" id="banner_image" name="banner_image"> <!-- Removed 'required' as it depends on ad_type -->
+                    </div>
+
+                    <div class="form-group">
+                        <label for="target_url">URL Alvo (link)</label>
+                        <input type="url" class="form-control" id="target_url" name="target_url" value="<?php echo htmlspecialchars($input['target_url']); ?>" placeholder="https://exemplo.com"> <!-- Removed 'required' -->
+                    </div>
+
+                    <div class="form-group">
+                        <label for="alt_text">Texto Alternativo (Alt Text)</label>
+                        <input type="text" class="form-control" id="alt_text" name="alt_text" value="<?php echo htmlspecialchars($input['alt_text']); ?>" placeholder="Descrição da imagem para acessibilidade">
+                    </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="alt_text">Texto Alternativo (Alt Text)</label>
-                    <input type="text" class="form-control" id="alt_text" name="alt_text" value="<?php echo htmlspecialchars($input['alt_text']); ?>" placeholder="Descrição da imagem para acessibilidade">
+                <div id="ad_code_container" style="display: none;">
+                    <div class="form-group">
+                        <label for="ad_code">Código do Anúncio</label>
+                        <textarea class="form-control" id="ad_code" name="ad_code" rows="5" placeholder="Cole o script do anúncio aqui"><?php echo htmlspecialchars($input['ad_code']); ?></textarea>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -162,5 +215,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </main>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const adTypeSelect = document.getElementById('ad_type');
+    const imageFieldsContainer = document.getElementById('image_fields_container');
+    const adCodeContainer = document.getElementById('ad_code_container');
+    const bannerImageInput = document.getElementById('banner_image');
+    const targetUrlInput = document.getElementById('target_url');
+
+    function toggleFields() {
+        if (adTypeSelect.value === 'image') {
+            imageFieldsContainer.style.display = '';
+            adCodeContainer.style.display = 'none';
+            // Add required attributes for image type
+            bannerImageInput.setAttribute('required', 'required');
+            targetUrlInput.setAttribute('required', 'required');
+        } else {
+            imageFieldsContainer.style.display = 'none';
+            adCodeContainer.style.display = '';
+            // Remove required attributes when not image type
+            bannerImageInput.removeAttribute('required');
+            targetUrlInput.removeAttribute('required');
+        }
+    }
+
+    if (adTypeSelect && imageFieldsContainer && adCodeContainer && bannerImageInput && targetUrlInput) {
+        adTypeSelect.addEventListener('change', toggleFields);
+        // Initial call to set correct visibility and required attributes on page load/reload
+        toggleFields();
+    } else {
+        console.error('One or more elements for ad type toggling not found.');
+        // Log which elements are missing for easier debugging
+        if (!adTypeSelect) console.error('ad_type select not found');
+        if (!imageFieldsContainer) console.error('image_fields_container not found');
+        if (!adCodeContainer) console.error('ad_code_container not found');
+        if (!bannerImageInput) console.error('banner_image input not found');
+        if (!targetUrlInput) console.error('target_url input not found');
+    }
+});
+</script>
 
 <?php include 'templates/footer.php'; ?>

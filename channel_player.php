@@ -152,10 +152,24 @@ if ($channel_id > 0) {
     $tv_page_banners = [];
     if (isset($pdo)) {
         try {
-            $stmt_tv_banners = $pdo->query("SELECT image_path, target_url, alt_text FROM banners WHERE is_active = 1 AND display_on_tv_page = 1 ORDER BY RAND() LIMIT 4");
+            // Refined query for image banners
+            $stmt_tv_banners = $pdo->query("SELECT image_path, target_url, alt_text FROM banners WHERE is_active = 1 AND display_on_tv_page = 1 AND (ad_type = 'image' OR ad_type IS NULL) ORDER BY RAND() LIMIT 4");
             $tv_page_banners = $stmt_tv_banners->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
-            error_log("PDOException fetching TV page banners: " . $e->getMessage());
+            error_log("PDOException fetching TV page image banners: " . $e->getMessage());
+            // Silently fail or log the error, don't break the page
+        }
+    }
+
+    // Fetch Pop-up Ad Scripts for TV Page
+    $popup_ad_scripts_tv = [];
+    if (isset($pdo)) {
+        try {
+            $stmt_popup_ads_tv = $pdo->prepare("SELECT ad_code FROM banners WHERE is_active = 1 AND ad_type = 'popup_script' AND display_on_tv_page = 1");
+            $stmt_popup_ads_tv->execute();
+            $popup_ad_scripts_tv = $stmt_popup_ads_tv->fetchAll(PDO::FETCH_COLUMN, 0); // Fetch only the ad_code column
+        } catch (PDOException $e) {
+            error_log("PDOException fetching TV page pop-up ads: " . $e->getMessage());
             // Silently fail or log the error, don't break the page
         }
     }
@@ -175,6 +189,15 @@ if ($channel_id > 0) {
     </div>
     <?php
     endif;
+    ?>
+
+    <?php
+    // Echo Pop-up Ad Scripts if any exist for TV page
+    if (!empty($popup_ad_scripts_tv)) {
+        foreach ($popup_ad_scripts_tv as $script_code) {
+            echo $script_code; // Output the raw ad code
+        }
+    }
     ?>
 
     <?php require_once 'templates/footer.php'; ?>

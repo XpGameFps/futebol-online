@@ -278,14 +278,28 @@ if ($match_id > 0) {
     </main>
 
     <?php
-    // Fetch Banners for Match Page
+    // Fetch Banners for Match Page (existing image banners)
     $match_page_banners = [];
     if (isset($pdo)) {
         try {
-            $stmt_mp_banners = $pdo->query("SELECT image_path, target_url, alt_text FROM banners WHERE is_active = 1 AND display_on_match_page = 1 ORDER BY RAND() LIMIT 4");
+            // Query for image banners (ad_type = 'image' or ad_type IS NULL for backward compatibility if needed)
+            $stmt_mp_banners = $pdo->query("SELECT image_path, target_url, alt_text FROM banners WHERE is_active = 1 AND display_on_match_page = 1 AND (ad_type = 'image' OR ad_type IS NULL) ORDER BY RAND() LIMIT 4");
             $match_page_banners = $stmt_mp_banners->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
-            error_log("PDOException fetching match page banners: " . $e->getMessage());
+            error_log("PDOException fetching match page image banners: " . $e->getMessage());
+            // Silently fail or log the error, don't break the page
+        }
+    }
+
+    // Fetch Pop-up Ad Scripts for Match Page
+    $popup_ad_scripts = [];
+    if (isset($pdo)) {
+        try {
+            $stmt_popup_ads = $pdo->prepare("SELECT ad_code FROM banners WHERE is_active = 1 AND ad_type = 'popup_script' AND display_on_match_page = 1");
+            $stmt_popup_ads->execute();
+            $popup_ad_scripts = $stmt_popup_ads->fetchAll(PDO::FETCH_COLUMN, 0); // Fetch only the ad_code column
+        } catch (PDOException $e) {
+            error_log("PDOException fetching match page pop-up ads: " . $e->getMessage());
             // Silently fail or log the error, don't break the page
         }
     }
@@ -305,6 +319,15 @@ if ($match_id > 0) {
     </div>
     <?php
     endif;
+    ?>
+
+    <?php
+    // Echo Pop-up Ad Scripts if any exist
+    if (!empty($popup_ad_scripts)) {
+        foreach ($popup_ad_scripts as $script_code) {
+            echo $script_code; // Output the raw ad code
+        }
+    }
     ?>
 
     <?php require_once 'templates/footer.php'; ?>

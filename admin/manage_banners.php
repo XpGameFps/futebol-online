@@ -41,7 +41,8 @@ $page_title = "Gerenciar Banners";
                     <thead>
                         <tr>
                             <th>ID</th>
-                            <th>Imagem</th>
+                            <th>Conteúdo do Banner/Anúncio</th>
+                            <th>Tipo de Anúncio</th>
                             <th>URL Alvo</th>
                             <th>Texto Alt</th>
                             <th>Ativo</th>
@@ -55,21 +56,49 @@ $page_title = "Gerenciar Banners";
                     <tbody>
                         <?php if (empty($banners)): ?>
                             <tr>
-                                <td colspan="10" class="text-center">Nenhum banner encontrado.</td>
+                                <td colspan="11" class="text-center">Nenhum banner encontrado.</td>
                             </tr>
                         <?php else: ?>
+                            <?php
+                            // Define user-friendly names for ad types
+                            $adTypeDisplayNames = [
+                                'image' => 'Imagem',
+                                'popup_script' => 'Script Pop-up',
+                                'banner_script' => 'Script Banner'
+                            ];
+                            ?>
                             <?php foreach ($banners as $banner): ?>
+                                <?php $current_ad_type = $banner['ad_type'] ?? 'image'; // Default to image if not set ?>
                                 <tr>
                                     <td><?php echo htmlspecialchars($banner['id']); ?></td>
                                     <td>
-                                        <?php if (!empty($banner['image_path'])): ?>
-                                            <img src="<?php echo '../uploads/banners/' . htmlspecialchars($banner['image_path']); ?>" alt="<?php echo htmlspecialchars($banner['alt_text'] ?? 'Banner'); ?>" class="banner-list-thumbnail">
+                                        <?php if ($current_ad_type === 'image'): ?>
+                                            <?php if (!empty($banner['image_path'])): ?>
+                                                <img src="<?php echo '../uploads/banners/' . htmlspecialchars($banner['image_path']); ?>" alt="<?php echo htmlspecialchars($banner['alt_text'] ?? 'Banner'); ?>" class="banner-list-thumbnail">
+                                            <?php else: ?>
+                                                Sem imagem
+                                            <?php endif; ?>
+                                        <?php else: // Script types ?>
+                                            <code title="<?php echo htmlspecialchars($banner['ad_code']); ?>">
+                                                <?php echo htmlspecialchars(substr($banner['ad_code'] ?? '', 0, 50)) . (strlen($banner['ad_code'] ?? '') > 50 ? '...' : ''); ?>
+                                            </code>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><?php echo htmlspecialchars($adTypeDisplayNames[$current_ad_type] ?? ucfirst($current_ad_type)); ?></td>
+                                    <td>
+                                        <?php if ($current_ad_type === 'image' && !empty($banner['target_url'])): ?>
+                                            <a href="<?php echo htmlspecialchars($banner['target_url']); ?>" target="_blank"><?php echo htmlspecialchars(substr($banner['target_url'], 0, 30) . (strlen($banner['target_url']) > 30 ? '...' : '')); ?></a>
                                         <?php else: ?>
                                             N/A
                                         <?php endif; ?>
                                     </td>
-                                    <td><a href="<?php echo htmlspecialchars($banner['target_url']); ?>" target="_blank"><?php echo htmlspecialchars(substr($banner['target_url'], 0, 30) . (strlen($banner['target_url']) > 30 ? '...' : '')); ?></a></td>
-                                    <td><?php echo htmlspecialchars($banner['alt_text'] ?? 'N/A'); ?></td>
+                                    <td>
+                                        <?php if ($current_ad_type === 'image'): ?>
+                                            <?php echo htmlspecialchars($banner['alt_text'] ?? 'N/A'); ?>
+                                        <?php else: ?>
+                                            N/A
+                                        <?php endif; ?>
+                                    </td>
                                     <td>
                                         <form action="actions/toggle_banner_status.php" method="POST" style="display: inline;">
                                             <?php echo generate_csrf_input(); ?>

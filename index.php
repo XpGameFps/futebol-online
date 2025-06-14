@@ -137,8 +137,8 @@ if (isset($pdo)) {
 
     // Fetch Banners for Homepage
     try {
-        // Fetch up to 20 active homepage banners, then shuffle and slice in PHP
-        $stmt_banners = $pdo->query("SELECT image_path, target_url, alt_text FROM banners WHERE is_active = 1 AND display_on_homepage = 1 ORDER BY id ASC LIMIT 20");
+        // Fetch up to 20 active homepage banners (image or banner_script), then shuffle and slice in PHP
+        $stmt_banners = $pdo->query("SELECT image_path, target_url, alt_text, ad_type, ad_code FROM banners WHERE is_active = 1 AND display_on_homepage = 1 AND (ad_type = 'image' OR ad_type = 'banner_script' OR ad_type IS NULL) ORDER BY id ASC LIMIT 20");
         $potential_banners = $stmt_banners->fetchAll(PDO::FETCH_ASSOC);
 
         if ($potential_banners) {
@@ -291,10 +291,32 @@ $page_meta_keywords = $meta_keywords_content; // $meta_keywords_content has been
     <div class="banner-container">
         <?php foreach ($home_banners as $banner): ?>
             <div class="banner-item">
-                <a href="<?php echo htmlspecialchars($banner['target_url']); ?>" target="_blank">
-                    <img src="uploads/banners/<?php echo htmlspecialchars($banner['image_path']); ?>"
-                         alt="<?php echo htmlspecialchars($banner['alt_text'] ?? 'Banner'); ?>">
-                </a>
+                <?php
+                // Default to 'image' if ad_type is NULL or not set (especially for older records)
+                $current_ad_type = $banner['ad_type'] ?? 'image';
+
+                if ($current_ad_type === 'image') :
+                    // Ensure target_url and image_path are not empty for image type
+                    if (!empty($banner['image_path']) && !empty($banner['target_url'])) :
+                ?>
+                    <a href="<?php echo htmlspecialchars($banner['target_url']); ?>" target="_blank">
+                        <img src="uploads/banners/<?php echo htmlspecialchars($banner['image_path']); ?>"
+                             alt="<?php echo htmlspecialchars($banner['alt_text'] ?? 'Banner'); ?>">
+                    </a>
+                <?php
+                    else:
+                        // Optional: comment or placeholder if image data is incomplete for an 'image' type
+                        // echo "<!-- Image banner data incomplete for banner ID: " . ($banner['id'] ?? 'unknown') . " -->";
+                    endif;
+                elseif ($current_ad_type === 'banner_script') :
+                    if (!empty($banner['ad_code'])) :
+                        echo $banner['ad_code']; // Output the raw ad code
+                    else:
+                        // Optional: comment or placeholder if ad_code is empty for a 'banner_script' type
+                        // echo "<!-- Banner script code empty for banner ID: " . ($banner['id'] ?? 'unknown') . " -->";
+                    endif;
+                endif;
+                ?>
             </div>
         <?php endforeach; ?>
     </div>
