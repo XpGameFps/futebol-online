@@ -17,7 +17,11 @@ $input = [
     'display_on_tv_page' => 0,
     'current_image_path' => '',
     'ad_type' => 'image', // Default, will be overwritten by fetched banner data
-    'ad_code' => ''       // Default, will be overwritten
+    'ad_code' => '',       // Default, will be overwritten
+    'display_match_player_left' => 0, // Default
+    'display_match_player_right' => 0, // Default
+    'display_tv_player_left' => 0,    // Default
+    'display_tv_player_right' => 0     // Default
 ];
 
 if ($banner_id <= 0) {
@@ -49,6 +53,11 @@ try {
     // Populate new fields from fetched banner data
     $input['ad_type'] = $banner['ad_type'] ?? 'image';
     $input['ad_code'] = $banner['ad_code'] ?? '';
+    // Populate player-side ad locations from fetched banner data
+    $input['display_match_player_left'] = $banner['display_match_player_left'] ?? 0;
+    $input['display_match_player_right'] = $banner['display_match_player_right'] ?? 0;
+    $input['display_tv_player_left'] = $banner['display_tv_player_left'] ?? 0;
+    $input['display_tv_player_right'] = $banner['display_tv_player_right'] ?? 0;
 
 } catch (PDOException $e) {
     $_SESSION['error_message'] = "Erro ao buscar banner: " . $e->getMessage();
@@ -79,6 +88,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $input['display_on_match_page'] = $display_on_match_page;
         $display_on_tv_page = isset($_POST['display_on_tv_page']) ? 1 : 0;
         $input['display_on_tv_page'] = $display_on_tv_page;
+
+        // Player-side ad locations from POST
+        $display_match_player_left = isset($_POST['display_match_player_left']) ? 1 : 0;
+        $input['display_match_player_left'] = $display_match_player_left;
+        $display_match_player_right = isset($_POST['display_match_player_right']) ? 1 : 0;
+        $input['display_match_player_right'] = $display_match_player_right;
+        $display_tv_player_left = isset($_POST['display_tv_player_left']) ? 1 : 0;
+        $input['display_tv_player_left'] = $display_tv_player_left;
+        $display_tv_player_right = isset($_POST['display_tv_player_right']) ? 1 : 0;
+        $input['display_tv_player_right'] = $display_tv_player_right;
 
         $upload_dir = '../uploads/banners/';
 
@@ -163,7 +182,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             is_active = :is_active,
                             display_on_homepage = :display_on_homepage,
                             display_on_match_page = :display_on_match_page,
-                            display_on_tv_page = :display_on_tv_page
+                            display_on_tv_page = :display_on_tv_page,
+                            display_match_player_left = :display_match_player_left,
+                            display_match_player_right = :display_match_player_right,
+                            display_tv_player_left = :display_tv_player_left,
+                            display_tv_player_right = :display_tv_player_right
                         WHERE id = :id";
                 $stmt = $pdo->prepare($sql);
                 $stmt->bindParam(':image_path', $image_path_db, PDO::PARAM_STR);
@@ -175,6 +198,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->bindParam(':display_on_homepage', $display_on_homepage, PDO::PARAM_INT);
                 $stmt->bindParam(':display_on_match_page', $display_on_match_page, PDO::PARAM_INT);
                 $stmt->bindParam(':display_on_tv_page', $display_on_tv_page, PDO::PARAM_INT);
+                $stmt->bindParam(':display_match_player_left', $display_match_player_left, PDO::PARAM_INT);
+                $stmt->bindParam(':display_match_player_right', $display_match_player_right, PDO::PARAM_INT);
+                $stmt->bindParam(':display_tv_player_left', $display_tv_player_left, PDO::PARAM_INT);
+                $stmt->bindParam(':display_tv_player_right', $display_tv_player_right, PDO::PARAM_INT);
                 $stmt->bindParam(':id', $banner_id, PDO::PARAM_INT);
 
                 if ($stmt->execute()) {
@@ -188,6 +215,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $banner['display_on_homepage'] = $display_on_homepage;
                     $banner['display_on_match_page'] = $display_on_match_page;
                     $banner['display_on_tv_page'] = $display_on_tv_page;
+                    $banner['display_match_player_left'] = $display_match_player_left;
+                    $banner['display_match_player_right'] = $display_match_player_right;
+                    $banner['display_tv_player_left'] = $display_tv_player_left;
+                    $banner['display_tv_player_right'] = $display_tv_player_right;
 
                     $_SESSION['success_message'] = "Banner atualizado com sucesso!";
                     header("Location: manage_banners.php");
@@ -294,6 +325,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <input class="form-check-input" type="checkbox" id="display_on_tv_page" name="display_on_tv_page" value="1" <?php echo ($input['display_on_tv_page'] == 1) ? 'checked' : ''; ?>>
                         <label class="form-check-label" for="display_on_tv_page">
                             Página de TV Ao Vivo
+                        </label>
+                    </div>
+                    <hr> <!-- Separator for new options -->
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="display_match_player_left" id="display_match_player_left" value="1" <?php echo (isset($input['display_match_player_left']) && $input['display_match_player_left'] == 1) ? 'checked' : ''; ?>>
+                        <label class="form-check-label" for="display_match_player_left">
+                            Ao lado esquerdo do player (Jogo)
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="display_match_player_right" id="display_match_player_right" value="1" <?php echo (isset($input['display_match_player_right']) && $input['display_match_player_right'] == 1) ? 'checked' : ''; ?>>
+                        <label class="form-check-label" for="display_match_player_right">
+                            Ao lado direito do player (Jogo)
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="display_tv_player_left" id="display_tv_player_left" value="1" <?php echo (isset($input['display_tv_player_left']) && $input['display_tv_player_left'] == 1) ? 'checked' : ''; ?>>
+                        <label class="form-check-label" for="display_tv_player_left">
+                            Ao lado esquerdo do player (TV)
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="display_tv_player_right" id="display_tv_player_right" value="1" <?php echo (isset($input['display_tv_player_right']) && $input['display_tv_player_right'] == 1) ? 'checked' : ''; ?>>
+                        <label class="form-check-label" for="display_tv_player_right">
+                            Ao lado direito do player (TV)
                         </label>
                     </div>
                 </fieldset>

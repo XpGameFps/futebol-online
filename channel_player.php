@@ -54,6 +54,49 @@ if ($channel_id > 0) {
     $error_message = "ID do canal não especificado.";
     $page_specific_title = "ID do canal inválido";
 }
+
+// Fetch Player-Side Ads for TV Page
+$tv_player_left_ad_code = null;
+if (isset($pdo) && $channel_id > 0) { // Ensure $pdo is available and we have a channel context
+    try {
+        $stmt_left_ad_tv = $pdo->prepare("SELECT ad_code, image_path, target_url, alt_text, ad_type FROM banners WHERE is_active = 1 AND display_tv_player_left = 1 AND (ad_type = 'image' OR ad_type = 'banner_script') ORDER BY RAND() LIMIT 1");
+        $stmt_left_ad_tv->execute();
+        $left_ad_banner_tv = $stmt_left_ad_tv->fetch(PDO::FETCH_ASSOC);
+        if ($left_ad_banner_tv) {
+            if (($left_ad_banner_tv['ad_type'] ?? 'image') === 'image' && !empty($left_ad_banner_tv['image_path'])) {
+                $alt = htmlspecialchars($left_ad_banner_tv['alt_text'] ?? 'Banner');
+                $target = htmlspecialchars($left_ad_banner_tv['target_url'] ?? '#');
+                $img_src = 'uploads/banners/' . htmlspecialchars($left_ad_banner_tv['image_path']);
+                $tv_player_left_ad_code = "<a href='{$target}' target='_blank'><img src='{$img_src}' alt='{$alt}' style='width:160px; height:auto;'></a>";
+            } elseif ($left_ad_banner_tv['ad_type'] === 'banner_script' && !empty($left_ad_banner_tv['ad_code'])) {
+                $tv_player_left_ad_code = $left_ad_banner_tv['ad_code'];
+            }
+        }
+    } catch (PDOException $e) {
+        error_log("PDOException fetching left player ad for TV page: " . $e->getMessage());
+    }
+}
+
+$tv_player_right_ad_code = null;
+if (isset($pdo) && $channel_id > 0) { // Ensure $pdo is available and we have a channel context
+    try {
+        $stmt_right_ad_tv = $pdo->prepare("SELECT ad_code, image_path, target_url, alt_text, ad_type FROM banners WHERE is_active = 1 AND display_tv_player_right = 1 AND (ad_type = 'image' OR ad_type = 'banner_script') ORDER BY RAND() LIMIT 1");
+        $stmt_right_ad_tv->execute();
+        $right_ad_banner_tv = $stmt_right_ad_tv->fetch(PDO::FETCH_ASSOC);
+        if ($right_ad_banner_tv) {
+            if (($right_ad_banner_tv['ad_type'] ?? 'image') === 'image' && !empty($right_ad_banner_tv['image_path'])) {
+                $alt = htmlspecialchars($right_ad_banner_tv['alt_text'] ?? 'Banner');
+                $target = htmlspecialchars($right_ad_banner_tv['target_url'] ?? '#');
+                $img_src = 'uploads/banners/' . htmlspecialchars($right_ad_banner_tv['image_path']);
+                $tv_player_right_ad_code = "<a href='{$target}' target='_blank'><img src='{$img_src}' alt='{$alt}' style='width:160px; height:auto;'></a>";
+            } elseif ($right_ad_banner_tv['ad_type'] === 'banner_script' && !empty($right_ad_banner_tv['ad_code'])) {
+                $tv_player_right_ad_code = $right_ad_banner_tv['ad_code'];
+            }
+        }
+    } catch (PDOException $e) {
+        error_log("PDOException fetching right player ad for TV page: ". $e->getMessage());
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="pt-br">
@@ -100,6 +143,42 @@ if ($channel_id > 0) {
     .report-feedback.error {
         color: red;
     }
+
+    /* Styles for Player-Side Ads (similar to match.php) */
+    .tv-player-area-wrapper { /* Specific wrapper for TV page if needed, or reuse .match-player-area-wrapper if identical */
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 20px;
+    }
+
+    .player-side-ad { /* Shared class */
+        width: 160px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+        /* min-height: 300px; /* Consider if a minimum height is universally desired */
+        /* border: 1px solid #333; /* Optional: for visualizing */
+    }
+
+    .player-side-ad.left-ad { /* Shared class */
+        margin-right: 15px;
+    }
+
+    .player-side-ad.right-ad { /* Shared class */
+        margin-left: 15px;
+    }
+
+    .player-container-main { /* Shared class */
+        flex-grow: 1;
+    }
+
+    .player-container-main iframe { /* Shared class */
+        width: 100%;
+        min-height: 450px; /* Adjust as needed */
+        border: none;
+    }
     </style>
 </head>
 <body>
@@ -112,8 +191,13 @@ if ($channel_id > 0) {
             <?php elseif ($channel): ?>
                 <h1 class="page-title-player"><?php echo htmlspecialchars($channel['name']); ?></h1>
 
-                <div class="player-wrapper">
-                    <div class="player-container">
+                <div class="tv-player-area-wrapper">
+                    <div class="player-side-ad left-ad">
+                        <?php if (!empty($tv_player_left_ad_code)): ?>
+                            <?php echo $tv_player_left_ad_code; ?>
+                        <?php endif; ?>
+                    </div>
+                    <div class="player-container-main">
                         <?php if (!empty($channel['stream_url'])): ?>
                             <iframe id="channelStreamPlayer"
                                     src="<?php echo htmlspecialchars($channel['stream_url']); ?>"
@@ -125,7 +209,11 @@ if ($channel_id > 0) {
                             <p class="info-message">URL do stream não disponível para este canal.</p>
                         <?php endif; ?>
                     </div>
-                    <?php // Potential future spot for chat or related channel info ?>
+                    <div class="player-side-ad right-ad">
+                        <?php if (!empty($tv_player_right_ad_code)): ?>
+                            <?php echo $tv_player_right_ad_code; ?>
+                        <?php endif; ?>
+                    </div>
                 </div>
 
                 <?php if ($channel && isset($channel['id'])): ?>

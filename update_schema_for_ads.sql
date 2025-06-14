@@ -16,3 +16,14 @@ UPDATE `banners` SET `ad_type` = 'image' WHERE `ad_type` IS NULL OR `ad_type` = 
 ALTER TABLE `banners`
 MODIFY COLUMN `image_path` VARCHAR(255) NULL,
 MODIFY COLUMN `target_url` VARCHAR(2048) NULL;
+
+-- Additional schema updates for Player-Side Ad Slots (Left/Right of Player)
+-- Add columns for player-side ads on match pages
+ALTER TABLE `banners`
+ADD COLUMN `display_match_player_left` TINYINT(1) NOT NULL DEFAULT 0,
+ADD COLUMN `display_match_player_right` TINYINT(1) NOT NULL DEFAULT 0;
+
+-- Add columns for player-side ads on TV pages
+ALTER TABLE `banners`
+ADD COLUMN `display_tv_player_left` TINYINT(1) NOT NULL DEFAULT 0,
+ADD COLUMN `display_tv_player_right` TINYINT(1) NOT NULL DEFAULT 0;

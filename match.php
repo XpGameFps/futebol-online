@@ -84,6 +84,49 @@ if ($match_id > 0) {
     $error_message = "ID do jogo inválido ou não especificado.";
     $page_specific_title = "ID do jogo inválido";
 }
+
+// Fetch Player-Side Ads for Match Page
+$match_player_left_ad_code = null;
+if (isset($pdo) && $match_id > 0) { // Only fetch if we have a valid match context
+    try {
+        $stmt_left_ad = $pdo->prepare("SELECT ad_code, image_path, target_url, alt_text, ad_type FROM banners WHERE is_active = 1 AND display_match_player_left = 1 AND (ad_type = 'image' OR ad_type = 'banner_script') ORDER BY RAND() LIMIT 1");
+        $stmt_left_ad->execute();
+        $left_ad_banner = $stmt_left_ad->fetch(PDO::FETCH_ASSOC);
+        if ($left_ad_banner) {
+            if (($left_ad_banner['ad_type'] ?? 'image') === 'image' && !empty($left_ad_banner['image_path'])) {
+                $alt = htmlspecialchars($left_ad_banner['alt_text'] ?? 'Banner');
+                $target = htmlspecialchars($left_ad_banner['target_url'] ?? '#');
+                $img_src = 'uploads/banners/' . htmlspecialchars($left_ad_banner['image_path']);
+                $match_player_left_ad_code = "<a href='{$target}' target='_blank'><img src='{$img_src}' alt='{$alt}' style='width:160px; height:auto;'></a>";
+            } elseif ($left_ad_banner['ad_type'] === 'banner_script' && !empty($left_ad_banner['ad_code'])) {
+                $match_player_left_ad_code = $left_ad_banner['ad_code'];
+            }
+        }
+    } catch (PDOException $e) {
+        error_log("PDOException fetching left player ad for match page: " . $e->getMessage());
+    }
+}
+
+$match_player_right_ad_code = null;
+if (isset($pdo) && $match_id > 0) { // Only fetch if we have a valid match context
+    try {
+        $stmt_right_ad = $pdo->prepare("SELECT ad_code, image_path, target_url, alt_text, ad_type FROM banners WHERE is_active = 1 AND display_match_player_right = 1 AND (ad_type = 'image' OR ad_type = 'banner_script') ORDER BY RAND() LIMIT 1");
+        $stmt_right_ad->execute();
+        $right_ad_banner = $stmt_right_ad->fetch(PDO::FETCH_ASSOC);
+        if ($right_ad_banner) {
+            if (($right_ad_banner['ad_type'] ?? 'image') === 'image' && !empty($right_ad_banner['image_path'])) {
+                $alt = htmlspecialchars($right_ad_banner['alt_text'] ?? 'Banner');
+                $target = htmlspecialchars($right_ad_banner['target_url'] ?? '#');
+                $img_src = 'uploads/banners/' . htmlspecialchars($right_ad_banner['image_path']);
+                $match_player_right_ad_code = "<a href='{$target}' target='_blank'><img src='{$img_src}' alt='{$alt}' style='width:160px; height:auto;'></a>";
+            } elseif ($right_ad_banner['ad_type'] === 'banner_script' && !empty($right_ad_banner['ad_code'])) {
+                $match_player_right_ad_code = $right_ad_banner['ad_code'];
+            }
+        }
+    } catch (PDOException $e) {
+        error_log("PDOException fetching right player ad for match page: " . $e->getMessage());
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="pt-br">
@@ -184,6 +227,44 @@ if ($match_id > 0) {
     .report-feedback.error {
         color: red;
     }
+
+    /* Styles for Player-Side Ads */
+    .match-player-area-wrapper {
+        display: flex;
+        justify-content: space-between; /* Adjust as needed */
+        align-items: flex-start; /* Align items to the top */
+        margin-bottom: 20px; /* Or your preferred spacing */
+    }
+
+    .player-side-ad {
+        width: 160px; /* Standard width for these ads */
+        /* min-height: 300px; /* Minimum height, adjust as needed */
+        /* border: 1px solid #333; /* Optional: for visualizing the slot */
+        display: flex; /* To help center content if needed */
+        justify-content: center;
+        align-items: center;
+        overflow: hidden; /* Prevent ad content from breaking layout */
+    }
+
+    .player-side-ad.left-ad {
+        margin-right: 15px; /* Space between left ad and player */
+    }
+
+    .player-side-ad.right-ad {
+        margin-left: 15px; /* Space between player and right ad */
+    }
+
+    .player-container-main {
+        flex-grow: 1; /* Allows the player container to take up remaining space */
+        /* max-width: calc(100% - 320px - 30px); /* Example: 100% - (2 * ad_width) - (2 * margin) */
+    }
+
+    /* Ensure iframe scales nicely within its container */
+    .player-container-main iframe {
+        width: 100%;
+        min-height: 450px; /* Adjust as needed, or use aspect ratio padding trick */
+        border: none; /* Remove iframe border */
+    }
     </style>
 </head>
 <body>
@@ -240,22 +321,36 @@ if ($match_id > 0) {
                     <?php endif; ?>
                 </div>
 
-                <div class="player-container">
-                    <iframe id="streamPlayer" src="about:blank" allowfullscreen allow="autoplay; encrypted-media"></iframe>
-                </div>
-
-                <?php if (!empty($streams)): ?>
-                    <div class="stream-options">
-                        <h3>Opções de Transmissão:</h3>
-                        <ul>
-                            <?php foreach ($streams as $index => $stream): ?>
-                                <li><button class="stream-button" data-stream-url="<?php echo htmlspecialchars($stream['stream_url']); ?>"><?php echo htmlspecialchars($stream['stream_label']); ?></button></li>
-                            <?php endforeach; ?>
-                        </ul>
+                <div class="match-player-area-wrapper">
+                    <div class="player-side-ad left-ad">
+                        <?php if (!empty($match_player_left_ad_code)): ?>
+                            <?php echo $match_player_left_ad_code; ?>
+                        <?php endif; ?>
                     </div>
-                <?php else: ?>
-                    <p class="info-message">Nenhuma opção de stream disponível para este jogo no momento.</p>
-                <?php endif; ?>
+                    <div class="player-container-main"> <!-- Start of the new central container -->
+                        <div class="player-container">
+                            <iframe id="streamPlayer" src="about:blank" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+                        </div>
+
+                        <?php if (!empty($streams)): ?>
+                            <div class="stream-options">
+                                <h3>Opções de Transmissão:</h3>
+                                <ul>
+                                    <?php foreach ($streams as $index => $stream): ?>
+                                        <li><button class="stream-button" data-stream-url="<?php echo htmlspecialchars($stream['stream_url']); ?>"><?php echo htmlspecialchars($stream['stream_label']); ?></button></li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            </div>
+                        <?php else: ?>
+                            <p class="info-message">Nenhuma opção de stream disponível para este jogo no momento.</p>
+                        <?php endif; ?>
+                    </div> <!-- End of player-container-main -->
+                    <div class="player-side-ad right-ad">
+                        <?php if (!empty($match_player_right_ad_code)): ?>
+                            <?php echo $match_player_right_ad_code; ?>
+                        <?php endif; ?>
+                    </div>
+                </div> <!-- End of match-player-area-wrapper -->
 
                 <?php // <!-- ADICIONAR BOTÃO DE REPORTE AQUI --> ?>
                 <?php if ($match && isset($match['id'])): // Garante que temos um ID de partida ?>

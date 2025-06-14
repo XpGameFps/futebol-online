@@ -49,6 +49,8 @@ $page_title = "Gerenciar Banners";
                             <th>Homepage</th>
                             <th>Pág. Jogo</th>
                             <th>Pág. TV</th>
+                            <th>Player Jogo (E/D)</th>
+                            <th>Player TV (E/D)</th>
                             <th>Criado Em</th>
                             <th>Ações</th>
                         </tr>
@@ -56,7 +58,7 @@ $page_title = "Gerenciar Banners";
                     <tbody>
                         <?php if (empty($banners)): ?>
                             <tr>
-                                <td colspan="11" class="text-center">Nenhum banner encontrado.</td>
+                                <td colspan="13" class="text-center">Nenhum banner encontrado.</td>
                             </tr>
                         <?php else: ?>
                             <?php
@@ -112,6 +114,14 @@ $page_title = "Gerenciar Banners";
                                     <td><?php echo $banner['display_on_homepage'] ? 'Sim' : 'Não'; ?></td>
                                     <td><?php echo $banner['display_on_match_page'] ? 'Sim' : 'Não'; ?></td>
                                     <td><?php echo $banner['display_on_tv_page'] ? 'Sim' : 'Não'; ?></td>
+                                    <td>
+                                        <?php echo ($banner['display_match_player_left'] ?? 0) ? 'Sim' : 'Não'; ?> /
+                                        <?php echo ($banner['display_match_player_right'] ?? 0) ? 'Sim' : 'Não'; ?>
+                                    </td>
+                                    <td>
+                                        <?php echo ($banner['display_tv_player_left'] ?? 0) ? 'Sim' : 'Não'; ?> /
+                                        <?php echo ($banner['display_tv_player_right'] ?? 0) ? 'Sim' : 'Não'; ?>
+                                    </td>
                                     <td><?php echo htmlspecialchars(date('d/m/Y H:i', strtotime($banner['created_at']))); ?></td>
                                     <td>
                                         <a href="edit_banner.php?id=<?php echo $banner['id']; ?>" class="btn btn-sm btn-info">
