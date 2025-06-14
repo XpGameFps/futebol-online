@@ -121,15 +121,6 @@ $page_meta_keywords = $meta_keywords_content;
 <!DOCTYPE html>
 <html lang="pt-br">
 <?php require_once 'templates/header.php'; ?>
-<?php
-// Retrieve current and max concurrent users from GLOBALS (set in header.php)
-$current_online_users = $GLOBALS['current_online_users'] ?? 0;
-$max_concurrent_users_ever = $GLOBALS['max_concurrent_users_ever'] ?? 0;
-?>
-<div class="site-stats-display" style="text-align: center; padding: 10px; background-color: #f0f0f0; margin-bottom: 15px; border-bottom: 1px solid #ddd;">
-    <p style="margin: 0; display: inline-block; margin-right: 20px;">Usuários Online Agora: <strong><?php echo htmlspecialchars($current_online_users); ?></strong></p>
-    <p style="margin: 0; display: inline-block;">Recorde de Usuários Online: <strong><?php echo htmlspecialchars($max_concurrent_users_ever); ?></strong></p>
-</div>
     <main class="main-content">
         <?php if (!empty($tv_channels)): ?>
         <section class="tv-channels-slider">

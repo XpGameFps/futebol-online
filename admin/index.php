@@ -934,7 +934,10 @@ if (isset($pdo)) {
                     .then(response => response.json())
                     .then(data => {
                         if (data && data.status === 'success') {
-                            onlineUsersCountElement_nav.textContent = data.online_count;
+                            const onlineCount = data.online_count !== undefined ? data.online_count : 'N/A';
+                            const maxUsers = data.max_users_count !== undefined ? data.max_users_count : 'N/A';
+                            const displayText = 'Online: ' + onlineCount + ' | Recorde: ' + maxUsers;
+                            onlineUsersCountElement_nav.textContent = displayText;
                         } else { onlineUsersCountElement_nav.textContent = '--'; }
                     })
                     .catch(error => {
