@@ -14,7 +14,7 @@
                 <span id="server-clock" style="margin-right: 15px; color: #007bff; font-weight:bold;"></span>
                 Usuário: <?php echo htmlspecialchars($_SESSION['admin_username'] ?? 'Admin'); ?> |
                 <a href="logout.php" class="logout-link">Logout</a>
-    <div id="admin-stats-display-container" style="margin-top: 5px; clear:both; text-align: left;"></div>
+    <div id="admin-stats-display-container" class="admin-user-stats" style="margin-top: 5px; clear:both; text-align: left;"></div>
             </div>
         </nav>
 
