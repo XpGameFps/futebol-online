@@ -56,6 +56,67 @@ if (isset($pdo) && function_exists('session_id') && session_id()) {
 }
 // --- END Activity Tracking ---
 
+// --- BEGIN Max Concurrent Users Tracking ---
+define('USER_ACTIVE_INTERVAL_MINUTES', 5);
+
+$current_online_users = 0;
+$max_concurrent_users_ever = 0;
+
+if (isset($pdo)) {
+    // Fetch Current Online Users
+    try {
+        $sql_current_online = "SELECT COUNT(*) as online_count FROM active_sessions WHERE last_activity >= DATE_SUB(NOW(), INTERVAL " . USER_ACTIVE_INTERVAL_MINUTES . " MINUTE)";
+        $stmt_current_online = $pdo->query($sql_current_online);
+        if ($stmt_current_online) {
+            $result = $stmt_current_online->fetch(PDO::FETCH_ASSOC);
+            if ($result) {
+                $current_online_users = (int)$result['online_count'];
+            }
+        }
+    } catch (PDOException $e) {
+        error_log("Error fetching current online users: " . $e->getMessage());
+    }
+
+    // Fetch Max Concurrent Users from site_settings
+    try {
+        $sql_max_concurrent = "SELECT setting_value FROM site_settings WHERE setting_key = 'max_concurrent_users'";
+        $stmt_max_concurrent = $pdo->query($sql_max_concurrent);
+        if ($stmt_max_concurrent) {
+            $result_max = $stmt_max_concurrent->fetch(PDO::FETCH_ASSOC);
+            if ($result_max && $result_max['setting_value'] !== null) {
+                $max_concurrent_users_ever = (int)$result_max['setting_value'];
+            }
+        }
+    } catch (PDOException $e) {
+        error_log("Error fetching max concurrent users from settings: " . $e->getMessage());
+    }
+
+    // Compare and Update Max Concurrent Users if current is higher
+    if ($current_online_users > $max_concurrent_users_ever) {
+        $max_concurrent_users_ever = $current_online_users; // Update PHP variable immediately
+
+        try {
+            $sql_update_max = "INSERT INTO site_settings (setting_key, setting_value)
+                               VALUES ('max_concurrent_users', :max_users)
+                               ON DUPLICATE KEY UPDATE setting_value = :max_users";
+            $stmt_update_max = $pdo->prepare($sql_update_max);
+            $stmt_update_max->bindParam(':max_users', $max_concurrent_users_ever, PDO::PARAM_INT);
+            $stmt_update_max->execute();
+        } catch (PDOException $e) {
+            error_log("Error updating max concurrent users in settings: " . $e->getMessage());
+            // If update fails, the PHP variable $max_concurrent_users_ever might be higher than DB
+            // For this request, we'll use the higher value. On next request, it will re-evaluate.
+        }
+    }
+} else {
+    error_log("PDO object not available in header.php for concurrent user tracking.");
+}
+
+// Store these values globally for potential use in other template parts
+$GLOBALS['current_online_users'] = $current_online_users;
+$GLOBALS['max_concurrent_users_ever'] = $max_concurrent_users_ever;
+// --- END Max Concurrent Users Tracking ---
+
 // --- BEGIN Site Identity Settings ---
 $site_name_from_db = 'FutOnline'; // Default
 $site_logo_filename_from_db = null;

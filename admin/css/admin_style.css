@@ -886,3 +886,19 @@ form#deleteMultipleMatchesForm .match-item > .match-content-wrapper {
     border-bottom: 1px solid #f0f0f0;
     padding-bottom: 5px;
 }
+
+/* Styling for the admin panel's online user statistics display */
+.admin-user-stats {
+    color: #333;            /* Dark grey text for better readability */
+    font-size: 0.875em;      /* Slightly smaller than default body text */
+    padding: 4px 8px;        /* Padding around the text (top/bottom, left/right) */
+    background-color: #e9ecef; /* A light, neutral background color */
+    border: 1px solid #ced4da;   /* A subtle border, common in Bootstrap-like UIs */
+    border-radius: 0.25rem;    /* Standard small rounded corners */
+    display: inline-block;   /* Behaves like text but can have block properties (padding, etc.) */
+                             /* This allows it to respect text-align of parent for centering/right-align if needed */
+    line-height: 1.5;        /* Standard line height for readability */
+    /* The margin-top is already handled by an inline style on the div itself, */
+    /* but can be added here too for completeness if inline styles are removed later. */
+    /* margin-top: 5px; */
+}

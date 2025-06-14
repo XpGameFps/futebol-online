@@ -12,11 +12,9 @@
             </div>
             <div class="nav-user-info">
                 <span id="server-clock" style="margin-right: 15px; color: #007bff; font-weight:bold;"></span>
-                <span id="online-users-indicator" style="margin-right: 15px; color: #007bff; font-weight:bold;">
-                    Online: <span id="online-users-count">--</span>
-                </span>
                 Usuário: <?php echo htmlspecialchars($_SESSION['admin_username'] ?? 'Admin'); ?> |
                 <a href="logout.php" class="logout-link">Logout</a>
+    <div id="admin-stats-display-container" class="admin-user-stats" style="margin-top: 5px; clear:both; text-align: left;"></div>
             </div>
         </nav>
 
