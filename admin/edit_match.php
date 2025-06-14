@@ -136,21 +136,61 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_match'])) {
             $current_cover_filename = $match_post_data['cover_image_filename'];
         }
     }
-    // $new_cover_filename_to_save will be determined by the site's default cover setting.
-    // $current_cover_filename is fetched earlier for context but isn't used for saving the new state directly.
-    // The concept of uploading a new file or reverting is removed.
-    // The match cover will always be set to the default site cover (if one exists).
+    // Initialize cover-related variables
+    $new_cover_filename_to_save = $current_cover_filename; // Start with current, might change
+    $new_file_uploaded_path_edit = null; // For cleaning up a new file if DB op fails
+    $old_specific_cover_to_delete = null; // For cleaning up old specific file if replaced or reverted
 
-    // $new_cover_filename_to_save should be based on $default_cover_filename_from_settings
-    $new_cover_filename_to_save = $default_cover_filename_from_settings; // This can be null if no default is set
+    // Handle "Revert to Default" Checkbox
+    if (isset($_POST['revert_to_default_cover']) && $_POST['revert_to_default_cover'] == '1') {
+        if ($current_cover_filename && $current_cover_filename !== $default_cover_filename_from_settings) {
+            // Only mark for deletion if it's a specific cover (not default and not null)
+             if (file_exists(MATCH_COVER_UPLOAD_DIR . $current_cover_filename)) {
+                $old_specific_cover_to_delete = MATCH_COVER_UPLOAD_DIR . $current_cover_filename;
+            }
+        }
+        $new_cover_filename_to_save = $default_cover_filename_from_settings; // This can be null if no default is set
+        $message .= '<p style="color:blue;">Imagem da partida será revertida para a capa padrão do site (se definida).</p>';
+    }
+    // Handle New File Upload (only if "Revert to Default" is NOT checked)
+    elseif (isset($_FILES['new_cover_image_file']) && $_FILES['new_cover_image_file']['error'] == UPLOAD_ERR_OK) {
+        $uploaded_file = $_FILES['new_cover_image_file'];
 
-    // $upload_error_message is no longer relevant here as there's no upload.
-    // $message might still be populated by other validation errors.
+        if ($uploaded_file['size'] > MAX_COVER_FILE_SIZE) {
+            $message .= '<p style="color:red;">Erro: O novo arquivo da capa excede o tamanho máximo de ' . (MAX_COVER_FILE_SIZE / 1024 / 1024) . 'MB.</p>';
+        } else {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime_type = finfo_file($finfo, $uploaded_file['tmp_name']);
+            finfo_close($finfo);
+
+            if (!in_array($mime_type, $allowed_cover_mime_types)) {
+                $message .= '<p style="color:red;">Erro: Tipo de arquivo da nova capa inválido. Permitidos: JPG, PNG, GIF.</p>';
+            } else {
+                $file_extension = pathinfo($uploaded_file['name'], PATHINFO_EXTENSION);
+                $unique_edit_cover_filename = 'match_cover_' . uniqid() . '.' . $file_extension;
+                $destination_path = MATCH_COVER_UPLOAD_DIR . $unique_edit_cover_filename;
+
+                if (move_uploaded_file($uploaded_file['tmp_name'], $destination_path)) {
+                    $new_file_uploaded_path_edit = $destination_path; // Track for potential cleanup
+
+                    // If there was an old specific cover, mark it for deletion
+                    if ($current_cover_filename && $current_cover_filename !== $default_cover_filename_from_settings) {
+                         if (file_exists(MATCH_COVER_UPLOAD_DIR . $current_cover_filename)) {
+                            $old_specific_cover_to_delete = MATCH_COVER_UPLOAD_DIR . $current_cover_filename;
+                        }
+                    }
+                    $new_cover_filename_to_save = $unique_edit_cover_filename;
+                    $message .= '<p style="color:green;">Nova imagem de capa carregada com sucesso. Será salva com as alterações.</p>';
+                    $file_was_moved_in_this_request = true; // Used to prevent duplicate success messages
+                } else {
+                    $message .= '<p style="color:red;">Erro ao mover o novo arquivo da capa para o diretório de uploads.</p>';
+                }
+            }
+        }
+    }
 
     // The main validation logic for other fields:
     $formatted_match_time_for_db = null;
-    // Cover image upload/revert logic has been removed.
-    // Validation proceeds if basic fields are present.
     if (empty($new_home_team_id) || !filter_var($new_home_team_id, FILTER_VALIDATE_INT)) {
         $message .= '<p style="color:red;">Time da casa é obrigatório.</p>';
     } elseif (empty($new_away_team_id) || !filter_var($new_away_team_id, FILTER_VALIDATE_INT)) {
@@ -167,16 +207,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_match'])) {
             $message .= '<p style="color:red;">Formato de data/hora inválido.</p>';
         }
     }
-    // Removed elseif for 'revert_to_default_cover' as it's no longer an action.
 
-    // Proceed with DB update if $message is still empty (meaning basic validations passed)
-    // and $formatted_match_time_for_db is set.
-    if (empty($message) && $formatted_match_time_for_db) {
-        // The check for revert_to_default_cover related messages is removed.
-        // if (isset($_POST['revert_to_default_cover']) && strpos($message, 'Imagem da partida revertida para a capa padrão.') !== false && strlen($message) < 100) {
-        //    $message = '';
-        // } // This is no longer needed.
-        // if (empty($message) && $formatted_match_time_for_db) { // This inner if is now the outer if.
+    // Proceed with DB update if critical validation errors did not occur for essential fields
+    // Message might contain non-critical info like "cover will be reverted"
+    $critical_error_check = preg_match('/Erro:/i', $message) && !preg_match('/Erro ao mover o novo arquivo da capa/i', $message) && !preg_match('/Erro: O novo arquivo da capa excede/i', $message) && !preg_match('/Erro: Tipo de arquivo da nova capa inválido/i', $message);
+
+    if (!$critical_error_check && $formatted_match_time_for_db) {
+        // Clear non-critical messages if we are about to proceed with DB update successfully
+        if (strpos($message, 'Imagem da partida será revertida para a capa padrão do site (se definida).') !== false && strlen($message) < 150) {
+             if (!$file_was_moved_in_this_request) $message = ''; // Clear if only revert message
+        }
+        if (strpos($message, 'Nova imagem de capa carregada com sucesso. Será salva com as alterações.') !== false && strlen($message) < 150) {
+             $message = ''; // Clear if only upload success message
+        }
+
         $new_league_id = null;
             if (!empty($new_league_id_input) && filter_var($new_league_id_input, FILTER_VALIDATE_INT)) {
                 $new_league_id = (int)$new_league_id_input;
@@ -220,15 +264,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_match'])) {
                 $stmt_update->bindParam(':id', $match_id, PDO::PARAM_INT);
 
                 if ($stmt_update->execute()) {
-                    $_SESSION['general_message']['admin_index'] = '<p style="color:green;">Jogo atualizado com sucesso!</p>';
-                    // Removed message specific to reverting cover.
+                    // Success, now delete old specific cover if marked
+                    if ($old_specific_cover_to_delete && file_exists($old_specific_cover_to_delete)) {
+                        @unlink($old_specific_cover_to_delete);
+                    }
+                    // Combine messages if any, or set default success message
+                    $final_success_message = '<p style="color:green;">Jogo atualizado com sucesso!</p>';
+                    if(!empty($message) && !preg_match('/Erro:/i', $message)) { // Append non-error messages from cover handling
+                        $final_success_message = $message . $final_success_message;
+                    }
+                    $_SESSION['general_message']['admin_index'] = $final_success_message;
                     header("Location: index.php?status=match_updated#match-" . $match_id);
                     exit;
                 } else {
                     $message = '<p style="color:red;">Erro ao atualizar jogo no banco de dados.</p>';
-                    // $file_was_moved_in_this_request is no longer relevant.
+                    // If DB update failed, and a new file was uploaded in this attempt, delete it
+                    if ($new_file_uploaded_path_edit && file_exists($new_file_uploaded_path_edit)) {
+                        @unlink($new_file_uploaded_path_edit);
+                    }
                 }
             } catch (PDOException $e) {
+                // If DB update failed, and a new file was uploaded in this attempt, delete it
+                if ($new_file_uploaded_path_edit && file_exists($new_file_uploaded_path_edit)) {
+                    @unlink($new_file_uploaded_path_edit);
+                }
                 if (strpos($e->getMessage(), "FOREIGN KEY (`league_id`)") !== false) {
                     $message = '<p style="color:red;">Erro: ID da liga inválido.</p>';
                 } elseif (strpos($e->getMessage(), "FOREIGN KEY (`home_team_id`)") !== false || strpos($e->getMessage(), "FOREIGN KEY (`away_team_id`)") !== false) {
@@ -237,23 +296,34 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_match'])) {
                     error_log("PDOException in " . __FILE__ . " (updating match ID: " . $match_id . "): " . $e->getMessage());
                     $message = '<p style="color:red;">Ocorreu um erro no banco de dados ao atualizar o jogo. Por favor, tente novamente.</p>';
                 }
-                // $file_was_moved_in_this_request is no longer relevant for unlinking.
             }
-        // } // This was the end of the inner if, now part of the outer condition.
-        // The condition for this elseif is now always false as 'revert_to_default_cover' is removed.
-        // } elseif (empty($message) && !$formatted_match_time_for_db && !isset($_POST['revert_to_default_cover'])) {
-        // Thus, it can be removed or simplified. If $formatted_match_time_for_db is not set, $message would already contain an error.
-        // The check `!$formatted_match_time_for_db` is implicitly handled because the main `if (empty($message) && $formatted_match_time_for_db)`
-        // would not pass if $formatted_match_time_for_db is null.
     }
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_SESSION['general_message']['admin_index'])) {
-    if (empty($message)) {
+    if (empty($message) || $message == '<p style="color:green;">Jogo atualizado com sucesso!</p>' || $message == '<p style="color:blue;">Imagem da partida será revertida para a capa padrão do site (se definida).</p>' || $message == '<p style="color:green;">Nova imagem de capa carregada com sucesso. Será salva com as alterações.</p>') {
         $message = $_SESSION['general_message']['admin_index'];
     }
     unset($_SESSION['general_message']['admin_index']);
 }
+
+// This part is for displaying the form on GET request or after POST if errors occurred.
+// Ensure $current_cover_filename is from the freshly loaded $match data for display.
+if ($match_data_loaded && $_SERVER["REQUEST_METHOD"] != "POST" && $match) { // on GET
+    $current_cover_filename = $match['cover_image_filename'];
+} elseif ($_SERVER["REQUEST_METHOD"] == "POST" && $match_id && !$match_data_loaded) { // on POST if initial load failed but have ID
+    // Re-fetch just for current cover if needed, though $current_cover_filename should be set from earlier POST logic
+    $stmt_refetch_display = $pdo->prepare("SELECT cover_image_filename FROM matches WHERE id = :id");
+    $stmt_refetch_display->bindParam(':id', $match_id, PDO::PARAM_INT);
+    $stmt_refetch_display->execute();
+    $match_display_data = $stmt_refetch_display->fetch(PDO::FETCH_ASSOC);
+    if ($match_display_data) {
+        $current_cover_filename = $match_display_data['cover_image_filename'];
+    }
+}
+// If it's a POST request, $current_cover_filename was already set at the beginning of POST block.
+// If it's GET and $match_data_loaded, it's also set.
+
 ?>
 <!DOCTYPE html>
 <html lang="pt-br">
@@ -261,6 +331,13 @@ if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_SESSION['general_message']['a
     <meta charset="UTF-8">
     <title><?php echo htmlspecialchars($page_title); ?> - Painel Admin</title>
     <link rel="stylesheet" href="css/admin_style.css">
+    <style>
+        .current-cover-container { margin-bottom: 15px; }
+        .current-cover-container img { max-height: 100px; border: 1px solid #ddd; border-radius: 4px; }
+        .cover-actions label { display: block; margin-bottom: 5px; }
+        .cover-actions input[type="file"] { margin-bottom: 10px; }
+        .cover-actions .checkbox-label { font-weight: normal; display: inline-block; margin-left: 5px;}
+    </style>
 </head>
 <body>
     <div class="container" style="max-width: 800px;">
@@ -273,6 +350,8 @@ if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_SESSION['general_message']['a
                 <?php if ($match_id && ($match_data_loaded || $_SERVER["REQUEST_METHOD"] == "POST")): ?>
                 <form action="edit_match.php?id=<?php echo $match_id; ?>" method="POST" enctype="multipart/form-data">
                     <input type="hidden" name="match_id" value="<?php echo $match_id; ?>">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(generate_csrf_token()); ?>">
+
                     <div>
                         <label for="home_team_id_edit">Time da Casa:</label>
                         <select id="home_team_id_edit" name="home_team_id" required>
@@ -307,29 +386,41 @@ if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_SESSION['general_message']['a
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div>
-                        <label>Imagem de Capa:</label>
-                        <?php
-                        // Display logic will now always try to show the site's default cover.
-                        $display_image_src = null;
-                        if ($default_cover_filename_from_settings) {
-                            $potential_src = DEFAULT_COVER_UPLOAD_DIR . htmlspecialchars($default_cover_filename_from_settings);
-                            if (file_exists($potential_src)) {
-                                $display_image_src = $potential_src;
-                            } else {
-                                 error_log("Default cover file (from settings) not found for display in edit_match.php: " . $potential_src);
-                            }
-                        }
 
-                        if ($display_image_src):
+                    <div class="current-cover-container">
+                        <label>Imagem de Capa Atual:</label>
+                        <?php
+                        $display_image_path = null;
+                        $is_default_cover_displayed = false;
+                        if ($current_cover_filename && $current_cover_filename !== $default_cover_filename_from_settings && file_exists(MATCH_COVER_UPLOAD_DIR . $current_cover_filename)) {
+                            $display_image_path = MATCH_COVER_UPLOAD_DIR . htmlspecialchars($current_cover_filename);
+                            echo '<p><img src="' . $display_image_path . '?t=' . time() . '" alt="Capa Atual Específica do Jogo"></p>';
+                        } elseif ($default_cover_filename_from_settings && file_exists(DEFAULT_COVER_UPLOAD_DIR . $default_cover_filename_from_settings)) {
+                            $display_image_path = DEFAULT_COVER_UPLOAD_DIR . htmlspecialchars($default_cover_filename_from_settings);
+                            echo '<p><img src="' . $display_image_path . '?t=' . time() . '" alt="Capa Padrão do Site"> (Padrão do site)</p>';
+                            $is_default_cover_displayed = true;
+                        } else {
+                            echo '<p>Nenhuma imagem de capa definida ou arquivo não encontrado.</p>';
+                        }
                         ?>
-                            <p>Capa Padrão do Site: <img src="<?php echo $display_image_src; ?>?t=<?php echo time(); ?>" alt="Capa Padrão do Site" style="max-height: 80px; vertical-align: middle; margin-bottom:5px; border:1px solid #eee;"></p>
-                            <p style="font-size:0.8em; color:#555;">Esta é a capa padrão definida para o site. Não é possível carregar uma capa específica para este jogo.</p>
-                        <?php else: ?>
-                            <p style="font-size:0.8em; color:#555;">Nenhuma capa padrão do site está configurada ou o arquivo não foi encontrado. Verifique as <a href="manage_settings.php">configurações do site</a>.</p>
-                        <?php endif; ?>
-                        <?php // Cover image file input and revert button are removed. ?>
                     </div>
+
+                    <div class="cover-actions">
+                        <label for="new_cover_image_file">Nova Imagem de Capa (opcional, substitui a atual):</label>
+                        <input type="file" id="new_cover_image_file" name="new_cover_image_file" accept="image/jpeg,image/png,image/gif" onchange="previewEditCover(event)">
+                        <img id="edit_cover_image_preview" src="#" alt="Prévia da nova capa" style="display:none; max-height: 80px; vertical-align: middle; margin-bottom:5px; border:1px solid #eee;">
+
+                        <?php // Show revert checkbox only if a specific cover is set and it's not the same as default, or if no cover is set but there is a default to revert to.
+                        $can_revert = ($current_cover_filename && $current_cover_filename !== $default_cover_filename_from_settings) || (!$current_cover_filename && $default_cover_filename_from_settings);
+                        if ($can_revert && !$is_default_cover_displayed): // Also, don't show if default is already displayed as current
+                        ?>
+                        <div>
+                            <input type="checkbox" id="revert_to_default_cover" name="revert_to_default_cover" value="1">
+                            <label for="revert_to_default_cover" class="checkbox-label">Remover capa específica e usar capa padrão do site (<?php echo $default_cover_filename_from_settings ? htmlspecialchars($default_cover_filename_from_settings) : 'nenhuma definida'; ?>).</label>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+
                     <div><label for="description">Descrição (opcional):</label><textarea id="description" name="description" rows="3"><?php echo htmlspecialchars($description ?? ''); ?></textarea></div>
                     <div><label for="meta_description">Meta Descrição SEO (opcional, máx ~160 caracteres):</label><textarea id="meta_description" name="meta_description" rows="3"><?php echo htmlspecialchars($meta_description ?? ''); ?></textarea></div>
                     <div><label for="meta_keywords">Meta Keywords SEO (opcional, separadas por vírgula):</label><input type="text" id="meta_keywords" name="meta_keywords" value="<?php echo htmlspecialchars($meta_keywords ?? ''); ?>" placeholder="ex: futebol, ao vivo, time A vs time B"></div>
