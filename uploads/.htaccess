@@ -1,0 +1,11 @@
+# Bloquear execução de scripts maliciosos
+<FilesMatch "\.(php|php5|phtml|pl|py|jsp|asp|sh)$">
+  Order Deny,Allow
+  Deny from all
+</FilesMatch>
+
+# (Opcional) Bloquear também leitura de arquivos de configuração
+<FilesMatch "\.(htaccess|htpasswd|ini|log|sh|sql)$">
+  Order Deny,Allow
+  Deny from all
+</FilesMatch>
