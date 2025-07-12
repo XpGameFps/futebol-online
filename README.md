@@ -1,3 +1,26 @@
+<!-- INÍCIO BLOCO AFILIADO -->
+
+# 💥 HOSPEDAGEM BARATA E DE QUALIDADE PARA O FUTONLINE!
+
+<div align="center" style="margin-bottom: 10px;">
+
+## 🟢 <span style="font-size:1.3em; font-weight:bold; color:#27ae60;">1º MÊS GRÁTIS!</span> 🟢
+
+**Aproveite o primeiro mês totalmente grátis em qualquer plano SparkHost!**
+
+</div>
+
+[![SparkHost - Hospedagem de Sites](uploads/prints/host.png)](https://cliente.sparkhost.com.br/aff.php?aff=8)
+
+## 🔗 [Clique aqui e confira os planos super baratos da SparkHost!](https://cliente.sparkhost.com.br/aff.php?aff=8)
+
+- Planos a partir de **R$ 7,00/mês**
+- Suporte rápido e especializado
+- Painel cPanel, SSL grátis, PHP 8+, backups automáticos
+- Ideal para projetos PHP, WordPress, lojas virtuais e sistemas como o FutOnline!
+
+---
+
 # FutOnline ⚽
 
 Sistema web completo para gerenciamento e exibição de jogos de futebol ao vivo, canais de TV, banners publicitários, ligas, times e administração de conteúdo. Interface moderna e responsiva com painel administrativo robusto.
@@ -710,7 +733,7 @@ Este projeto está sob licença MIT. Veja o arquivo LICENSE para mais detalhes.
 
 ---
 
-## 🆕 Atualização 1.1 — Novas Funcionalidades do Painel
+## 🆕 Atualização 1.0 — Novas Funcionalidades do Painel
 
 ### Configurações Avançadas de Exibição de Jogos na Homepage
 
@@ -741,5 +764,15 @@ Este projeto está sob licença MIT. Veja o arquivo LICENSE para mais detalhes.
   - Gerenciamento de links do Facebook, Instagram, Twitter e YouTube através do painel.
   - Exibição automática no rodapé do site com ícones SVG personalizados.
   - Sistema responsivo e moderno para melhor experiência do usuário.
+
+---
+
+<!-- FIM BLOCO AFILIADO -->
+
+# 💥 HOSPEDAGEM RECOMENDADA!
+
+[![SparkHost - Hospedagem de Sites](uploads/prints/host.png)](https://cliente.sparkhost.com.br/aff.php?aff=8)
+
+## 🔗 [Acesse agora e garanta seu plano com preço baixo!](https://cliente.sparkhost.com.br/aff.php?aff=8)
 
 ---
