@@ -710,7 +710,7 @@ Este projeto está sob licença MIT. Veja o arquivo LICENSE para mais detalhes.
 
 ---
 
-## 🆕 Atualização 1.0 — Novas Funcionalidades do Painel
+## 🆕 Atualização 1.1 — Novas Funcionalidades do Painel
 
 ### Configurações Avançadas de Exibição de Jogos na Homepage
 
