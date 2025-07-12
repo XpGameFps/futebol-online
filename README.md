@@ -140,6 +140,11 @@ Se este projeto te ajudou ou você quer contribuir para o desenvolvimento:
 - ✅ Meta tags globais SEO
 - ✅ Banner de cookies LGPD
 - ✅ Configurações de aparência
+- ✅ **Redes sociais personalizáveis**
+- ✅ **Sistema de cores dinâmico**
+- ✅ **Reset de tema para padrão**
+- ✅ **Opções de exibição de jogos**
+- ✅ **Paginação configurável**
 
 #### **Monitoramento**
 - ✅ Visualização de usuários online
@@ -718,5 +723,23 @@ Este projeto está sob licença MIT. Veja o arquivo LICENSE para mais detalhes.
   - Se houver mais jogos do que o limite escolhido, a homepage exibe paginação para navegação entre páginas.
 - **Ordenação inteligente:**
   - Quando a exibição de jogos passados está ativa, os jogos futuros aparecem sempre primeiro, seguidos dos passados, todos em ordem cronológica.
+
+### Sistema de Personalização de Cores do Tema
+
+- **Editor de cores dinâmico:**
+  - Painel para personalizar as cores do tema: primária, secundária, fundo e texto.
+  - Aplicação instantânea das mudanças no frontend através de CSS dinâmico.
+  - Todas as alterações sincronizadas automaticamente com o banco de dados.
+- **Botão para resetar cores:**
+  - Nova funcionalidade para restaurar todas as cores do tema para os valores padrão originais.
+  - Confirmação de segurança antes de executar o reset.
+  - Interface intuitiva com aviso sobre as cores que serão resetadas.
+
+### Integração de Redes Sociais
+
+- **Links de redes sociais:**
+  - Gerenciamento de links do Facebook, Instagram, Twitter e YouTube através do painel.
+  - Exibição automática no rodapé do site com ícones SVG personalizados.
+  - Sistema responsivo e moderno para melhor experiência do usuário.
 
 ---

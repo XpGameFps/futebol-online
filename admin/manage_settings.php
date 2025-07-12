@@ -253,6 +253,48 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {     if (!isset($_POST['csrf_token'])
     } catch (PDOException $e) {
         $message = '<p style=\"color:red;\">Erro ao salvar configuração: ' . $e->getMessage() . '</p>';
     }
+                } elseif (isset($_POST['save_social_theme_settings'])) {
+            $settings_to_save = [
+                'social_facebook' => trim($_POST['social_facebook'] ?? ''),
+                'social_instagram' => trim($_POST['social_instagram'] ?? ''),
+                'social_twitter' => trim($_POST['social_twitter'] ?? ''),
+                'social_youtube' => trim($_POST['social_youtube'] ?? ''),
+                'theme_primary_color' => trim($_POST['theme_primary_color'] ?? ''),
+                'theme_secondary_color' => trim($_POST['theme_secondary_color'] ?? ''),
+                'theme_bg_color' => trim($_POST['theme_bg_color'] ?? ''),
+                'theme_text_color' => trim($_POST['theme_text_color'] ?? ''),
+            ];
+            try {
+                $sql = "INSERT INTO site_settings (setting_key, setting_value) VALUES (:key, :value) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)";
+                $stmt = $pdo->prepare($sql);
+                foreach ($settings_to_save as $key => $value) {
+                    $stmt->bindParam(':key', $key, PDO::PARAM_STR);
+                    $stmt->bindParam(':value', $value, PDO::PARAM_STR);
+                    $stmt->execute();
+                }
+                $message = '<p style="color:green;">Configurações de redes sociais e cores do tema atualizadas com sucesso!</p>';
+            } catch (PDOException $e) {
+                $message = '<p style="color:red;">Erro ao salvar configurações: ' . $e->getMessage() . '</p>';
+            }
+                } elseif (isset($_POST['reset_theme_colors'])) {
+            $default_theme_colors = [
+                'theme_primary_color' => '#00ff00',
+                'theme_secondary_color' => '#0d0d0d',
+                'theme_bg_color' => '#1a1a1a',
+                'theme_text_color' => '#e0e0e0',
+            ];
+            try {
+                $sql = "INSERT INTO site_settings (setting_key, setting_value) VALUES (:key, :value) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)";
+                $stmt = $pdo->prepare($sql);
+                foreach ($default_theme_colors as $key => $value) {
+                    $stmt->bindParam(':key', $key, PDO::PARAM_STR);
+                    $stmt->bindParam(':value', $value, PDO::PARAM_STR);
+                    $stmt->execute();
+                }
+                $message = '<p style="color:green;">Cores do tema resetadas para os valores padrão com sucesso!</p>';
+            } catch (PDOException $e) {
+                $message = '<p style="color:red;">Erro ao resetar cores do tema: ' . $e->getMessage() . '</p>';
+            }
                 }
                 if (!empty($message) && strpos($message, 'sucesso') === false) {              $csrf_token = generate_csrf_token(true);
         }
@@ -288,7 +330,28 @@ try {
     $current_show_past_matches_homepage = $current_show_past_matches_homepage ?: '0';
 }
 
+// --- Carregar valores atuais das redes sociais e cores do tema ---
+$social_keys = [
+    'social_facebook', 'social_instagram', 'social_twitter', 'social_youtube',
+    'theme_primary_color', 'theme_secondary_color', 'theme_bg_color', 'theme_text_color'
+];
+$current_social_facebook = $current_social_instagram = $current_social_twitter = $current_social_youtube = '';
+$current_theme_primary_color = $current_theme_secondary_color = $current_theme_bg_color = $current_theme_text_color = '';
 
+$sql_social_theme = "SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('social_facebook','social_instagram','social_twitter','social_youtube','theme_primary_color','theme_secondary_color','theme_bg_color','theme_text_color')";
+$stmt_social_theme = $pdo->query($sql_social_theme);
+while ($row = $stmt_social_theme->fetch(PDO::FETCH_ASSOC)) {
+    switch ($row['setting_key']) {
+        case 'social_facebook': $current_social_facebook = $row['setting_value']; break;
+        case 'social_instagram': $current_social_instagram = $row['setting_value']; break;
+        case 'social_twitter': $current_social_twitter = $row['setting_value']; break;
+        case 'social_youtube': $current_social_youtube = $row['setting_value']; break;
+        case 'theme_primary_color': $current_theme_primary_color = $row['setting_value']; break;
+        case 'theme_secondary_color': $current_theme_secondary_color = $row['setting_value']; break;
+        case 'theme_bg_color': $current_theme_bg_color = $row['setting_value']; break;
+        case 'theme_text_color': $current_theme_text_color = $row['setting_value']; break;
+    }
+}
 
 ?>
 <!DOCTYPE html>
@@ -449,6 +512,72 @@ try {
             </form>
         </section>
 
+        <hr style="margin-top: 30px; margin-bottom: 30px;">
+
+        <section id="social-theme-settings">
+            <h2>Redes Sociais & Cores do Tema</h2>
+            <?php if (!empty($message) && (isset($_POST['save_social_theme_settings']) || isset($_POST['reset_theme_colors']))): ?>
+                <div class="message"><?php echo $message; ?></div>
+            <?php endif; ?>
+            <form action="manage_settings.php" method="POST">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
+                <div>
+                    <label for="social_facebook">Facebook:</label>
+                    <input type="url" id="social_facebook" name="social_facebook" value="<?php echo htmlspecialchars($current_social_facebook ?? ''); ?>" placeholder="https://facebook.com/sua_pagina">
+                </div>
+                <div>
+                    <label for="social_instagram">Instagram:</label>
+                    <input type="url" id="social_instagram" name="social_instagram" value="<?php echo htmlspecialchars($current_social_instagram ?? ''); ?>" placeholder="https://instagram.com/sua_pagina">
+                </div>
+                <div>
+                    <label for="social_twitter">Twitter:</label>
+                    <input type="url" id="social_twitter" name="social_twitter" value="<?php echo htmlspecialchars($current_social_twitter ?? ''); ?>" placeholder="https://twitter.com/sua_pagina">
+                </div>
+                <div>
+                    <label for="social_youtube">YouTube:</label>
+                    <input type="url" id="social_youtube" name="social_youtube" value="<?php echo htmlspecialchars($current_social_youtube ?? ''); ?>" placeholder="https://youtube.com/sua_pagina">
+                </div>
+                <hr>
+                <div>
+                    <label for="theme_primary_color">Cor Primária:</label>
+                    <input type="color" id="theme_primary_color" name="theme_primary_color" value="<?php echo htmlspecialchars($current_theme_primary_color ?? '#00ff00'); ?>">
+                </div>
+                <div>
+                    <label for="theme_secondary_color">Cor Secundária:</label>
+                    <input type="color" id="theme_secondary_color" name="theme_secondary_color" value="<?php echo htmlspecialchars($current_theme_secondary_color ?? '#0d0d0d'); ?>">
+                </div>
+                <div>
+                    <label for="theme_bg_color">Cor de Fundo:</label>
+                    <input type="color" id="theme_bg_color" name="theme_bg_color" value="<?php echo htmlspecialchars($current_theme_bg_color ?? '#1a1a1a'); ?>">
+                </div>
+                <div>
+                    <label for="theme_text_color">Cor do Texto:</label>
+                    <input type="color" id="theme_text_color" name="theme_text_color" value="<?php echo htmlspecialchars($current_theme_text_color ?? '#e0e0e0'); ?>">
+                </div>
+                <div style="margin-top:15px;">
+                    <button type="submit" name="save_social_theme_settings">Salvar Redes Sociais & Cores</button>
+                </div>
+            </form>
+            
+            <!-- Formulário separado para resetar cores do tema -->
+            <form action="manage_settings.php" method="POST" style="margin-top:15px; padding-top:15px; border-top:1px solid #ddd;">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
+                <div>
+                    <p style="margin-bottom:10px; color:#666; font-size:14px;">
+                        <strong>⚠️ Atenção:</strong> Esta ação irá resetar todas as cores do tema para os valores padrão.
+                    </p>
+                    <button type="submit" name="reset_theme_colors" 
+                            style="background-color:#dc3545; color:white; border:none; padding:12px 20px; border-radius:6px; cursor:pointer; font-size:14px; transition:background-color 0.2s;" 
+                            onmouseover="this.style.backgroundColor='#c82333'" 
+                            onmouseout="this.style.backgroundColor='#dc3545'"
+                            onclick="return confirm('⚠️ ATENÇÃO: Esta ação irá resetar todas as cores do tema para os valores padrão do FutOnline.\n\n🎨 Cores que serão resetadas:\n• Cor Primária: Verde (#00ff00)\n• Cor Secundária: Preto (#0d0d0d)\n• Cor de Fundo: Cinza Escuro (#1a1a1a)\n• Cor do Texto: Cinza Claro (#e0e0e0)\n\nTem certeza que deseja continuar?');">
+                        🔄 Resetar Cores para Padrão
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <hr style="margin-top: 30px; margin-bottom: 30px;">
     </div>
 </div>
 <script>

@@ -26,10 +26,44 @@ if (isset($pdo)) {
         $cookie_banner_text_from_db = $default_cookie_banner_text;
 }
 
+// Carregar links sociais do banco
+$social_links = [
+    'facebook' => '',
+    'instagram' => '',
+    'twitter' => '',
+    'youtube' => ''
+];
+if (isset($pdo)) {
+    try {
+        $stmt = $pdo->query("SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('social_facebook','social_instagram','social_twitter','social_youtube')");
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            switch ($row['setting_key']) {
+                case 'social_facebook': $social_links['facebook'] = $row['setting_value']; break;
+                case 'social_instagram': $social_links['instagram'] = $row['setting_value']; break;
+                case 'social_twitter': $social_links['twitter'] = $row['setting_value']; break;
+                case 'social_youtube': $social_links['youtube'] = $row['setting_value']; break;
+            }
+        }
+    } catch (PDOException $e) {}
+}
 ?>
 <footer class="site-footer-main">
     <div class="footer-container">
         <p>&copy; <?php echo date("Y"); ?> FutOnline. Todos os direitos reservados.</p>
+        <div class="footer-social">
+            <?php if ($social_links['facebook']): ?>
+                <a href="<?php echo htmlspecialchars($social_links['facebook']); ?>" target="_blank" rel="noopener" title="Facebook"><img src="uploads/site/facebook.svg" alt="Facebook" style="height:24px;"></a>
+            <?php endif; ?>
+            <?php if ($social_links['instagram']): ?>
+                <a href="<?php echo htmlspecialchars($social_links['instagram']); ?>" target="_blank" rel="noopener" title="Instagram"><img src="uploads/site/instagram.svg" alt="Instagram" style="height:24px;"></a>
+            <?php endif; ?>
+            <?php if ($social_links['twitter']): ?>
+                <a href="<?php echo htmlspecialchars($social_links['twitter']); ?>" target="_blank" rel="noopener" title="Twitter"><img src="uploads/site/twitter.svg" alt="Twitter" style="height:24px;"></a>
+            <?php endif; ?>
+            <?php if ($social_links['youtube']): ?>
+                <a href="<?php echo htmlspecialchars($social_links['youtube']); ?>" target="_blank" rel="noopener" title="YouTube"><img src="uploads/site/youtube.svg" alt="YouTube" style="height:24px;"></a>
+            <?php endif; ?>
+        </div>
     </div>
 </footer>
 
