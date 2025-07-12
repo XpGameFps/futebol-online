@@ -208,6 +208,25 @@ INSERT INTO `leagues` (`id`, `name`, `logo_filename`) VALUES
 -- --------------------------------------------------------
 
 --
+-- Estrutura para tabela `featured_items`
+--
+
+CREATE TABLE IF NOT EXISTS `featured_items` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `item_type` enum('match','league','custom') NOT NULL,
+  `item_id` int(11) DEFAULT NULL,
+  `custom_title` varchar(255) DEFAULT NULL,
+  `custom_image` varchar(255) DEFAULT NULL,
+  `custom_url` varchar(255) DEFAULT NULL,
+  `sort_order` int(11) DEFAULT 0,
+  `active` tinyint(1) DEFAULT 1,
+  `created_at` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Estrutura para tabela `matches`
 --
 
@@ -526,6 +545,16 @@ ALTER TABLE `leagues`
   ADD UNIQUE KEY `name` (`name`);
 
 --
+-- Índices de tabela `featured_items`
+--
+ALTER TABLE `featured_items`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_item_type` (`item_type`),
+  ADD KEY `idx_item_id` (`item_id`),
+  ADD KEY `idx_sort_order` (`sort_order`),
+  ADD KEY `idx_active` (`active`);
+
+--
 -- Índices de tabela `matches`
 --
 ALTER TABLE `matches`
@@ -608,6 +637,12 @@ ALTER TABLE `leagues`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
+-- AUTO_INCREMENT de tabela `featured_items`
+--
+ALTER TABLE `featured_items`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
+
+--
 -- AUTO_INCREMENT de tabela `matches`
 --
 ALTER TABLE `matches`
@@ -652,6 +687,13 @@ ALTER TABLE `tv_channels`
 --
 -- Restrições para tabelas despejadas
 --
+
+--
+-- Restrições para tabelas `featured_items`
+--
+ALTER TABLE `featured_items`
+  ADD CONSTRAINT `fk_featured_items_match` FOREIGN KEY (`item_id`) REFERENCES `matches` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_featured_items_league` FOREIGN KEY (`item_id`) REFERENCES `leagues` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Restrições para tabelas `matches`
